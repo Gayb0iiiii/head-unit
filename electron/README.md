@@ -1,6 +1,6 @@
 # Isolated Electron host boundary
 
-This directory is an attachment scaffold for an existing privileged LIVI host. It does not import or install Electron, create a native window, start a socket connection, register a protocol, or integrate a compositor. Native projection, camera, audio, microphone, and touch geometry still belong to the existing LIVI host.
+This directory is an attachment scaffold for an existing privileged LIVI host. It does not import or install Electron, create a native window, register a protocol, or integrate a compositor. Native projection, camera, audio, microphone, and touch geometry still belong to the existing LIVI host. The explicit `glass-runtime.mjs` composition connects only to a local `core.sock` after its owner calls `start()`; it never launches LIVI.
 
 ## Main-process use
 
@@ -9,6 +9,8 @@ This directory is an attachment scaffold for an existing privileged LIVI host. I
 - `trustedUrl` must be one exact canonical `file:///...` or `app://...` document URL. Remote hosts, credentials, queries, fragments, and noncanonical URLs are rejected. A custom `app:` scheme must already have a trusted local resource handler in the embedding host. No remote development-server exception is provided.
 - `attachHeadunitHost` verifies the existing window preferences and denies new windows, renderer navigation, redirects, and webview attachment. It returns an idempotent detach function.
 - The supplied controller must implement synchronous `view()`, `subscribe(listener)`, and `intent(intent)`. Keep the controller, transport, session, and persistence exclusively in the privileged process.
+- `createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath})` composes the concrete controller and local transport for a host-owned window. Supply absolute trusted paths and attach it before loading the page. Call `start()` only after the host has deliberately started its native engine. Call `dispose()` during host shutdown; loss of the renderer also disposes it. The `connectSocket` parameter exists for injected tests and should be omitted by a production host.
+- The same `index.html` is an offline simulation without preload. With the trusted preload, its glass UI uses `window.headunit` and reflects authoritative phones and routes. No HTTP/WebSocket control endpoint is needed. `headunitWindowOptions()` now asks for a transparent window; the embedding host must still preserve LIVI's actual app ID, role/title, compositor sizing, fullscreen sequence, secondary windows, video planes, and lifecycle.
 
 The lower-level `attachHeadunitBoundary` export is for dependency-injected tests and host composition. Use the full host attachment in an actual Electron host so navigation policy and preference verification are also installed. There is one fixed channel set and one owning window per attached boundary; dispose it before attaching a replacement.
 
@@ -33,7 +35,7 @@ Every incoming call rechecks the exact owning WebContents, its current main-fram
 
 ## Verification limits
 
-`node --test tests/boundary.test.mjs` executes the actual CommonJS preload in a Node VM with Electron replaced by an unavoidable test double. It exercises the real boundary and host modules, including a preload → main → real controller path with a simulated native session. Tests cover fixed channels, view allowlisting, event stripping, listener cleanup, malicious senders, subframes, exact URLs, malformed arguments, navigation, preferences, lifecycle cleanup, and touch cancellation.
+`node --test tests/boundary.test.mjs` executes the actual CommonJS preload in a Node VM with Electron replaced by an unavoidable test double. It exercises the real boundary and host modules, including a preload → main → real controller path with a simulated native session, plus explicit runtime/socket composition. Tests cover fixed channels, view allowlisting, event stripping, listener cleanup, malicious senders, subframes, exact URLs, malformed arguments, navigation, preferences, lifecycle cleanup, and touch cancellation.
 
 An actual Electron/Chromium runtime, contextBridge process isolation, native compositor placement, local protocol loading, hardware touch transforms, and host-window behavior have not been executed here. These require a real host validation gate before deployment.
 

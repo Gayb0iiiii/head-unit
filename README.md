@@ -25,7 +25,7 @@ Phones, media and CarPlay are the headunit priority. Detailed instrumentation be
 - Display units default to PSI/Celsius with canonical stored thresholds and explicit gauge/absolute pressure identities. CarPlay units are outside this policy.
 - Separate call/music role arbitration is a capability-gated pure model. Second wired phones remain available for manual selection; no automatic takeover policy is invented. See docs/phone-arbitration.md and docs/phones-backlog.md.
 
-The preview currently uses `Headunit`, a simulation model. It does NOT call the native adapter. A host controller and narrow Electron preload/main boundary are included and tested with injected Electron APIs. Wiring the browser preview to that boundary and preserving the compositor's native projection surfaces are still required; no Electron launch or native integration is claimed. Do not attach the browser page to a public control endpoint.
+The offline preview uses `Headunit`, a simulation model. When a trusted Electron preload supplies `window.headunit`, the same glass page instead uses `NativeHeadunit`: phones, front, route and connection state come from the narrow host view, and manual phone selection goes through its allowlisted action. An available phone uses native `selectDevice`; a remembered offline phone uses native `connectDevice`. The page waits for the observed active phone before requesting projection. It does not invent saved phones or show a simulated projection screen in native mode. `electron/glass-runtime.mjs` composes the existing controller, local Unix-socket transport, preferences and trusted window boundary; only an explicit `start()` connects to `core.sock`. No Electron/native process was launched or composed in this checkpoint. Native video placement and calibrated projection touch remain a runtime integration gate. Do not attach the browser page to a public control endpoint.
 
 ## Version pin and actual seams
 
@@ -60,7 +60,7 @@ No Orange Pi, Pi touchscreen, MFi hardware, physical phone, live pairing, native
 ## Next validation gate
 
 1. Receive authorized v4 baseline and inspect its vehicle-service/UI boundaries; preserve a read-only baseline copy.
-2. Run the included isolated Electron host boundary in a suitable runtime and bind the rendered shell to it. Keep native compositor windows and projection touch/audio pipelines.
+2. Embed the new glass runtime in the pinned LIVI host, load the trusted local page, and verify the transparent native plane/window alignment. Keep native compositor windows and projection touch/audio pipelines.
 3. Validate both phones: first pair, switch, disconnect, reconnect, return-to-home, return-to-projection, ignition restart and stale device cases.
 4. Test Pi/Orange Pi display sizing, touch orientation/multitouch, mic echo/call audio/music/navigation ducking, and reboots against actual hardware.
 5. Complete visible browser/touch QA at 800×480, 1280×720 and portrait; only then promote the UI to the existing demo.

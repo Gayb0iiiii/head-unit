@@ -40,6 +40,12 @@ main>.bottom-note{margin-top:auto;padding-top:20px}.dashboard-shortcuts+.bottom-
 
 .phone-capabilities{margin-top:12px;padding:20px;background:#1d324bea;border-radius:24px}.phone-capabilities p{font-size:15px;color:#d9e4ef}button:disabled{cursor:not-allowed;opacity:.65;transform:none}.phone-capabilities .actions button{min-height:48px}
 
+/* LIVI paints projection behind the transparent main window. The host must
+   align its native picture with this region before enabling pointer input. */
+body[data-native-front=projection],body[data-native-front=camera],body[data-native-front=cluster]{background:transparent}
+body[data-native-front=projection]:before,body[data-native-front=camera]:before,body[data-native-front=cluster]:before{display:none}
+body[data-native-front=projection] .native-projection-region{flex:1;min-height:0;background:transparent;pointer-events:none}
+
 /* Wallpaper glass: transparency and backdrop blur live on the surface itself.
    No element opacity or foreground blur, so type and symbols remain crisp.
    Coastal ink #091827, sea slate #496c85, tide #4d8395, pearl #f3f7fc,

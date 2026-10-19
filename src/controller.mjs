@@ -68,7 +68,8 @@ export class HeadunitController {
       return this.view();
     }
     if(intent.type==='selectPhone'&&exact(intent,['type','id'])&&typeof intent.id==='string'&&session.state?.devices?.some(d=>d.id===intent.id)){
-      this.cancelTouch();this.pendingChoice=intent.id;try{return {requestId:session.action({kind:'selectDevice',id:intent.id})};}catch(error){this.pendingChoice=null;throw error;}
+      const device=session.state.devices.find(d=>d.id===intent.id);
+      this.cancelTouch();this.pendingChoice=intent.id;try{return {requestId:session.action({kind:device.status==='offline'?'connectDevice':'selectDevice',id:intent.id})};}catch(error){this.pendingChoice=null;throw error;}
     }
     if(intent.type==='media'&&exact(intent,['type','control'])&&['play','pause'].includes(intent.control)){this.pausePending=intent.control==='pause';if(this.pausePending)this.resume=false;this.recovering=false;this.resumeAttempted=true;this.savePreferences();return {requestId:session.action({kind:'media',control:intent.control})};}
     if(intent.type==='volume'&&exact(intent,['type','value'])&&Number.isFinite(intent.value)&&intent.value>=0&&intent.value<=1)return {requestId:session.action({kind:'setConfig',patch:{huVolume:intent.value}})};

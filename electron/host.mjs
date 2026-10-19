@@ -5,7 +5,7 @@ const preload = fileURLToPath(new URL('./preload.cjs',import.meta.url));
 /** Supply to a BrowserWindow created by the privileged host, before loading its UI. */
 export function headunitWindowOptions() {
   return {
-    width:1280, height:720,
+    width:1280, height:720, transparent:true,
     webPreferences:{preload, contextIsolation:true, nodeIntegration:false, nodeIntegrationInSubFrames:false, sandbox:true, webSecurity:true, webviewTag:false},
   };
 }

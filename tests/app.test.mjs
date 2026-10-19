@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // A small DOM boundary for event wiring and rendered markup, not browser/layout QA.
 // All navigation, storage, and playback-preview state use the real application.
 let instance = 0;
-async function launch(data = new Map()) {
+async function launch(data = new Map(), host = null) {
   const root = { innerHTML: '' };
   let buttons = [];
   let elements = [];
@@ -30,6 +30,7 @@ async function launch(data = new Map()) {
     }
   });
   globalThis.localStorage = { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value) };
+  globalThis.window = host ? {headunit:host} : {};
   doc = globalThis.document = {
     body: { dataset: {}, style: { setProperty: (key, value) => style.set(key, value) } },
     activeElement: null,
@@ -61,6 +62,52 @@ async function launch(data = new Map()) {
     }
   };
 }
+
+test('glass interface uses native phone state and waits for the selected phone', async () => {
+  const calls = [];
+  let publish;
+  const host = {
+    onView(listener) { publish = listener; return () => {}; },
+    getView: async () => ({connected:false,route:'disconnected',phones:[]}),
+    navigate: async route => { calls.push(['navigate',route]); return {accepted:true}; },
+    selectPhone: async id => { calls.push(['selectPhone',id]); return {accepted:true}; }
+  };
+  const ui = await launch(new Map(),host);
+  assert.doesNotMatch(ui.root.innerHTML,/Driver’s iPhone|Passenger’s iPhone|Simulate disconnect/);
+  publish({connected:true,route:'phones',front:'livi',phones:[
+    {id:'one',name:'Driver',status:'active'},
+    {id:'two',name:'Passenger <script>test</script>',status:'available'}
+  ]});
+  assert.match(ui.root.innerHTML,/Driver/);
+  assert.doesNotMatch(ui.root.innerHTML,/<script>test<\/script>/);
+  ui.click('phone','two');
+  assert.deepEqual(calls,[['selectPhone','two']]);
+  assert.match(ui.root.innerHTML,/Switching phone/);
+  assert.match(ui.root.innerHTML,/Driver.*Active/s);
+  publish({connected:true,route:'phones',front:'livi',phones:[
+    {id:'one',name:'Driver',status:'available'}, {id:'two',name:'Passenger',status:'active'}
+  ]});
+  assert.deepEqual(calls,[['selectPhone','two'],['navigate','projection']]);
+  publish({connected:true,route:'projection',front:'projection',phones:[{id:'two',name:'Passenger',status:'active'}]});
+  assert.match(ui.root.innerHTML,/native-projection-region/);
+  assert.doesNotMatch(ui.root.innerHTML,/Projection preview|Simulated/);
+});
+
+test('glass phone list offers manual wake for a remembered offline phone', async () => {
+  const calls = [];
+  let publish;
+  const host = {
+    onView(listener) { publish = listener; return () => {}; },
+    getView: async () => ({connected:false,route:'disconnected',phones:[]}),
+    navigate: async route => { calls.push(['navigate',route]); return {accepted:true}; },
+    selectPhone: async id => { calls.push(['selectPhone',id]); return {accepted:true}; }
+  };
+  const ui = await launch(new Map(),host);
+  publish({connected:true,route:'phones',front:'livi',phones:[{id:'away',name:'Away',status:'offline'}]});
+  ui.click('phone','away');
+  assert.deepEqual(calls,[['selectPhone','away']]);
+  assert.match(ui.root.innerHTML,/Switching phone/);
+});
 
 test('Home switches directly between app grid and a clearly simulated music/vehicle dashboard', async () => {
   const ui = await launch();

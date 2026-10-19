@@ -1,5 +1,13 @@
 # Pinned LIVI native shell integration map
 
+## Portable glass bridge progress (2026-10-19)
+
+The prototype page now selects its native view model only when the trusted `window.headunit` preload exists. The native model subscribes before fetching its initial view, rejects a late initial snapshot after a newer event, clears stale phones on disconnect, and sends `selectPhone(id)` without claiming success from the action reply. It requests projection after the native view reports that exact phone active; a later manual Home choice cancels that pending navigation. Phone names and IDs are escaped before insertion into the glass page. The offline page remains a simulation.
+
+`electron/glass-runtime.mjs` is the explicit main-process composition of `CoreTransport`, `HeadunitController`, `FilePreferences`, and the existing narrow `attachHeadunitHost` boundary. Construction registers no native process or socket; `start()` opens the specified local `core.sock` with managed reconnect, and disposal stops it. The page renders a transparent projection region and does not substitute a browser video stream. Projection touch from that region is intentionally disabled until the embedding LIVI window reports and verifies the actual contained picture rectangle. The stock host's compositor, GStreamer, secondary windows, camera reporting, and audio ownership still need integration and runtime validation. A transparent BrowserWindow option alone does not establish native plane composition.
+
+The present `/workspace` contains a clean clone of this prototype but not the previously recorded `/workspace/shared/livi-upstream-pinned` checkout. This branch was developed against the pinned source contract recorded below; no pinned engine code was edited, built or started in this environment.
+
 Inspected 2026-10-19 UTC, read-only, against `/workspace/shared/livi-upstream-pinned` at `4bcd1335c2daedba40640e6dc432cd2ed7acfaa4` (9.5.0). All source references below are relative to that checkout and therefore to [this exact upstream commit](https://github.com/f-io/LIVI/tree/4bcd1335c2daedba40640e6dc432cd2ed7acfaa4). No native executable, install script, build, socket probe, browser or service was launched for this map. This is a source contract and proposed edit set, not a native validation result.
 
 ## Recommendation

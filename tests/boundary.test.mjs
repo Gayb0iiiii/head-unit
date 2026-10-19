@@ -8,6 +8,7 @@ import vm from 'node:vm';
 const preloadPath = new URL('../electron/preload.cjs', import.meta.url);
 const boundaryPath = new URL('../electron/main-boundary.mjs', import.meta.url);
 const hostPath = new URL('../electron/host.mjs', import.meta.url);
+const runtimePath = new URL('../electron/glass-runtime.mjs', import.meta.url);
 const channels = {
   view: 'headunit:view', getView: 'headunit:get-view', navigate: 'headunit:navigate',
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
@@ -149,6 +150,7 @@ test('window options enforce context isolation, sandbox and local preload', asyn
   assert.equal(options.webPreferences.webSecurity,true);
   assert.equal(options.webPreferences.webviewTag,false);
   assert.equal(options.webPreferences.preload,preloadPath.pathname);
+  assert.equal(options.transparent,true,'native projection needs a transparent window');
 });
 
 test('host blocks navigation and popups; in-flight navigation revokes the bridge before controller calls', async () => {
@@ -253,4 +255,40 @@ test('only the fixed reconnect notice crosses the renderer boundary',async()=>{
  const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url});
  f.controller.state.notice='projection-reconnecting';assert.equal((await f.call(channels.getView)).notice,'projection-reconnecting');
  f.controller.state.notice='private native error';assert.equal((await f.call(channels.getView)).notice,null);dispose();
+});
+
+test('glass runtime attaches before an explicit local socket start and disposes its owner', async () => {
+  const {createGlassRuntime} = await moduleAt(runtimePath);
+  const {encode,Decoder} = await import('../src/protocol.mjs');
+  const f = fixture();
+  let created = 0;
+  const socket = new EventEmitter();
+  socket.writes = [];
+  socket.write = data => { socket.writes.push(...new Decoder().push(data)); return true; };
+  socket.destroy = () => {};
+  const runtime = createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,
+    socketPath:'/tmp/headunit-contract/core.sock',preferencePath:'/tmp/headunit-contract/preferences.json',
+    connectSocket:() => { created++; return socket; }});
+  assert.equal(created,0);
+  assert.equal((await f.call(channels.getView)).connected,false);
+  runtime.start();
+  assert.equal(created,1);
+  socket.emit('connect');
+  socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},sessions:{active:'cp'},devices:[{id:'one',name:'Driver',status:'active'},{id:'two',name:'Passenger',status:'available'}],config:{huVolume:0.5}}}));
+  assert.deepEqual((await f.call(channels.getView)).phones.map(p=>p.id),['one','two']);
+  await f.call(channels.selectPhone,['two']);
+  assert.deepEqual(socket.writes.at(-1).action,{kind:'selectDevice',id:'two'});
+  runtime.dispose();
+  assert.equal(f.handlers.size,0);
+});
+
+test('glass runtime stops owning its socket after the host window is lost', async () => {
+  const {createGlassRuntime} = await moduleAt(runtimePath);
+  const f = fixture();
+  const runtime = createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,
+    socketPath:'/tmp/headunit-contract/core.sock',preferencePath:'/tmp/headunit-contract/preferences.json',
+    connectSocket:() => { throw Error('must not connect'); }});
+  f.wc.emit('destroyed');
+  assert.equal(f.handlers.size,0);
+  assert.throws(() => runtime.start(),/disposed/i);
 });
