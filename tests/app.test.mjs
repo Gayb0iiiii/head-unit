@@ -74,7 +74,7 @@ test('glass interface uses native phone state and waits for the selected phone',
   };
   const ui = await launch(new Map(),host);
   assert.doesNotMatch(ui.root.innerHTML,/Driver’s iPhone|Passenger’s iPhone|Simulate disconnect/);
-  publish({connected:true,route:'phones',front:'livi',phones:[
+  publish({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[
     {id:'one',name:'Driver',status:'active'},
     {id:'two',name:'Passenger <script>test</script>',status:'available'}
   ]});
@@ -84,11 +84,12 @@ test('glass interface uses native phone state and waits for the selected phone',
   assert.deepEqual(calls,[['selectPhone','two']]);
   assert.match(ui.root.innerHTML,/Switching phone/);
   assert.match(ui.root.innerHTML,/Driver.*Active/s);
-  publish({connected:true,route:'phones',front:'livi',phones:[
+  publish({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[
     {id:'one',name:'Driver',status:'available'}, {id:'two',name:'Passenger',status:'active'}
   ]});
+  await Promise.resolve();
   assert.deepEqual(calls,[['selectPhone','two'],['navigate','projection']]);
-  publish({connected:true,route:'projection',front:'projection',phones:[{id:'two',name:'Passenger',status:'active'}]});
+  publish({connected:true,projectionReady:true,route:'projection',front:'projection',phones:[{id:'two',name:'Passenger',status:'active'}]});
   assert.match(ui.root.innerHTML,/native-projection-region/);
   assert.doesNotMatch(ui.root.innerHTML,/Projection preview|Simulated/);
 });
@@ -103,7 +104,7 @@ test('glass phone list offers manual wake for a remembered offline phone', async
     selectPhone: async id => { calls.push(['selectPhone',id]); return {accepted:true}; }
   };
   const ui = await launch(new Map(),host);
-  publish({connected:true,route:'phones',front:'livi',phones:[{id:'away',name:'Away',status:'offline'}]});
+  publish({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[{id:'away',name:'Away',status:'offline'}]});
   ui.click('phone','away');
   assert.deepEqual(calls,[['selectPhone','away']]);
   assert.match(ui.root.innerHTML,/Switching phone/);
@@ -251,4 +252,16 @@ test('whole CarPlay tile is a single projection button and dashboard playback st
  assert.ok(tile);assert.match(tile[1],/CarPlay/);assert.doesNotMatch(tile[1],/<button|demo-playback/);
  ui.click('action','projection');assert.match(ui.root.innerHTML,/Projection preview/);
  ui.click('action','home');ui.click('homeMode','dashboard');ui.click('action','demo-playback');assert.match(ui.root.innerHTML,/Your dashboard/);assert.match(ui.root.innerHTML,/Pause demo track/);
+});
+
+for(const target of ['home','phones','projection','camera','cluster','disconnected'])test(`native diagnostics yields to ${target} and does not reopen`,async()=>{
+ let publish;
+ const host={onView(fn){publish=fn;return()=>{};},getView:async()=>({connected:true,projectionReady:true,route:'settings',front:'livi',phones:[]}),navigate:async()=>({accepted:true})};
+ const ui=await launch(new Map(),host);
+ ui.click('action','diagnostics');assert.match(ui.root.innerHTML,/<h1>Diagnostics<\/h1>/);
+ if(['home','phones','projection'].includes(target))ui.click('action',target);
+ publish({connected:target!=='disconnected',route:target,front:['camera','cluster','projection'].includes(target)?target:'livi',phones:[]});
+ assert.doesNotMatch(ui.root.innerHTML,/<h1>Diagnostics<\/h1>/);
+ publish({connected:true,projectionReady:true,route:'settings',front:'livi',phones:[]});
+ assert.match(ui.root.innerHTML,/<h1>Settings<\/h1>/);
 });

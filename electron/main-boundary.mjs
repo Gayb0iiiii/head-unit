@@ -22,6 +22,7 @@ function rendererView(value) {
   const source = plain(value) ? value : {};
   return {
     connected: source.connected === true,
+    projectionReady: source.connected === true && source.projectionReady === true,
     front: ['livi','projection','camera','cluster'].includes(source.front) ? source.front : 'livi',
     phones: (Array.isArray(source.phones) ? source.phones : []).slice(0,128)
       .filter(phone => plain(phone) && text(phone.id,256))
@@ -65,14 +66,15 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     ipcMain.handle(channel, async (event,...args) => {
       authenticate(event);
       if (args.length !== count || !validate(...args)) throw new TypeError('Invalid headunit arguments');
-      try { return operation(...args); }
+      try { return await operation(...args); }
       catch { throw new Error('Headunit operation unavailable'); }
     });
     registered.push(channel);
   }
   function action(channel, validate, makeIntent, count = 1) {
-    register(channel,count,validate,(...args) => {
-      controller.intent(makeIntent(...args));
+    register(channel,count,validate,async (...args) => {
+      const result=controller.intent(makeIntent(...args));
+      if(result?.completion && await result.completion !== true) throw new Error('Command failed');
       // Do not return arbitrary core replies, state, errors or request metadata.
       return {accepted:true};
     });

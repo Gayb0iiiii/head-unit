@@ -10,7 +10,7 @@ export class HeadunitController {
     if(!routes.has(this.preferred))this.preferred='home';
     this.unsubscribe=transport.subscribe(()=>this.sync());
   }
-  view() { return {...publicView(this.transport.session),route:this.route,preferredRoute:this.preferred,notice:this.projectionInterrupted?'projection-reconnecting':null}; }
+  view() { return {...publicView(this.transport.session),projectionReady:this.transport.session.ready&&!!this.transport.session.state?.sessions?.active,route:this.route,preferredRoute:this.preferred,notice:this.projectionInterrupted?'projection-reconnecting':null}; }
   subscribe(listener) {this.listeners.add(listener);listener(this.view());return ()=>this.listeners.delete(listener);}
   publish(){for(const listener of this.listeners)listener(this.view());}
   savePreferences(){const value={route:this.preferred,lastPhone:this.lastPhone,resume:this.resume};const encoded=JSON.stringify(value);if(encoded===this.lastSaved)return;try{this.preferences.save?.(value);this.lastSaved=encoded;}catch{}}
@@ -69,7 +69,16 @@ export class HeadunitController {
     }
     if(intent.type==='selectPhone'&&exact(intent,['type','id'])&&typeof intent.id==='string'&&session.state?.devices?.some(d=>d.id===intent.id)){
       const device=session.state.devices.find(d=>d.id===intent.id);
-      this.cancelTouch();this.pendingChoice=intent.id;try{return {requestId:session.action({kind:device.status==='offline'?'connectDevice':'selectDevice',id:intent.id})};}catch(error){this.pendingChoice=null;throw error;}
+      this.cancelTouch();this.pendingChoice=intent.id;
+      const choice=Symbol();this.choiceToken=choice;
+      let finish;const completion=new Promise(resolve=>{finish=resolve;});
+      try {
+        const requestId=session.action({kind:device.status==='offline'?'connectDevice':'selectDevice',id:intent.id},ok=>{
+          if(!ok&&this.choiceToken===choice)this.pendingChoice=null;
+          finish(ok);
+        });
+        return {requestId,completion};
+      }catch(error){if(this.choiceToken===choice)this.pendingChoice=null;throw error;}
     }
     if(intent.type==='media'&&exact(intent,['type','control'])&&['play','pause'].includes(intent.control)){this.pausePending=intent.control==='pause';if(this.pausePending)this.resume=false;this.recovering=false;this.resumeAttempted=true;this.savePreferences();return {requestId:session.action({kind:'media',control:intent.control})};}
     if(intent.type==='volume'&&exact(intent,['type','value'])&&Number.isFinite(intent.value)&&intent.value>=0&&intent.value<=1)return {requestId:session.action({kind:'setConfig',patch:{huVolume:intent.value}})};

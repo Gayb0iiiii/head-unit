@@ -20,16 +20,17 @@ test('native phone switching waits for observed active phone and never invents a
   const model = new NativeHeadunit(undefined, host, () => {});
   await model.start();
   assert.deepEqual(model.state.phones, []);
-  host.emit({connected:true,route:'phones',front:'livi',phones:[
+  host.emit({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[
     {id:'one',name:'Driver',status:'active'}, {id:'two',name:'Passenger',status:'available'}
   ]});
   model.connect('two');
   assert.deepEqual(host.calls, [['selectPhone','two']]);
   assert.equal(model.state.activePhone,'one');
-  host.emit({connected:true,route:'phones',front:'livi',phones:[
+  host.emit({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[
     {id:'one',name:'Driver',status:'available'}, {id:'two',name:'Passenger',status:'active'}
   ]});
   assert.equal(model.state.activePhone,'two');
+  await Promise.resolve();
   assert.deepEqual(host.calls, [['selectPhone','two'],['navigate','projection']]);
   host.emit({connected:false,route:'disconnected',phones:[]});
   assert.equal(model.state.activePhone,null);
@@ -43,13 +44,13 @@ test('manual Home cancels a pending phone selection and a late initial snapshot 
   host.getView = () => new Promise(resolve => { resolveInitial = resolve; });
   const model = new NativeHeadunit(undefined, host, () => {});
   const starting = model.start();
-  host.emit({connected:true,route:'phones',front:'livi',phones:[{id:'two',name:'Passenger',status:'available'}]});
+  host.emit({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[{id:'two',name:'Passenger',status:'available'}]});
   resolveInitial({connected:false,route:'disconnected',phones:[]});
   await starting;
   assert.equal(model.state.screen,'phones');
   model.connect('two');
   model.home();
-  host.emit({connected:true,route:'home',front:'livi',phones:[{id:'two',name:'Passenger',status:'active'}]});
+  host.emit({connected:true,projectionReady:true,route:'home',front:'livi',phones:[{id:'two',name:'Passenger',status:'active'}]});
   assert.deepEqual(host.calls,[['selectPhone','two'],['navigate','home']]);
   model.stop();
 });
@@ -59,11 +60,11 @@ test('rejected selection cannot navigate when that phone later becomes active in
   host.selectPhone = async () => { throw Error('core rejected'); };
   const model = new NativeHeadunit(undefined, host, () => {});
   await model.start();
-  host.emit({connected:true,route:'phones',front:'livi',phones:[{id:'two',name:'Passenger',status:'available'}]});
+  host.emit({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[{id:'two',name:'Passenger',status:'available'}]});
   model.connect('two');
   await Promise.resolve();
   await Promise.resolve();
-  host.emit({connected:true,route:'phones',front:'livi',phones:[{id:'two',name:'Passenger',status:'active'}]});
+  host.emit({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[{id:'two',name:'Passenger',status:'active'}]});
   assert.equal(model.state.commandError,true);
   assert.deepEqual(host.calls,[]);
   model.stop();
@@ -73,7 +74,7 @@ test('opening the already observed active phone requests projection without anot
   const host = bridge();
   const model = new NativeHeadunit(undefined, host, () => {});
   await model.start();
-  host.emit({connected:true,route:'phones',front:'livi',phones:[{id:'one',name:'Driver',status:'active'}]});
+  host.emit({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[{id:'one',name:'Driver',status:'active'}]});
   model.connect('one');
   assert.deepEqual(host.calls,[['navigate','projection']]);
   model.stop();

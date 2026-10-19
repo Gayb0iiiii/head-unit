@@ -14,7 +14,7 @@ const channels = {
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
   touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media',
 };
-const expectedView = {connected:true, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null};
+const expectedView = {connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null};
 const copy = value => JSON.parse(JSON.stringify(value));
 async function moduleAt(path) {
   assert.ok(existsSync(path), `${path.pathname.split('/').at(-1)} must implement the isolated boundary`);
@@ -207,7 +207,7 @@ test('preload to main bridge drives the real controller without exposing its cor
   const {HeadunitController}=await import('../src/controller.mjs');
   const f=fixture();
   const sent=[];
-  const session={ready:true,state:{front:{main:'livi'},sessions:{active:'cp'},devices:[{id:'phone-1',name:'Phone',status:'active'}],config:{huVolume:0.6,password:'private'},nowPlaying:{playing:true}},action:action=>{sent.push(action);return sent.length;},pointer:points=>sent.push({points}),path:path=>sent.push({path})};
+  const session={ready:true,state:{front:{main:'livi'},sessions:{active:'cp'},devices:[{id:'phone-1',name:'Phone',status:'active'}],config:{huVolume:0.6,password:'private'},nowPlaying:{playing:true}},action:(action,complete)=>{sent.push(action);complete?.(true);return sent.length;},pointer:points=>sent.push({points}),path:path=>sent.push({path})};
   const transport={session,subscribe(listener){this.listener=listener;listener();return ()=>{};}};
   const controller=new HeadunitController(transport);
   const dispose=attachHeadunitHost({...f,trustedWindow:f.window,trustedUrl:f.url,controller});
@@ -276,8 +276,11 @@ test('glass runtime attaches before an explicit local socket start and disposes 
   socket.emit('connect');
   socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},sessions:{active:'cp'},devices:[{id:'one',name:'Driver',status:'active'},{id:'two',name:'Passenger',status:'available'}],config:{huVolume:0.5}}}));
   assert.deepEqual((await f.call(channels.getView)).phones.map(p=>p.id),['one','two']);
-  await f.call(channels.selectPhone,['two']);
-  assert.deepEqual(socket.writes.at(-1).action,{kind:'selectDevice',id:'two'});
+  const selection=f.call(channels.selectPhone,['two']);
+  const request=socket.writes.at(-1);
+  assert.deepEqual(request.action,{kind:'selectDevice',id:'two'});
+  socket.emit('data',encode({type:'reply',id:request.id}));
+  await selection;
   runtime.dispose();
   assert.equal(f.handlers.size,0);
 });

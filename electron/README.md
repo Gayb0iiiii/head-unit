@@ -27,9 +27,9 @@ The sandbox preload exposes only the frozen `window.headunit` object:
 - `cancelTouch()` ends the renderer's held contacts.
 - `media(control)` accepts only play or pause.
 
-Commands return `{accepted: true}` after synchronous controller dispatch. This is not a native-core acknowledgement or proof that a phone connected, playback started, or an action completed. Use authoritative public-view updates to observe state.
+Phone selection returns `{accepted: true}` only after its matching native reply succeeds. Native rejection, lost synchronization or disconnect settles that request as a generic IPC failure. Request IDs and raw errors stay privileged. Other commands still return after controller dispatch; their acceptance does not establish native completion. Phone opening waits for successful selection, the observed active device and a true `projectionReady` view flag; manual navigation or an authoritative route interruption cancels the pending opening intent.
 
-The public view includes only connected, front, phones (id/name/status), volume, route, and preferredRoute. Native state, configuration, transport handles, credentials, IPC send/invoke, and generic commands are never exposed. Controller error details are replaced by a generic error before crossing IPC.
+The public view includes only connected, projectionReady, front, phones (id/name/status), volume, route, preferredRoute and the fixed reconnect notice. Native state, configuration, transport handles, credentials, IPC send/invoke, and generic commands are never exposed. Controller error details are replaced by a generic error before crossing IPC.
 
 Every incoming call rechecks the exact owning WebContents, its current main-frame identity, and both current document URLs. An in-flight main-frame navigation revokes calls until navigation commits; only the exact trusted document can then regain access. A canceled navigation may leave the bridge fail-closed until the trusted host reloads the page. Main-frame navigation, crash, destruction, and explicit detach request contact cancellation. Window destruction and process loss remove IPC handlers and the controller subscription. Renderer send failures are contained rather than thrown into controller publication.
 
@@ -37,6 +37,6 @@ Every incoming call rechecks the exact owning WebContents, its current main-fram
 
 `node --test tests/boundary.test.mjs` executes the actual CommonJS preload in a Node VM with Electron replaced by an unavoidable test double. It exercises the real boundary and host modules, including a preload → main → real controller path with a simulated native session, plus explicit runtime/socket composition. Tests cover fixed channels, view allowlisting, event stripping, listener cleanup, malicious senders, subframes, exact URLs, malformed arguments, navigation, preferences, lifecycle cleanup, and touch cancellation.
 
-An actual Electron/Chromium runtime, contextBridge process isolation, native compositor placement, local protocol loading, hardware touch transforms, and host-window behavior have not been executed here. These require a real host validation gate before deployment.
+Chromium UI flows run separately with an injected bridge. An actual Electron runtime, contextBridge process isolation, native compositor placement, local protocol loading, hardware touch transforms, and host-window behavior have not been executed here. These require a real host validation gate before deployment.
 
 References: [Electron security guidance](https://www.electronjs.org/docs/latest/tutorial/security), [context isolation](https://www.electronjs.org/docs/latest/tutorial/context-isolation), and [WebContents navigation events](https://www.electronjs.org/docs/latest/api/web-contents).

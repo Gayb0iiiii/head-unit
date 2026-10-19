@@ -8,7 +8,7 @@ Separate, reversible prototype. This is not an update to the existing v4 demo an
 - `npm run test:appliance` runs the fake-clock/fake-owner lifecycle harness only; it does not start or stop real processes.
 - Open `dist/preview.html` directly for the self-contained software preview.
 - Or run `npm start` and open http://127.0.0.1:8095 for development.
-- Optional browser test: `python3 tests/ui.py` with Playwright and Chromium, while that server is running. This browser test could not execute in the current environment; it is not part of the passing Node suite.
+- Optional browser test: `python3 tests/ui.py` with Playwright and Chromium, while that server is running. This optional check runs preview flows and injected native-bridge scenarios; it does not launch LIVI. See docs/verification.md for current results.
 
 ## Product direction
 
@@ -53,7 +53,7 @@ Passing: Node unit/contract tests and static build/syntax checks. Exact results 
 
 Blocked: the v4 ZIP was outside the Library access scope selected for this turn (403). No baseline files were read or modified. Reattach/select that ZIP before merge work.
 
-Visual QA was attempted but not completed. Local Chromium failed because socket creation was unavailable. The approved escalation failed during environment setup. The cloud browser rejects file: URLs. No screenshots or visual-pass claims are included. Responsive CSS and browser automation are present but not visually certified.
+The saved cloud environment now runs Chromium UI checks, including preview persistence, repeated navigation, interrupted switching with an injected bridge, and screenshots at 800×480, 1280×720 and 480×800. Earlier browser-launch restrictions are historical. These checks do not validate Electron isolation, native composition or physical touch ergonomics.
 
 No Orange Pi, Pi touchscreen, MFi hardware, physical phone, live pairing, native projection, audio, microphone or touch forwarding was tested.
 

@@ -17,6 +17,7 @@ export class NativeHeadunit extends Headunit {
     this.state.notice = null;
     this.state.commandError = false;
     this.pendingPhone = null;
+    this.selectionAccepted = false;
     this.choiceGeneration = 0;
     this.revision = 0;
   }
@@ -33,7 +34,9 @@ export class NativeHeadunit extends Headunit {
     }
   }
 
-  stop() { this.unsubscribe?.(); this.unsubscribe = null; this.pendingPhone = null; }
+  stop() { this.unsubscribe?.(); this.unsubscribe = null; this.cancelSelection(); }
+
+  cancelSelection() { this.pendingPhone = null; this.selectionAccepted = false; this.choiceGeneration++; }
 
   applyView(view) {
     this.revision++;
@@ -42,6 +45,8 @@ export class NativeHeadunit extends Headunit {
       p && typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 256
     ).map(p => ({id:p.id, name:typeof p.name === 'string' ? p.name : 'Phone',
       status:['active','available','offline'].includes(p.status) ? p.status : 'offline', active:p.status === 'active'})) : [];
+    if (!connected || ['camera','cluster'].includes(view.front) || (this.state.connected && this.state.screen !== view.route)) this.cancelSelection();
+    this.state.projectionReady = connected && view.projectionReady === true;
     this.state.connected = connected;
     this.state.phones = phones;
     this.state.activePhone = phones.find(p => p.active)?.id ?? null;
@@ -50,32 +55,37 @@ export class NativeHeadunit extends Headunit {
     if (view.route === 'dashboard') this.state.homeMode = 'dashboard';
     else if (view.route === 'home') this.state.homeMode = 'apps';
     this.state.notice = view.notice === 'projection-reconnecting' ? view.notice : null;
-    if (!connected) this.pendingPhone = null;
-    if (this.pendingPhone && this.state.activePhone === this.pendingPhone) {
-      this.pendingPhone = null;
-      this.command('navigate','projection');
-    }
+    this.advanceSelection();
     this.onChange();
   }
 
-  command(method, value, onFailure = () => {}) {
-    try {
-      Promise.resolve(this.bridge[method](value)).catch(() => {
-        onFailure();
-        this.state.commandError = true;
-        this.onChange();
-      });
-    } catch {
+  advanceSelection() {
+    if (this.pendingPhone && this.selectionAccepted && this.state.projectionReady && this.state.activePhone === this.pendingPhone) {
+      this.pendingPhone = null;
+      this.command('navigate','projection');
+    }
+  }
+
+  command(method, value, onSuccess = () => {}, onFailure = () => {}) {
+    const generation = this.choiceGeneration;
+    const fail = () => {
+      if (generation !== this.choiceGeneration) return;
       onFailure();
       this.state.commandError = true;
       this.onChange();
-    }
+    };
+    try {
+      Promise.resolve(this.bridge[method](value)).then(() => {
+        if (generation !== this.choiceGeneration) return;
+        onSuccess();
+        this.onChange();
+      }, fail);
+    } catch { fail(); }
   }
 
   navigate(route) {
     if (!navigableRoutes.has(route)) throw Error('Unknown route');
-    this.pendingPhone = null;
-    this.choiceGeneration++;
+    this.cancelSelection();
     this.state.commandError = false;
     this.command('navigate',route);
   }
@@ -89,15 +99,17 @@ export class NativeHeadunit extends Headunit {
 
   connect(id) {
     if (!this.state.connected || !this.state.phones.some(p => p.id === id)) throw Error('Unknown phone');
+    this.cancelSelection();
+    this.pendingPhone = id;
+    this.state.commandError = false;
     if (this.state.activePhone === id) {
-      this.navigate('projection');
+      this.selectionAccepted = true;
+      this.advanceSelection();
       return;
     }
-    this.pendingPhone = id;
-    const generation = ++this.choiceGeneration;
-    this.state.commandError = false;
     this.command('selectPhone',id,() => {
-      if (this.choiceGeneration === generation) this.pendingPhone = null;
-    });
+      this.selectionAccepted = true;
+      this.advanceSelection();
+    },() => { this.pendingPhone = null; });
   }
 }
