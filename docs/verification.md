@@ -89,3 +89,9 @@ Regressions were observed before fixes for absent status data, ownership enforce
 The sandbox-enabled `python3 tests/ui.py` attempt aborts before UI assertions at the already diagnosed system Chromium sandbox-helper check. No new browser/Electron screenshot or pixel/layout pass is claimed. No sandbox permissions were weakened, no alternate execution path was used, and no native LIVI, phone, audio, Bluetooth, temperature or vehicle service was launched. PR description update was not retried.
 
 Full run logs: `/workspace/setup-evidence/home-full-tests.txt`, `home-build.txt`, `home-socket-fixture.txt`, `home-appliance.txt`, `home-browser.txt`; focused red-phase logs have `home-*-red.txt` names in the same directory. Secure Electron runtime and all physical hardware validation remain open.
+
+## Pause-intent race correction — 2026-10-19
+
+Independent review reproduced Play→Pause on an already-paused remembered phone: the real transport synchronously published the old paused snapshot during send, clearing the prior pausePending flag; delayed playing=true then persisted resume=true. The controller now keeps explicit pause intent separate from observed playback until a newer explicit Play. No snapshot or reply is treated as causal acknowledgment of Pause.
+
+Three integrated regressions failed before the correction and pass afterward, covering delayed playback before/after Pause rejection and after Pause success, old Play completion, subsequent paused/playing observations, phone loss/return without an extra Play, saved preferences, honest observed playback, failure UI, unchanged navigation, and a newer explicit Play. Fresh full suite: **293 passed, 0 failed**; build passed. Logs: `/workspace/setup-evidence/pause-race-red.txt`, `pause-race-green.txt`, `pause-race-full-tests.txt`, `pause-race-build.txt`. No new secure UI/Electron or hardware validation; existing sandbox blocker remains. PR metadata was not retried.

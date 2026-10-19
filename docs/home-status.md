@@ -34,3 +34,7 @@ Playback display remains authoritative rather than optimistic. Explicit pause pr
 ## Validation boundary
 
 Node tests exercise filtering, malformed data, owner changes, partial updates, stale expiry, command rejection and sequence handling through the actual controller/session/transport/IPC/preload with a fake socket. A separate real Unix-socket fixture covers metadata and explicit pause. Browser scenarios are included but sandboxed Chromium/Electron startup remains blocked in this environment; the new Home layout and controls have no visual/runtime pass here. No hardware service or native engine is launched.
+
+### Explicit pause and recovery
+
+A shell Pause sets a separate no-resume intent before sending the command. Neither synchronous transport publication, playback snapshots nor action replies clear it: protocol-8 playback state has no causal command identifier, so even a later paused snapshot cannot acknowledge a particular Pause. A rejected Pause still leaves automatic recovery disarmed while the UI continues to show actual observed playback and command failure. Only a newer explicit shell Play clears this intent during the controller lifetime. This conservatively means phone-side playback alone does not re-enable automatic resume after a shell Pause. The saved resume preference remains false while the intent is held.

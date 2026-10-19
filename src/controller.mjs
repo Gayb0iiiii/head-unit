@@ -6,7 +6,7 @@ export class HeadunitController {
   constructor(transport,preferences={}) {
     this.transport=transport; this.preferences=preferences; this.listeners=new Set();
     this.lastActive=null;this.lastReportedRoute=null;this.contacts=new Map(); this.route='home'; this.front=null; this.started=false;
-    this.leavingProjection=false;this.projectionInterrupted=false;this.lastPhone=null;this.resume=false;this.pausePending=false;this.pendingChoice=null;this.recoveryAttempted=false;this.resumeAttempted=false;this.wasReady=false;this.recovering=true;
+    this.leavingProjection=false;this.projectionInterrupted=false;this.lastPhone=null;this.resume=false;this.pauseIntent=false;this.pendingChoice=null;this.recoveryAttempted=false;this.resumeAttempted=false;this.wasReady=false;this.recovering=true;
     try { const saved=preferences.load();this.preferred=typeof saved==='string'?saved:saved?.route;this.lastPhone=typeof saved?.lastPhone==='string'?saved.lastPhone:null;this.resume=saved?.resume===true; } catch {}
     if(!routes.has(this.preferred))this.preferred='home';
     this.unsubscribe=transport.subscribe(()=>this.sync());
@@ -35,7 +35,9 @@ export class HeadunitController {
     if(active?.id===this.lastPhone&&typeof session.state?.nowPlaying?.playing==='boolean'){
       const playing=session.state.nowPlaying.playing;
       const shouldResume=this.recovering&&!this.resumeAttempted&&this.resume&&!playing;
-      this.recovering=false;this.resume=this.pausePending?false:playing;if(!playing)this.pausePending=false;this.savePreferences();
+      // Playback snapshots and command replies cannot prove which intent caused playback.
+      // Preserve deliberate pause for recovery until a newer explicit Play supersedes it.
+      this.recovering=false;this.resume=this.pauseIntent?false:playing;this.savePreferences();
       if(shouldResume){this.resumeAttempted=true;session.action({kind:'media',control:'play'});}
     }
     this.wasReady=true;
@@ -84,7 +86,7 @@ export class HeadunitController {
     if(intent.type==='media'&&(exact(intent,['type','control'])||exact(intent,['type','control','phoneId']))&&['play','pause'].includes(intent.control)){
       // Renderer calls always carry the observed owner; trusted host callers may omit it.
       if('phoneId' in intent && (intent.phoneId!==activeDevice(session.state)?.id || this.pendingChoice || homeView(session).media.status!=='available'))throw Error('Media owner unavailable');
-      this.pausePending=intent.control==='pause';if(this.pausePending)this.resume=false;
+      this.pauseIntent=intent.control==='pause';if(this.pauseIntent)this.resume=false;
       this.recovering=false;this.resumeAttempted=true;this.savePreferences();
       let finish;const completion=new Promise(resolve=>{finish=resolve;});
       const requestId=session.action({kind:'media',control:intent.control},ok=>finish(ok));

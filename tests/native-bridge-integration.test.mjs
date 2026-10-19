@@ -9,12 +9,13 @@ import {HeadunitController} from '../src/controller.mjs';
 import {NativeHeadunit} from '../src/native-model.mjs';
 import {attachHeadunitBoundary} from '../electron/main-boundary.mjs';
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
-async function fixture(t) {
+async function fixture(t,saved={route:'phones'}) {
  const socket=new EventEmitter(), messages=[];
  socket.write=frame=>{messages.push(...new Decoder().push(frame));return true;};
  socket.destroy=()=>socket.emit('close');
  const transport=new CoreTransport('/tmp/test/core.sock',()=>socket);
- const controller=new HeadunitController(transport,{load:()=>({route:'phones'})});
+ const preferences=[];
+ const controller=new HeadunitController(transport,{load:()=>saved,save:value=>preferences.push(structuredClone(value))});
  transport.connect();socket.emit('connect');
  const state={front:{main:'livi'},devices:[{id:'a',status:'active'},{id:'b',status:'available'}],sessions:{active:null}};
  socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state}));
@@ -36,7 +37,7 @@ async function fixture(t) {
  const reply=(id,error)=>socket.emit('data',encode({type:'reply',id,...(error?{error}: {})}));
  const activate=()=>patch([{op:'set',path:['devices'],value:[{id:'a',status:'available'},{id:'b',status:'active'}]}]);
  const ready=()=>patch([{op:'set',path:['sessions','active'],value:{id:'session'}}]);
- return {model,controller,transport,actions,reply,patch,activate,ready,results,api};
+ return {model,controller,transport,actions,reply,patch,activate,ready,results,api,preferences};
 }
 test('native reply failure crosses real session/controller/IPC/preload without leaking errors or stale selection',async t=>{
  const f=await fixture(t); f.model.connect('b'); const id=f.actions().at(-1).id;
@@ -136,4 +137,30 @@ test('malformed native snapshots clear Home data instead of retaining a previous
  assert.equal(f.model.state.homeStatus.media.title,null);
  assert.equal(f.model.state.homeStatus.media.status,'unavailable');
  assert.equal(f.model.state.homeStatus.phone.batteryPercent,null);
+});
+
+for(const order of ['state-before-failure','failure-before-state','success-before-state'])test(`explicit pause keeps recovery disarmed despite delayed Play state: ${order}`,async t=>{
+ const f=await fixture(t,{route:'phones',lastPhone:'a',resume:false});
+ f.patch([{op:'set',path:['sessions','active'],value:'carplay'},{op:'set',path:['nowPlaying'],value:{title:'Track',playing:false}}]);
+ f.model.media('play');const play=f.actions().at(-1).id;
+ f.model.media('pause');const pause=f.actions().at(-1).id;
+ const delayed=()=>f.patch([{op:'set',path:['nowPlaying','playing'],value:true}]);
+ if(order==='state-before-failure')delayed();
+ f.reply(pause,order==='success-before-state'?undefined:'pause rejected');await flush();
+ if(order!=='state-before-failure')delayed();
+ f.reply(play);await flush();
+ assert.equal(f.controller.resume,false,'delayed Play state must not rearm recovery');
+ assert.equal(f.preferences.at(-1).resume,false,'persist explicit pause intent');
+ assert.equal(f.model.state.homeStatus.media.playing,true,'show observed playback honestly');
+ assert.equal(f.model.state.commandError,order!=='success-before-state');
+ assert.equal(f.model.state.screen,'phones');
+ // Even a later paused snapshot cannot correlate state to the pause command.
+ f.patch([{op:'set',path:['nowPlaying','playing'],value:false}]);delayed();
+ assert.equal(f.controller.resume,false);
+ f.patch([{op:'set',path:['devices'],value:[{id:'a',status:'offline'}]}]);
+ f.patch([{op:'set',path:['devices'],value:[{id:'a',status:'active'}]},{op:'set',path:['nowPlaying','playing'],value:false}]);
+ assert.deepEqual(f.actions().filter(m=>m.action.kind==='media').map(m=>m.action.control),['play','pause'],'return must not auto-resume');
+ f.model.media('play');const newest=f.actions().at(-1).id;f.reply(newest);delayed();await flush();
+ assert.equal(f.controller.resume,true,'a newer explicit Play supersedes pause intent');
+ assert.equal(f.preferences.at(-1).resume,true);
 });
