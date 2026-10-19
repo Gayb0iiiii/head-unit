@@ -77,3 +77,15 @@ Fresh results: `npm test` **275 passed, 0 failed**; `npm run build` passed; `npm
 `tests/ui.py` now explicitly requires `chromium_sandbox=True`, removing its prior `--no-sandbox` setting. Its new run also aborted at system Chromium's sandbox helper (SIGABRT); it did not reach UI assertions or produce new screenshots. The prior PR review-fix browser pass above remains a historical sandbox-disabled run, not secure-browser or Electron evidence. Full raw browser log: `/workspace/setup-evidence/electron-step-browser.txt`.
 
 No sandbox permissions, credentials, host services or network settings were changed. The next software gate is a securely configured Electron environment and a passing smoke run. Native compositor/LIVI, CarPlay, audio, physical touch and Orange Pi validation remain separate later gates.
+
+## Bounded Home status/media slice — 2026-10-19
+
+Verified the pinned Rust NowPlaying/DeviceView/media-action schema before implementation; fetched state.rs and message.rs blobs match the exact pinned Git tree. Source links, checksums, field limits and the local freshness policy are in [home-status.md](home-status.md).
+
+The native Home now presents bounded title/artist/playing and optional battery/charging through both allowlists, with unavailable/stale/disconnected states. Unrelated updates do not renew the 30-second local observation window; this is not a source timestamp or phone heartbeat guarantee. Signal scale remains unverified and signal is unavailable. Temperature providers are still absent. The clock updates independently at minute boundaries. Explicit play/pause carries an expected phone ID only through IPC, checks current ownership/availability in the host, and waits for the matching native reply without optimistic playback or navigation changes.
+
+Regressions were observed before fixes for absent status data, ownership enforcement, expiry, malformed-device publication, partial metadata after owner changes, unavailable-versus-stale distinctions and native Home edit controls. Fresh `npm test`: **290 pass, 0 fail**. The full suite includes real transport/session/controller/IPC/preload paths with a fake socket; `npm run test:electron:fixture` additionally passes across a real local Unix socket, including Home metadata and explicit pause. Build and the 30-test appliance harness pass. Python browser-test syntax passes.
+
+The sandbox-enabled `python3 tests/ui.py` attempt aborts before UI assertions at the already diagnosed system Chromium sandbox-helper check. No new browser/Electron screenshot or pixel/layout pass is claimed. No sandbox permissions were weakened, no alternate execution path was used, and no native LIVI, phone, audio, Bluetooth, temperature or vehicle service was launched. PR description update was not retried.
+
+Full run logs: `/workspace/setup-evidence/home-full-tests.txt`, `home-build.txt`, `home-socket-fixture.txt`, `home-appliance.txt`, `home-browser.txt`; focused red-phase logs have `home-*-red.txt` names in the same directory. Secure Electron runtime and all physical hardware validation remain open.

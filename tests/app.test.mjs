@@ -265,3 +265,17 @@ for(const target of ['home','phones','projection','camera','cluster','disconnect
  publish({connected:true,projectionReady:true,route:'settings',front:'livi',phones:[]});
  assert.match(ui.root.innerHTML,/<h1>Settings<\/h1>/);
 });
+
+test('native Home renders verified media/battery safely and explicit controls preserve navigation',async()=>{
+ let publish;const calls=[];
+ const host={onView(fn){publish=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',phones:[]}),media:async(...args)=>{calls.push(args);return {accepted:true};}};
+ const ui=await launch(new Map(),host);
+ publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{phone:{status:'available',phoneId:'a',batteryPercent:73,charging:true,freshForMs:30000},media:{status:'available',phoneId:'a',title:'<img src=x onerror=bad()>',artist:'Artist',playing:true,freshForMs:30000}}});
+ assert.match(ui.root.innerHTML,/73%/);assert.match(ui.root.innerHTML,/Signal.*Unavailable/s);
+ assert.match(ui.root.innerHTML,/&lt;img/);assert.doesNotMatch(ui.root.innerHTML,/<img src=x/);
+ ui.click('media','pause');assert.deepEqual(calls,[['pause','a']]);assert.match(ui.root.innerHTML,/Good to go/);
+ ui.click('action','edit-layout');assert.doesNotMatch(ui.root.innerHTML,/data-move="dashboard:/);
+ publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{media:{status:'stale',phoneId:'a'}}});
+ assert.match(ui.root.innerHTML,/Media status is stale/);assert.doesNotMatch(ui.root.innerHTML,/&lt;img/);
+ assert.match(ui.root.innerHTML,/data-media="play"[^>]*disabled/);
+});

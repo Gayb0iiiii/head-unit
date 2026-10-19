@@ -1,3 +1,4 @@
+import {filterHomeStatus} from '../src/home-status.mjs';
 /** Dependency-injected main-process boundary. No Electron import, launch or socket connection. */
 const routes = new Set(['home','phones','settings','audio','vehicle','projection','dashboard']);
 const displayedRoutes = new Set([...routes,'camera','cluster','disconnected']);
@@ -20,7 +21,9 @@ function trustedURL(value) {
 // Defense in depth if a future controller accidentally returns native state.
 function rendererView(value) {
   const source = plain(value) ? value : {};
+  const active=(Array.isArray(source.phones)?source.phones:[]).filter(phone=>plain(phone)&&phone.status==='active'&&text(phone.id,256));
   return {
+    homeStatus:filterHomeStatus(source.homeStatus,source.connected===true,active.length===1?active[0].id:null),
     connected: source.connected === true,
     projectionReady: source.connected === true && source.projectionReady === true,
     front: ['livi','projection','camera','cluster'].includes(source.front) ? source.front : 'livi',
@@ -98,7 +101,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     action('headunit:set-volume',bounded,value => ({type:'volume',value}));
     action('headunit:touch',pointsValid,points => ({type:'touch',points:points.map(({id,x,y,phase}) => ({id,x,y,phase}))}));
     action('headunit:cancel-touch',() => true,() => ({type:'cancelTouch'}),0);
-    action('headunit:media',control => control === 'play' || control === 'pause',control => ({type:'media',control}));
+    action('headunit:media',(control,phoneId) => (control === 'play' || control === 'pause') && text(phoneId,256),(control,phoneId) => ({type:'media',control,phoneId}),2);
     // Account for both current Event details and Electron's older positional API.
     on('did-start-navigation',(details,_url,_sameDocument,isMainFrame) => {
       if (details?.isMainFrame ?? isMainFrame) { navigating = true; cancelContacts(); }

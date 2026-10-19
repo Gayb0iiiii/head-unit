@@ -21,6 +21,10 @@ test('fake Unix peer drives real transport/controller: state, native rejection a
  transport.connect();
  await waitFor(()=>controller.view().connected);
  assert.deepEqual(controller.view().phones.map(p=>p.id),['driver','passenger']);
+ assert.equal(controller.view().homeStatus.media.title,'Fixture track');
+ assert.equal(controller.view().homeStatus.phone.batteryPercent,73);
+ const pause=controller.intent({type:'media',control:'pause',phoneId:'driver'});
+ assert.equal(await pause.completion,true);assert.equal(controller.resume,false);
  core.patch([{op:'set',path:['front','main'],value:'camera'}]);
  await waitFor(()=>controller.view().route==='camera');
  core.patch([{op:'set',path:['front','main'],value:'livi'}]);

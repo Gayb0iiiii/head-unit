@@ -1,3 +1,4 @@
+import {emptyHomeStatus} from '../src/home-status.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
@@ -14,7 +15,7 @@ const channels = {
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
   touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media',
 };
-const expectedView = {connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null};
+const expectedView = {homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null};
 const copy = value => JSON.parse(JSON.stringify(value));
 async function moduleAt(path) {
   assert.ok(existsSync(path), `${path.pathname.split('/').at(-1)} must implement the isolated boundary`);
@@ -60,8 +61,8 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
   assert.equal(Object.isFrozen(api), true);
   assert.deepEqual(await api.getView(), expectedView);
   await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
-  await api.touch([{id:0,x:0.2,y:0.8,phase:'down'}]); await api.cancelTouch(); await api.media('pause');
-  assert.deepEqual(calls, [[channels.getView],[channels.navigate,'settings'],[channels.selectPhone,'phone-1'],[channels.setVolume,0.4],[channels.touch,[{id:0,x:0.2,y:0.8,phase:'down'}]],[channels.cancelTouch],[channels.media,'pause']]);
+  await api.touch([{id:0,x:0.2,y:0.8,phase:'down'}]); await api.cancelTouch(); await api.media('pause','phone-1');
+  assert.deepEqual(calls, [[channels.getView],[channels.navigate,'settings'],[channels.selectPhone,'phone-1'],[channels.setVolume,0.4],[channels.touch,[{id:0,x:0.2,y:0.8,phase:'down'}]],[channels.cancelTouch],[channels.media,'pause','phone-1']]);
   for (const key of ['invoke','send','ipcRenderer','session','transport','core','intent']) assert.equal(api[key], undefined);
 });
 
@@ -90,7 +91,7 @@ test('main bridge converts fixed calls to validated intents and exposes only san
   const f=fixture(); const dispose=attachHeadunitBoundary({...f, trustedWindow:f.window, trustedUrl:f.url});
   assert.deepEqual([...f.handlers.keys()].sort(), Object.values(channels).filter(c=>c!==channels.view).sort());
   assert.deepEqual(await f.call(channels.getView), expectedView);
-  const values=[[channels.navigate,['settings'],{type:'navigate',route:'settings'}],[channels.selectPhone,['phone-1'],{type:'selectPhone',id:'phone-1'}],[channels.setVolume,[0.4],{type:'volume',value:0.4}],[channels.touch,[[{id:0,x:0.2,y:0.8,phase:'down'}]],{type:'touch',points:[{id:0,x:0.2,y:0.8,phase:'down'}]}],[channels.cancelTouch,[],{type:'cancelTouch'}],[channels.media,['play'],{type:'media',control:'play'}],[channels.navigate,['dashboard'],{type:'navigate',route:'dashboard'}]];
+  const values=[[channels.navigate,['settings'],{type:'navigate',route:'settings'}],[channels.selectPhone,['phone-1'],{type:'selectPhone',id:'phone-1'}],[channels.setVolume,[0.4],{type:'volume',value:0.4}],[channels.touch,[[{id:0,x:0.2,y:0.8,phase:'down'}]],{type:'touch',points:[{id:0,x:0.2,y:0.8,phase:'down'}]}],[channels.cancelTouch,[],{type:'cancelTouch'}],[channels.media,['play','phone-1'],{type:'media',control:'play',phoneId:'phone-1'}],[channels.navigate,['dashboard'],{type:'navigate',route:'dashboard'}]];
   for (const [channel,args,intent] of values) {assert.deepEqual(await f.call(channel,args), {accepted:true}); assert.deepEqual(f.controller.calls.at(-1), ['intent',intent]);}
   assert.deepEqual(f.wc.sent.at(-1), [channels.view,expectedView]);
   f.controller.state.phones[0].name='Changed';
@@ -123,7 +124,7 @@ test('all IPC handlers reject other windows, subframes, changed URLs and missing
 test('main rejects malformed payloads and extra arguments before dispatching controller intents', async () => {
   const {attachHeadunitBoundary} = await moduleAt(boundaryPath);
   const f=fixture(); const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url});
-  const badCalls=[[channels.media,['next']],[channels.media,[{control:'play'}]],[channels.getView,[1]],[channels.cancelTouch,[{}]],[channels.navigate,['camera']],[channels.navigate,['home',{type:'restart'}]],[channels.selectPhone,[{}]],[channels.selectPhone,['']],[channels.selectPhone,['x'.repeat(257)]],[channels.setVolume,[NaN]],[channels.setVolume,[Infinity]],[channels.setVolume,[-0.1]],[channels.setVolume,[1.1]],[channels.setVolume,['0.5']],[channels.touch,[[]]],[channels.touch,[[{id:0,x:0,y:1,phase:'down',native:true}]]],[channels.touch,[[{id:0,x:0,y:1,phase:'down'},{id:0,x:1,y:0,phase:'down'}]]],[channels.touch,[[{id:10,x:0,y:1,phase:'down'}]]],[channels.touch,[[{id:0,x:2,y:1,phase:'down'}]]],[channels.touch,[[{id:0,x:0,y:1,phase:'tap'}]]]];
+  const badCalls=[[channels.media,['play']],[channels.media,['pause','']],[channels.media,['play','phone-1','extra']],[channels.media,['next']],[channels.media,[{control:'play'}]],[channels.getView,[1]],[channels.cancelTouch,[{}]],[channels.navigate,['camera']],[channels.navigate,['home',{type:'restart'}]],[channels.selectPhone,[{}]],[channels.selectPhone,['']],[channels.selectPhone,['x'.repeat(257)]],[channels.setVolume,[NaN]],[channels.setVolume,[Infinity]],[channels.setVolume,[-0.1]],[channels.setVolume,[1.1]],[channels.setVolume,['0.5']],[channels.touch,[[]]],[channels.touch,[[{id:0,x:0,y:1,phase:'down',native:true}]]],[channels.touch,[[{id:0,x:0,y:1,phase:'down'},{id:0,x:1,y:0,phase:'down'}]]],[channels.touch,[[{id:10,x:0,y:1,phase:'down'}]]],[channels.touch,[[{id:0,x:2,y:1,phase:'down'}]]],[channels.touch,[[{id:0,x:0,y:1,phase:'tap'}]]]];
   for (const [channel,args] of badCalls) {const count=f.controller.calls.length; await assert.rejects(async () => f.call(channel,args), /invalid/i); assert.equal(f.controller.calls.length,count);}
   dispose();
 });
@@ -207,7 +208,7 @@ test('preload to main bridge drives the real controller without exposing its cor
   const {HeadunitController}=await import('../src/controller.mjs');
   const f=fixture();
   const sent=[];
-  const session={ready:true,state:{front:{main:'livi'},sessions:{active:'cp'},devices:[{id:'phone-1',name:'Phone',status:'active'}],config:{huVolume:0.6,password:'private'},nowPlaying:{playing:true}},action:(action,complete)=>{sent.push(action);complete?.(true);return sent.length;},pointer:points=>sent.push({points}),path:path=>sent.push({path})};
+  const session={now:()=>0,homeObservation:{owner:'phone-1',mediaOwner:'phone-1',mediaAt:0,mediaFields:['playing']},ready:true,state:{front:{main:'livi'},sessions:{active:'carplay'},devices:[{id:'phone-1',name:'Phone',status:'active'}],config:{huVolume:0.6,password:'private'},nowPlaying:{playing:true}},action:(action,complete)=>{sent.push(action);complete?.(true);return sent.length;},pointer:points=>sent.push({points}),path:path=>sent.push({path})};
   const transport={session,subscribe(listener){this.listener=listener;listener();return ()=>{};}};
   const controller=new HeadunitController(transport);
   const dispose=attachHeadunitHost({...f,trustedWindow:f.window,trustedUrl:f.url,controller});
@@ -218,7 +219,7 @@ test('preload to main bridge drives the real controller without exposing its cor
   await api.navigate('dashboard');
   assert.deepEqual(sent.at(-1),{path:'/dashboard'});
   assert.equal(received.at(-1).route,'dashboard');
-  await api.media('pause'); assert.deepEqual(sent.at(-1),{kind:'media',control:'pause'});
+  await api.media('pause','phone-1'); assert.deepEqual(sent.at(-1),{kind:'media',control:'pause'});
   await api.setVolume(0.3); assert.deepEqual(sent.at(-1),{kind:'setConfig',patch:{huVolume:0.3}});
   await api.selectPhone('phone-1'); assert.deepEqual(sent.at(-1),{kind:'selectDevice',id:'phone-1'});
   session.state.front.main='projection'; transport.listener();
@@ -294,4 +295,17 @@ test('glass runtime stops owning its socket after the host window is lost', asyn
   f.wc.emit('destroyed');
   assert.equal(f.handlers.size,0);
   assert.throws(() => runtime.start(),/disposed/i);
+});
+
+test('second view filter rejects malformed Home metadata, expired data and secret fields',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath), f=fixture();
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url});
+ f.controller.state.phones=[{id:'a',status:'active'}];
+ f.controller.state.homeStatus={phone:{status:'available',phoneId:'a',batteryPercent:73,charging:true,signalLevel:999,carrierName:'secret',freshForMs:30000},media:{status:'available',phoneId:'a',title:'Track',artist:'Artist',playing:false,artwork:'secret',freshForMs:30000}};
+ const view=await f.call(channels.getView);assert.equal(view.homeStatus.phone.batteryPercent,73);assert.equal(view.homeStatus.phone.signalLevel,null);assert.equal(view.homeStatus.media.playing,false);
+ assert.doesNotMatch(JSON.stringify(view),/secret|artwork|carrier/);
+ f.controller.state.homeStatus.media.title={secret:true};f.controller.state.homeStatus.media.playing='yes';f.controller.state.homeStatus.media.artist='x'.repeat(257);
+ assert.equal((await f.call(channels.getView)).homeStatus.media.status,'unavailable');
+ f.controller.state.homeStatus.phone.freshForMs=Infinity;assert.equal((await f.call(channels.getView)).homeStatus.phone.batteryPercent,null);
+ f.controller.state.connected=false;assert.equal((await f.call(channels.getView)).homeStatus.media.status,'disconnected');dispose();
 });

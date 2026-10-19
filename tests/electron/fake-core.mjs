@@ -8,9 +8,9 @@ export async function createFakeCore(directory) {
   const socketPath=join(directory,'core.sock');
   const clients=new Set(), actions=[];
   let rev=0;
-  let state={front:{main:'livi'},sessions:{active:{id:'fake-session'}},
-    devices:[{id:'driver',name:'Driver',status:'active'},{id:'passenger',name:'Passenger',status:'available'}],
-    config:{huVolume:0.5,password:'fake-private-config'},nowPlaying:{playing:false}};
+  let state={front:{main:'livi'},sessions:{active:'carplay',position:1,total:1},
+    devices:[{id:'driver',name:'Driver',status:'active',batteryLevel:73},{id:'passenger',name:'Passenger',status:'available'}],
+    config:{huVolume:0.5,password:'fake-private-config'},nowPlaying:{title:'Fixture track',artist:'Test artist',playing:false}};
   const server=net.createServer(socket=>{
     clients.add(socket);
     const decoder=new Decoder();

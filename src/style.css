@@ -144,3 +144,11 @@ select:focus-visible{outline:3px solid #a9dfff;outline-offset:5px}
 @media(max-height:560px) and (min-width:650px){
   body[data-dock-side=right] #app{grid-template-columns:minmax(0,1fr) 82px}
 }
+
+/* Optional native Home status stays separate from dashboard instrumentation. */
+.home-status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:8px 0}
+.home-status dt{font-size:12px;opacity:.75}.home-status dd{margin:4px 0;font-size:14px}
+.native-media h3{overflow-wrap:anywhere}.native-media-controls{display:flex;gap:12px}
+.native-media-controls button{min-height:44px;min-width:72px}
+.native-media{margin-top:12px}.time{display:block}
+@media(max-width:600px){.home-status{grid-template-columns:repeat(2,minmax(0,1fr))}}

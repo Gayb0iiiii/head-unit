@@ -36,7 +36,7 @@ async function fixture(t) {
  const reply=(id,error)=>socket.emit('data',encode({type:'reply',id,...(error?{error}: {})}));
  const activate=()=>patch([{op:'set',path:['devices'],value:[{id:'a',status:'available'},{id:'b',status:'active'}]}]);
  const ready=()=>patch([{op:'set',path:['sessions','active'],value:{id:'session'}}]);
- return {model,controller,transport,actions,reply,patch,activate,ready,results};
+ return {model,controller,transport,actions,reply,patch,activate,ready,results,api};
 }
 test('native reply failure crosses real session/controller/IPC/preload without leaking errors or stale selection',async t=>{
  const f=await fixture(t); f.model.connect('b'); const id=f.actions().at(-1).id;
@@ -85,4 +85,55 @@ test('resync settles selection as unavailable and ignores a late reply',async t=
  await flush();assert.equal(f.model.pendingPhone,null);assert.equal(f.model.state.commandError,true);
  assert.equal(f.transport.session.completions.size,0);
  f.reply(id);await flush();assert.equal(f.model.pendingPhone,null);
+});
+
+test('Home metadata and explicit pause cross real bridge; native rejection is sanitized',async t=>{
+ const f=await fixture(t);
+ f.patch([{op:'set',path:['sessions','active'],value:'carplay'},{op:'set',path:['nowPlaying'],value:{title:'<script>Track</script>',artist:'Artist',playing:true,artwork:'private-art'}},{op:'set',path:['devices'],value:[{id:'a',status:'active',batteryLevel:50,carrierName:'private-carrier'}]}]);
+ assert.equal(f.model.state.homeStatus.media.title,'<script>Track</script>');
+ assert.equal(f.model.state.homeStatus.phone.batteryPercent,50);
+ assert.doesNotMatch(JSON.stringify(f.model.state),/private-art|private-carrier/);
+ f.model.media('pause');const request=f.actions().at(-1);
+ assert.deepEqual(request.action,{kind:'media',control:'pause'});
+ assert.equal(f.controller.resume,false);assert.equal(f.model.state.homeStatus.media.playing,true,'not optimistic');
+ f.reply(request.id,'secret media failure');await flush();assert.equal(f.model.state.commandError,true);
+ assert.equal(f.model.state.screen,'phones');assert.equal(f.controller.resume,false);
+ f.transport.stop();assert.equal(f.model.state.homeStatus.media.status,'disconnected');
+});
+test('a stale renderer owner cannot control a different active phone',async t=>{
+ const f=await fixture(t);
+ f.patch([{op:'set',path:['sessions','active'],value:'carplay'},{op:'set',path:['nowPlaying'],value:{title:'Old owner',playing:true}}]);
+ f.activate();
+ await assert.rejects(()=>f.api.media('pause','a'),/unavailable/);
+ assert.equal(f.actions().filter(m=>m.action.kind==='media').length,0);
+});
+
+test('explicit pause wins over an earlier play failure and never changes navigation',async t=>{
+ const f=await fixture(t);
+ f.patch([{op:'set',path:['sessions','active'],value:'carplay'},{op:'set',path:['nowPlaying'],value:{title:'Track',playing:false}}]);
+ f.model.media('play');const play=f.actions().at(-1).id;
+ f.model.media('pause');const pause=f.actions().at(-1).id;
+ f.reply(play,'old failure');await flush();assert.equal(f.model.state.commandError,false);assert.equal(f.model.state.mediaPending,true);
+ f.reply(pause);await flush();assert.equal(f.model.state.mediaPending,false);assert.equal(f.controller.resume,false);
+ assert.equal(f.model.state.screen,'phones');assert.deepEqual(f.actions().filter(m=>m.action.kind==='media').map(m=>m.action.control),['play','pause']);
+ f.patch([{op:'set',path:['nowPlaying','playing'],value:false}]);
+ assert.equal(f.actions().filter(m=>m.action.kind==='media').length,2,'no auto-resume after deliberate pause');
+});
+test('host rejects expired media and old completion cannot alter a later manual route',async t=>{
+ const f=await fixture(t);let now=0;f.transport.session.now=()=>now;
+ f.patch([{op:'set',path:['sessions','active'],value:'carplay'},{op:'set',path:['nowPlaying'],value:{title:'Track',playing:true}}]);
+ f.model.media('pause');const request=f.actions().at(-1).id;f.model.home();
+ f.reply(request,'late failure');await flush();assert.equal(f.model.state.commandError,false);assert.equal(f.model.state.screen,'home');
+ now=30001;await assert.rejects(()=>f.api.media('play','a'),/unavailable/);
+ assert.equal(f.actions().filter(m=>m.action.kind==='media').length,1);
+});
+
+test('malformed native snapshots clear Home data instead of retaining a previous track',async t=>{
+ const f=await fixture(t);
+ f.patch([{op:'set',path:['sessions','active'],value:'carplay'},{op:'set',path:['nowPlaying'],value:{title:'Previous track',playing:true}}]);
+ assert.equal(f.model.state.homeStatus.media.title,'Previous track');
+ f.patch([{op:'set',path:['devices'],value:[null,{}, {id:'a',status:'active',batteryLevel:'secret'}]},{op:'set',path:['nowPlaying'],value:{title:{private:'secret'},playing:'yes'}}]);
+ assert.equal(f.model.state.homeStatus.media.title,null);
+ assert.equal(f.model.state.homeStatus.media.status,'unavailable');
+ assert.equal(f.model.state.homeStatus.phone.batteryPercent,null);
 });

@@ -1,3 +1,4 @@
+import {emptyHomeStatus,filterHomeStatus} from './home-status.mjs';
 import {Headunit} from './model.mjs';
 
 const visibleRoutes = new Set(['home','dashboard','phones','settings','audio','vehicle','projection','camera','cluster','disconnected']);
@@ -5,8 +6,12 @@ const navigableRoutes = new Set(['home','dashboard','phones','settings','audio',
 
 /** Browser-side projection of the privileged, authoritative host view. */
 export class NativeHeadunit extends Headunit {
-  constructor(storage, bridge, onChange = () => {}) {
+  constructor(storage, bridge, onChange = () => {}, clock = {now:()=>performance.now(),setTimeout,clearTimeout}) {
     super(storage);
+    this.clock = clock;
+    this.mediaGeneration = 0;
+    this.state.homeStatus = emptyHomeStatus('disconnected');
+    this.state.mediaPending = false;
     this.bridge = bridge;
     this.onChange = onChange;
     this.state.screen = 'disconnected';
@@ -34,9 +39,9 @@ export class NativeHeadunit extends Headunit {
     }
   }
 
-  stop() { this.unsubscribe?.(); this.unsubscribe = null; this.cancelSelection(); }
+  stop() { this.unsubscribe?.(); this.unsubscribe = null; this.cancelSelection(); this.clock.clearTimeout(this.expiryTimer); }
 
-  cancelSelection() { this.pendingPhone = null; this.selectionAccepted = false; this.choiceGeneration++; }
+  cancelSelection() { this.pendingPhone = null; this.selectionAccepted = false; this.choiceGeneration++; this.mediaGeneration++; this.state.mediaPending=false; }
 
   applyView(view) {
     this.revision++;
@@ -49,7 +54,12 @@ export class NativeHeadunit extends Headunit {
     this.state.projectionReady = connected && view.projectionReady === true;
     this.state.connected = connected;
     this.state.phones = phones;
-    this.state.activePhone = phones.find(p => p.active)?.id ?? null;
+    const active=phones.filter(p=>p.active);
+    const activePhone=active.length===1?active[0].id:null;
+    if(this.state.activePhone!==activePhone){this.mediaGeneration++;this.state.mediaPending=false;}
+    this.state.activePhone = activePhone;
+    this.state.homeStatus=filterHomeStatus(view?.homeStatus,connected,activePhone);
+    this.scheduleExpiry();
     this.state.front = connected && ['livi','projection','camera','cluster'].includes(view.front) ? view.front : 'livi';
     this.state.screen = connected && visibleRoutes.has(view.route) ? view.route : 'disconnected';
     if (view.route === 'dashboard') this.state.homeMode = 'dashboard';
@@ -66,21 +76,49 @@ export class NativeHeadunit extends Headunit {
     }
   }
 
-  command(method, value, onSuccess = () => {}, onFailure = () => {}) {
+  command(method, value, onSuccess = () => {}, onFailure = () => {}, current = () => true) {
     const generation = this.choiceGeneration;
     const fail = () => {
-      if (generation !== this.choiceGeneration) return;
+      if (generation !== this.choiceGeneration || !current()) return;
       onFailure();
       this.state.commandError = true;
       this.onChange();
     };
     try {
-      Promise.resolve(this.bridge[method](value)).then(() => {
-        if (generation !== this.choiceGeneration) return;
+      Promise.resolve(method==='media'?this.bridge.media(value.control,value.phoneId):this.bridge[method](value)).then(() => {
+        if (generation !== this.choiceGeneration || !current()) return;
         onSuccess();
         this.onChange();
       }, fail);
     } catch { fail(); }
+  }
+
+  scheduleExpiry() {
+    this.clock.clearTimeout(this.expiryTimer);
+    this.expiries=Object.fromEntries(['phone','media'].map(key=>[key,this.clock.now()+this.state.homeStatus[key].freshForMs]));
+    this.expireStatus();
+  }
+
+  expireStatus() {
+    const delays=[];
+    for(const key of ['phone','media']) {
+      const value=this.state.homeStatus[key];
+      if(value.status!=='available')continue;
+      const remaining=this.expiries[key]-this.clock.now();
+      if(remaining<=0)this.state.homeStatus[key]={...emptyHomeStatus('stale')[key],phoneId:value.phoneId};
+      else delays.push(remaining);
+    }
+    if(delays.length){this.expiryTimer=this.clock.setTimeout(()=>{this.expireStatus();this.onChange();},Math.min(...delays));this.expiryTimer?.unref?.();}
+  }
+
+  media(control) {
+    if(!['play','pause'].includes(control))throw Error('Unsupported media control');
+    const media=this.state.homeStatus.media;
+    if(this.pendingPhone||media.status!=='available'||media.playing===null||media.phoneId!==this.state.activePhone)throw Error('Media unavailable');
+    const generation=++this.mediaGeneration;
+    this.state.commandError=false;this.state.mediaPending=true;
+    const settled=()=>{this.state.mediaPending=false;};
+    this.command('media',{control,phoneId:media.phoneId},settled,settled,()=>generation===this.mediaGeneration);
   }
 
   navigate(route) {

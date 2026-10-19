@@ -37,9 +37,10 @@ with sync_playwright() as p:
         phones:[{id:'a',name:'Driver',status:'active'},{id:'b',name:'Passenger',status:'available'}]};
       const requests = [], calls = [];
       const emit = patch => {Object.assign(state,patch); listener?.(structuredClone(state));};
-      window.testHost = {emit, calls, requests};
+      window.testHost = {emit, calls, requests, rejectMedia:false};
       window.headunit = {
         getView:async()=>structuredClone(state),
+        media:async(control,phoneId)=>{calls.push(['media',control,phoneId]);if(testHost.rejectMedia)throw new Error('Headunit operation unavailable');return {accepted:true};},
         onView:fn=>{listener=fn;return()=>{listener=null;};},
         navigate:async route=>{calls.push(route);emit({route,front:route==='projection'?'projection':'livi'});return {accepted:true};},
         selectPhone:id=>new Promise((resolve,reject)=>requests.push({id,resolve,reject}))
@@ -92,6 +93,20 @@ with sync_playwright() as p:
         page.evaluate("testHost.emit({connected:true,route:'phones',front:'livi',projectionReady:true,phones:[{id:'b',name:'Passenger',status:'active'}]})")
         expect(page.get_by_text('Switching phone…', exact=True)).to_have_count(0)
         assert 'projection' not in page.evaluate('testHost.calls')
+    page.evaluate("""testHost.emit({connected:true,route:'home',front:'livi',phones:[{id:'a',name:'Driver',status:'active'}],
+      homeStatus:{phone:{status:'available',phoneId:'a',batteryPercent:73,charging:true,freshForMs:30000},
+      media:{status:'available',phoneId:'a',title:'Verified track',artist:'Artist',playing:true,freshForMs:30000}}});testHost.calls.length=0;""")
+    expect(page.get_by_role('heading', name='Verified track', exact=True)).to_be_visible()
+    expect(page.get_by_text('73% · Charging', exact=True)).to_be_visible()
+    page.locator('[data-media="pause"]').click()
+    assert page.evaluate('testHost.calls') == [['media','pause','a']]
+    expect(page.get_by_text('Playing', exact=True)).to_be_visible()
+    page.evaluate("testHost.rejectMedia=true")
+    page.locator('[data-media="play"]').click()
+    expect(page.get_by_role('alert')).to_have_text('Native command unavailable')
+    page.evaluate("testHost.emit({homeStatus:{media:{status:'stale',phoneId:'a'}}})")
+    expect(page.get_by_text('Media status is stale. Waiting for a core update.', exact=True)).to_be_visible()
+    expect(page.locator('[data-media="play"]')).to_be_disabled()
     assert not errors, errors
     browser.close()
     print('PASS: preview persistence, navigation, responsive screenshots; native-bridge fixture repeated diagnostics navigation, readiness ordering and interrupted switching; no page errors. No native runtime or hardware tested.')

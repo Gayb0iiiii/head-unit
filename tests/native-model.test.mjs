@@ -79,3 +79,14 @@ test('opening the already observed active phone requests projection without anot
   assert.deepEqual(host.calls,[['navigate','projection']]);
   model.stop();
 });
+
+test('native status expires without view traffic and cancels its timer on stop',async()=>{
+ let now=0, next=0;const timers=new Map();
+ const clock={now:()=>now,setTimeout:(fn,delay)=>{timers.set(++next,{fn,at:now+delay});return next;},clearTimeout:id=>timers.delete(id)};
+ const host=bridge();const model=new NativeHeadunit(undefined,host,()=>{},clock);await model.start();
+ host.emit({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{media:{status:'available',phoneId:'a',title:'Track',playing:false,freshForMs:10}}});
+ assert.equal(model.state.homeStatus.media.title,'Track');
+ now=10;for(const [id,timer] of [...timers])if(timer.at<=now){timers.delete(id);timer.fn();}
+ assert.equal(model.state.homeStatus.media.status,'stale');assert.equal(model.state.homeStatus.media.title,null);
+ model.stop();assert.equal(timers.size,0);
+});
