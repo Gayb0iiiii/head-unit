@@ -3,7 +3,7 @@ from playwright.sync_api import sync_playwright, expect
 from pathlib import Path
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox'])
+    browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, chromium_sandbox=True)
     page = browser.new_page(viewport={'width': 1280, 'height': 720}, device_scale_factor=1)
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))

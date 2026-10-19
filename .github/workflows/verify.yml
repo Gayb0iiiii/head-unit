@@ -11,4 +11,5 @@ jobs:
         with:
           node-version: '24'
       - run: npm test
+      - run: npm run test:electron:fixture
       - run: npm run build

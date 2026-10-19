@@ -8,6 +8,7 @@ Separate, reversible prototype. This is not an update to the existing v4 demo an
 - `npm run test:appliance` runs the fake-clock/fake-owner lifecycle harness only; it does not start or stop real processes.
 - Open `dist/preview.html` directly for the self-contained software preview.
 - Or run `npm start` and open http://127.0.0.1:8095 for development.
+- Optional real Electron checks: see [tests/electron/README.md](tests/electron/README.md); dependencies are pinned separately and sandboxing remains enabled.
 - Optional browser test: `python3 tests/ui.py` with Playwright and Chromium, while that server is running. This optional check runs preview flows and injected native-bridge scenarios; it does not launch LIVI. See docs/verification.md for current results.
 
 ## Product direction
@@ -53,7 +54,7 @@ Passing: Node unit/contract tests and static build/syntax checks. Exact results 
 
 Blocked: the v4 ZIP was outside the Library access scope selected for this turn (403). No baseline files were read or modified. Reattach/select that ZIP before merge work.
 
-The saved cloud environment now runs Chromium UI checks, including preview persistence, repeated navigation, interrupted switching with an injected bridge, and screenshots at 800×480, 1280×720 and 480×800. Earlier browser-launch restrictions are historical. These checks do not validate Electron isolation, native composition or physical touch ergonomics.
+Earlier Chromium UI checks passed with the test browser sandbox disabled. The browser test now requires sandboxing, and both system Chromium and the new actual Electron smoke test abort in this saved environment because their sandbox helpers are not configured for secure startup. No permissions or sandbox policy were weakened. See tests/electron/README.md for reproduction and the precise blocker. No actual Electron isolation, native composition or physical touch claim is made.
 
 No Orange Pi, Pi touchscreen, MFi hardware, physical phone, live pairing, native projection, audio, microphone or touch forwarding was tested.
 

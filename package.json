@@ -7,7 +7,9 @@
     "test": "node --test tests/*.test.mjs",
     "start": "python3 -m http.server 8095 --bind 127.0.0.1",
     "build": "node scripts/build.mjs",
-    "test:appliance": "node --test tests/appliance-lifecycle.test.mjs"
+    "test:appliance": "node --test tests/appliance-lifecycle.test.mjs",
+    "test:electron:fixture": "node --test tests/electron/fixture.test.mjs",
+    "test:electron": "node tests/electron/run.mjs"
   },
   "license": "GPL-3.0-or-later"
 }

@@ -64,3 +64,16 @@ Validation on Node 24.19.0: 275 tests pass, 0 fail; static/offline build passes;
 `python3 tests/ui.py` now passes on Python 3.12.14, Playwright 1.62.0 and system Chromium 154.0.8037.57 while `npm start` serves the preview. The stale post-reload Settings click and exact Diagnostics accessible-name assumption were corrected. Browser checks exercise actual DOM navigation and persistence, repeated diagnostics exits, active-before-ready selection and Home/camera/cluster/disconnect/failure interruptions using an injected bridge. Screenshots are captured at 1280×720, 800×480 and 480×800 with no horizontal overflow; no page errors occurred. This supersedes the historical browser-launch blocker above.
 
 Fresh logs and screenshots for this cloud run are under `/workspace/setup-evidence/` (feature-tests.txt, feature-build.txt, feature-browser.txt, regressions-red.txt and evidence/home-*.png). Required checks need no downloaded npm dependencies. Actual Electron process isolation, LIVI compositor/engine operation, CarPlay, audio, physical touch and Orange Pi behavior remain unverified. No native service or hardware integration was launched.
+
+
+## Secure Electron smoke step — 2026-10-19
+
+Added a separately locked Electron 44.7.2 test package and reproducible `npm run test:electron` launcher. The main script uses the actual production runtime, main boundary, preload and renderer with a fake protocol-8 Unix socket. It includes startup, authoritative camera/phone updates, correlated rejection, disconnect, renderer API/isolation assertions and screenshots. No production bridge capability was added. The launcher records failure unless the actual app explicitly completes all checks.
+
+Fresh results: `npm test` **275 passed, 0 failed**; `npm run build` passed; `npm run test:electron:fixture` **1 passed** across an actual local Unix socket; launcher/app JavaScript syntax and `git diff --check` passed. Electron dependency and checksum-verified binary installation succeeded using the existing environment proxy.
+
+**Blocked:** the actual Electron executable aborted with SIGTRAP at `sandbox/linux/suid/client/setuid_sandbox_host.cc:166`. Its bundled chrome-sandbox is agent-owned mode 0755; the runtime requires a correctly configured sandbox helper. No app result or Electron screenshot was produced. The application smoke assertions remain unexecuted. Logs: `evidence/electron-smoke-blocked.txt`; raw run result: `evidence/electron-smoke/2026-10-19T02-30-42.587Z/result.json` in this workspace.
+
+`tests/ui.py` now explicitly requires `chromium_sandbox=True`, removing its prior `--no-sandbox` setting. Its new run also aborted at system Chromium's sandbox helper (SIGABRT); it did not reach UI assertions or produce new screenshots. The prior PR review-fix browser pass above remains a historical sandbox-disabled run, not secure-browser or Electron evidence. Full raw browser log: `/workspace/setup-evidence/electron-step-browser.txt`.
+
+No sandbox permissions, credentials, host services or network settings were changed. The next software gate is a securely configured Electron environment and a passing smoke run. Native compositor/LIVI, CarPlay, audio, physical touch and Orange Pi validation remain separate later gates.
