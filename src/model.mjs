@@ -1,0 +1,171 @@
+/** UI simulation only. Never sends projection, audio, or vehicle commands. */
+const restorableScreens = new Set(['home', 'phones', 'projection', 'settings', 'diagnostics', 'vehicle', 'audio']);
+const homeModes = new Set(['apps', 'dashboard']);
+const wallpapers = new Set(['coast', 'dusk', 'graphite']);
+const defaultOrders = Object.freeze({
+  apps: Object.freeze(['projection', 'phones', 'vehicle', 'audio', 'settings']),
+  dashboard: Object.freeze(['music', 'temperature'])
+});
+const orderKey = kind => kind === 'apps' ? 'appOrder' : 'dashboardOrder';
+const sanitizeOrder = (value, defaults) => [...new Set([
+  ...(Array.isArray(value) ? value.filter(id => defaults.includes(id)) : []), ...defaults
+])];
+const validGlassStrength = value => Number.isInteger(value) && value >= 0 && value <= 100;
+
+export class Headunit {
+  constructor(storage) {
+    this.storage = storage;
+    this.lastPhone = null;
+    this.state = {
+      screen: 'home', homeMode: 'apps', activePhone: null,
+      vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
+      glassStrength: 55, appOrder: [...defaultOrders.apps], dashboardOrder: [...defaultOrders.dashboard],
+      editingLayout: false, motionState: 'unknown', persistenceError: false,
+      phones: [
+        { id: 'phone-a', name: 'Driver’s iPhone', active: false },
+        { id: 'phone-b', name: 'Passenger’s iPhone', active: false }
+      ]
+    };
+    try {
+      const saved = JSON.parse(storage?.getItem('headunit.appearance') || '{}');
+      if (['left','right'].includes(saved?.dockSide)) this.state.dockSide = saved.dockSide;
+      if (wallpapers.has(saved?.wallpaper)) this.state.wallpaper = saved.wallpaper;
+      if (validGlassStrength(saved?.glassStrength)) this.state.glassStrength = saved.glassStrength;
+    } catch {}
+    try {
+      const saved = JSON.parse(storage?.getItem('headunit.navigation') || '{}');
+      if (restorableScreens.has(saved?.screen)) this.state.screen = saved.screen;
+      if (homeModes.has(saved?.homeMode)) this.state.homeMode = saved.homeMode;
+    } catch {}
+    try {
+      const saved = JSON.parse(storage?.getItem('headunit.layout') || '{}');
+      this.state.appOrder = sanitizeOrder(saved?.appOrder, defaultOrders.apps);
+      this.state.dashboardOrder = sanitizeOrder(saved?.dashboardOrder, defaultOrders.dashboard);
+    } catch {}
+    this.preferredScreen = this.state.screen;
+  }
+
+  // Only explicit, allowlisted navigation writes startup preferences. Native
+  // overlays, connection state, selected phones, and playback are never restored.
+  navigate(screen) {
+    if (!restorableScreens.has(screen)) throw Error('Unknown screen');
+    this.state.screen = screen;
+    this.endLayoutEdit();
+    this.preferredScreen = screen;
+    try {
+      this.storage?.setItem('headunit.navigation', JSON.stringify({
+        screen, homeMode: this.state.homeMode
+      }));
+    } catch {}
+  }
+
+  setHomeMode(mode) {
+    if (!homeModes.has(mode)) throw Error('Unknown Home layout');
+    this.state.homeMode = mode;
+    this.endLayoutEdit();
+    this.home();
+  }
+
+  connect(id) {
+    if (!this.state.phones.some(p => p.id === id)) throw Error('Unknown phone');
+    this.lastPhone = id;
+    this.state.activePhone = id;
+    this.state.phones.forEach(p => { p.active = p.id === id; });
+    this.navigate('projection');
+  }
+
+  home() { this.navigate('home'); }
+
+  disconnect() {
+    this.state.activePhone = null;
+    this.state.phones.forEach(p => { p.active = false; });
+    this.state.screen = 'home';
+  }
+
+  reconnect() {
+    if (!this.lastPhone) return;
+    this.state.activePhone = this.lastPhone;
+    this.state.phones.forEach(p => { p.active = p.id === this.lastPhone; });
+    this.state.screen = this.preferredScreen;
+  }
+
+  toggleDemoPlayback() { this.state.demoPlaying = !this.state.demoPlaying; }
+
+  wallpaper(value) {
+    if (!wallpapers.has(value)) throw Error('Unknown wallpaper');
+    if (this.state.motionState === 'moving') return false;
+    this.state.wallpaper = value;
+    this.saveAppearance();
+  }
+
+  savePreference(key, value) {
+    try {
+      if (!this.storage?.setItem) throw Error('Preference storage unavailable');
+      this.storage.setItem(key, JSON.stringify(value));
+      this.state.persistenceError = false;
+    } catch { this.state.persistenceError = true; }
+  }
+
+  saveAppearance() {
+    this.savePreference('headunit.appearance', {
+      wallpaper: this.state.wallpaper, glassStrength: this.state.glassStrength, dockSide: this.state.dockSide
+    });
+  }
+
+  setDockSide(value) {
+    if (!['left','right'].includes(value)) throw Error('Unknown dock side');
+    if (this.state.motionState === 'moving') return false;
+    this.state.dockSide = value;
+    this.saveAppearance();
+    return true;
+  }
+
+  setGlassStrength(value) {
+    if (!validGlassStrength(value)) throw Error('Glass strength must be an integer from 0 to 100');
+    if (this.state.motionState === 'moving') return false;
+    this.state.glassStrength = value;
+    this.saveAppearance();
+  }
+
+  // Motion is an ephemeral host signal. Never infer parked from missing data,
+  // persist a safe-looking state, or synthesize telemetry for this preview.
+  setMotionState(value) {
+    if (!['unknown', 'stationary', 'moving'].includes(value)) throw Error('Unknown motion state');
+    this.state.motionState = value;
+    if (value === 'moving') this.endLayoutEdit();
+  }
+
+  beginLayoutEdit() {
+    if (this.state.motionState === 'moving') return false;
+    this.state.editingLayout = true;
+    return true;
+  }
+
+  endLayoutEdit() { this.state.editingLayout = false; }
+
+  moveLayoutItem(kind, id, direction) {
+    if (!Object.hasOwn(defaultOrders, kind)) throw Error('Unknown layout');
+    if (!defaultOrders[kind].includes(id) || ![-1, 1].includes(direction)) throw Error('Invalid layout move');
+    if (!this.state.editingLayout || this.state.motionState === 'moving') return false;
+    const order = this.state[orderKey(kind)];
+    const current = order.indexOf(id), next = current + direction;
+    if (next < 0 || next >= order.length) return false;
+    [order[current], order[next]] = [order[next], order[current]];
+    this.saveLayout();
+    return true;
+  }
+
+  resetLayout(kind) {
+    if (!Object.hasOwn(defaultOrders, kind)) throw Error('Unknown layout');
+    if (!this.state.editingLayout || this.state.motionState === 'moving') return false;
+    this.state[orderKey(kind)] = [...defaultOrders[kind]];
+    this.saveLayout();
+    return true;
+  }
+
+  saveLayout() {
+    this.savePreference('headunit.layout', {
+      appOrder: this.state.appOrder, dashboardOrder: this.state.dashboardOrder
+    });
+  }
+}

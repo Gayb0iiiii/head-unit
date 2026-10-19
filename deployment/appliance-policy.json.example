@@ -1,0 +1,41 @@
+{
+  "schema": "livi-appliance-design-example-1",
+  "status": "NOT_INSTALLED",
+  "enabled": false,
+  "consumedByRuntime": false,
+  "pin": "4bcd1335c2daedba40640e6dc432cd2ed7acfaa4",
+  "expectedControlProtocol": 8,
+  "owners": {
+    "outerWayland": "approved-session-provider-or-future-appliance-manager",
+    "engine": "future-outer-appliance-manager",
+    "nestedCompositor": "livi-core",
+    "shell": "patched-livi-core-ui-supervisor",
+    "recoveryPresenter": "proposed-nested-compositor-overlay"
+  },
+  "timingStatus": "PROPOSED_UNMEASURED_LAB_DEFAULTS",
+  "startupTimeoutMs": { "outerWayland": 10000, "engine": 15000, "shell": 10000 },
+  "heartbeatGraceMs": 5000,
+  "suggestedChallengeIntervalMs": 1000,
+  "gracefulStopTimeoutMs": 3000,
+  "forcedStopObservationTimeoutMs": 2000,
+  "maxRetriesAfterInitialAttempt": 3,
+  "retryBackoffMs": [500, 1000, 2000],
+  "retryBackoffCapMs": 4000,
+  "retryReset": "explicit-authorized-new-lifecycle-only",
+  "requireObservedStopBeforeReplacement": true,
+  "requireSpawnEpochAndFreshHealthChallenge": true,
+  "requireObservedRecoveryPresentation": true,
+  "onUiRetryExhaustion": "preserve-engine-and-latch-recovery",
+  "onUnconfirmedStop": "latch-without-duplicate-spawn",
+  "onUnavailableDisplay": "latch-and-log-without-screen-guarantee",
+  "hostPowerActions": [],
+  "ignitionStandby": {
+    "status": "REQUIREMENT_ONLY_NOT_IMPLEMENTED",
+    "sustainedOffDisplayOff": true,
+    "sustainedOffAudioOff": true,
+    "toleratedDipSeconds": [1, 2],
+    "sustainedOffThresholdMs": null,
+    "piSleepWakeSupport": "UNVERIFIED_FOR_TARGET_BOARD_FIRMWARE_OS",
+    "hardPowerCutAllowed": false
+  }
+}

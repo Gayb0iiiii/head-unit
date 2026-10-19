@@ -1,0 +1,2 @@
+Parent verification 2026-10-19 01:17 UTC
+npm run build: passed. Static/self-contained preview generated and adapter syntax checked. Not an upstream native build.

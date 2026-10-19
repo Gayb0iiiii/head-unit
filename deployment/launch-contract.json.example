@@ -1,0 +1,44 @@
+{
+  "schema": "livi-appliance-launch-design-example-1",
+  "status": "NOT_INSTALLED",
+  "enabled": false,
+  "consumedByRuntime": false,
+  "requiredApproval": "specific-lab-target-native-startup-effects-and-rollback",
+  "targetUser": null,
+  "outerWaylandDisplay": null,
+  "pinnedSourceRoot": null,
+  "verifiedCoreExecutable": null,
+  "verifiedShellExecutable": null,
+  "verifiedBinaryHashes": null,
+  "resourceMode": "explicit-reviewed-repository-or-installed-layout",
+  "coreEnvironmentRequirements": {
+    "LIVI_ROOT_or_LIVI_RESOURCES": "explicit-reviewed-path-not-yet-selected",
+    "LIVI_NO_UI": "unset-core-retains-ui-ownership",
+    "LIVI_KIOSK": "unset-in-initial-lab-no-host-power-semantics",
+    "LIVI_UI_CMD": "reviewed-command-not-yet-selected"
+  },
+  "shellInheritedFromCore": [
+    "LIVI_CORE_SOCKET",
+    "WAYLAND_DISPLAY",
+    "XDG_SESSION_TYPE",
+    "LIVI_COMPOSITOR",
+    "LIVI_RENDER_NODE-if-present",
+    "LIVI_LIFELINE-and-stdin-pipe"
+  ],
+  "electronWaylandArgumentRequiredForShellOverride": "--ozone-platform=wayland",
+  "uiAppId": "dev.f-io.livi",
+  "mainRole": "main",
+  "secondaryInitialTitles": { "cluster": "livi:cluster", "aux": "livi:aux" },
+  "secondaryRendererRoleQueries": { "cluster": "role=cluster", "aux": "role=aux" },
+  "visualFullscreen": "config.kiosk-per-active-role-plus-observed-compositor-ack",
+  "forbiddenOwnershipShortcuts": [
+    "outer-manager-spawns-a-second-shell",
+    "external-client-connects-to-compositor.ctrl",
+    "watchdog-sends-core-Quit-or-Restart-as-generic-process-control",
+    "perpetual-service-restart-resets-retry-budget"
+  ],
+  "installedService": null,
+  "autologinConfiguration": null,
+  "hostPowerCommands": [],
+  "readyForExecution": false
+}
