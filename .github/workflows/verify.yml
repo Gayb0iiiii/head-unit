@@ -13,3 +13,21 @@ jobs:
       - run: npm test
       - run: npm run test:electron:fixture
       - run: npm run build
+  native-input:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: f-io/LIVI
+          ref: 4bcd1335c2daedba40640e6dc432cd2ed7acfaa4
+          path: .native-source
+          sparse-checkout: |
+            native
+            src/main/shared/assets
+            scripts/livi-link/common
+          persist-credentials: false
+      - run: rustup toolchain install beta-2026-10-03 --profile minimal
+      - run: python3 scripts/native-check.py apply .native-source
+      - run: rustup run beta-2026-10-03 python3 scripts/native-check.py compile .native-source
+      - run: rustup run beta-2026-10-03 python3 scripts/native-check.py test .native-source

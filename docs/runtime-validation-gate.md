@@ -8,7 +8,7 @@ After this initial audit, the complete tracked repository tree was acquired in `
 
 ## Initial audit result
 
-The current workspace can support portable JavaScript controller/codec development and injected-boundary tests. It does not currently contain a buildable or runnable LIVI engine. The immediate blockers are incomplete source and missing toolchain/development dependencies. Native composition and phone testing also require a permitted runtime/display and actual hardware access. More mock tests cannot close those gates.
+At the initial audit, this workspace supported portable JavaScript controller/codec development and injected-boundary tests but had no buildable LIVI engine. The later [native core checkpoint](../native/README.md) now provides pinned Rust, a compiled patched core binary and isolated input tests; a complete runnable engine is still not established. The immediate blockers are incomplete source and missing toolchain/development dependencies. Native composition and phone testing also require a permitted runtime/display and actual hardware access. More mock tests cannot close those gates.
 
 The host is Linux x86_64, Debian 13.6 (Trixie), with Node v24.19.0, npm 11.9.0, pkg-config 1.8.1, GCC 14.2.0 and make available. This is an upstream-supported OS/architecture family; the blocker is not that Debian/x86_64 is inherently unsupported.
 
@@ -101,3 +101,7 @@ Portable controller/codec tests, source-level review, deterministic policy tests
 Audit tools used only read operations: command resolution, version queries, file existence/listing, source reads, pkg-config metadata queries, `ldconfig -p`, visible process names, and environment-catalog read. No sockets or services were launched.
 
 References: [pinned upstream README](https://github.com/f-io/LIVI/blob/4bcd1335c2daedba40640e6dc432cd2ed7acfaa4/README.md), [resource layout](https://github.com/f-io/LIVI/blob/4bcd1335c2daedba40640e6dc432cd2ed7acfaa4/native/livi-helperd/bin/livi-core/src/resources.rs), `docs/upstream-contracts.md`, `docs/verification.md`, `electron/README.md`.
+
+### Current native source checkpoint — 2026-10-20
+
+The saved environment no longer contained the older complete checkout path. The isolated pinned sparse worktree and official locally installed Rust compiler now support core compilation and reviewed Rust tests. The source patch adds client-owned input cleanup, including actual AA packet encoding against test sockets. No native application/service was started. Full helper/media/compositor builds, secure Electron/browser execution, isolated composition and physical phone/device acceptance remain open. The sandbox-helper blocker was not bypassed. Compilation and emitted release commands do not establish physical release delivery after transport/process death.

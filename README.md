@@ -4,7 +4,7 @@ Separate, reversible prototype. This is not an update to the existing v4 demo an
 
 ## Run
 
-- Node 24: `npm test` and `npm run build`. No downloaded dependencies.
+- Node 24 and Python 3.9+: `npm test` and `npm run build`. No npm dependencies; tests include Python guards for the native patch workflow.
 - `npm run test:appliance` runs the fake-clock/fake-owner lifecycle harness only; it does not start or stop real processes.
 - Open `dist/preview.html` directly for the self-contained software preview.
 - Or run `npm start` and open http://127.0.0.1:8095 for development.
@@ -53,7 +53,7 @@ At startup or after a confirmed phone absence, the controller gives the saved ph
 
 ## Verified / blocked
 
-Passing: Node unit/contract tests and static build/syntax checks. Exact results in evidence/tests-final.txt and evidence/build-final.txt. Upstream native Rust/Electron build was not run.
+Passing: Node unit/contract tests and static build/syntax checks. Exact results in evidence/tests-final.txt and evidence/build-final.txt. A later pinned Rust core build and isolated input-ownership test checkpoint is documented in [native/README.md](native/README.md); full engine/Electron runtime acceptance remains open.
 
 Blocked: the v4 ZIP was outside the Library access scope selected for this turn (403). No baseline files were read or modified. Reattach/select that ZIP before merge work.
 
@@ -85,7 +85,7 @@ Local Pi music is a later, low-priority feature. DSP model, RCA/optical output, 
 
 ## Complete pinned-source gate
 
-The full 1,924-path upstream repository tree is now acquired separately and verified against its commit/tree, with no submodules or LFS pointers. Source plans: docs/native-build-plan.md and docs/native-shell-integration.md. Native compilation and execution remain unperformed; toolchain provisioning and a deliberately authorized isolated runtime are required. Core startup can modify host services and is not a harmless handshake probe. See docs/runtime-validation-gate.md.
+The full 1,924-path upstream tree was previously acquired and verified, but that checkout path is absent in this saved environment. A new isolated sparse worktree at the exact pin supports the [reproducible native patch](native/README.md), core binary compilation and reviewed input tests. Full helper/media/compositor builds and deliberately authorized isolated runtime acceptance remain open. Source plans: docs/native-build-plan.md and docs/native-shell-integration.md. Core startup can modify host services and is not a harmless handshake probe. See docs/runtime-validation-gate.md.
 
 Startup fallback and projection dropout return Home; the host exposes a narrow reconnect-notice code, without replacing later manual navigation. Browser/native binding and actual background phone recovery still require runtime verification.
 
