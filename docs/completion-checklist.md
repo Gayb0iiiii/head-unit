@@ -12,12 +12,13 @@ Updated 2026-10-20. This repository is the ongoing head-unit project for the HZJ
 - [x] Settings Auto/Day/Night override, persistence, unavailable Auto fallback, day palette and native-background transparency. Live headlights remain disconnected.
 - [x] Opt-in compositor-compatible window preset and host-owned title; local focus/unresponsive input gating and best-effort contact cancellation. Native death cleanup remains open.
 - [x] Explicit parent-lifeline attachment matching the pinned environment/pipe check, disposal-before-quit callback and idempotent startup; actual application exit remains unverified.
+- [x] Explicit Electron main-window entry point with single-instance ownership, non-activating duplicate handling, SIGTERM/SIGINT cleanup and lifeline quit wiring; injected lifecycle validation only.
 - [x] Source regressions, static/offline build, fake-core Unix-socket fixture and optional sandbox-enabled Electron harness.
 
 ## Software work remaining
 
 - [ ] Run secure Electron and browser acceptance in a compatible sandbox environment; inspect day/night contrast, touch targets, overflow and focus at 800×480, 1280×720 and portrait. Harnesses exist; visual acceptance is open.
-- [ ] Complete native host embedding beyond the local window/input guards: app ID, projection geometry, secondary windows, process isolation, application lifeline wiring, single-instance/SIGTERM and lifecycle ownership. Implement against the pinned host contract before real runtime acceptance.
+- [ ] Complete native host embedding beyond the local window/input guards: app ID, projection geometry, secondary windows, actual process isolation/exit, fullscreen/resize and remaining native lifecycle ownership. Local application wiring is implemented but runtime acceptance remains open. Implement against the pinned host contract before real runtime acceptance.
 - [ ] Complete native readiness/health and dead-client input release before promoting the modeled appliance supervisor to executable behavior.
 - [ ] Integrate verified provider contracts for headlight/motion inputs without widening the renderer to raw state.
 - [ ] Implement pairing/forget and Bluetooth-only/call/contact flows only after their backend capabilities, permissions and privacy lifecycle are defined. Current disabled controls are intentional.

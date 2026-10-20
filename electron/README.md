@@ -1,6 +1,6 @@
 # Isolated Electron host boundary
 
-This directory is an attachment scaffold for an existing privileged LIVI host. It does not import or install Electron, create a native window, register a protocol, or integrate a compositor. Native projection, camera, audio, microphone, and touch geometry still belong to the existing LIVI host. The explicit `glass-runtime.mjs` composition connects only to a local `core.sock` after its owner calls `start()`; it never launches LIVI.
+This directory contains attachment modules plus an explicit Electron application entry point. Attachment imports do not launch Electron; executing the application entry point imports Electron and creates its main window after readiness. It does not install Electron, start LIVI, register a protocol or integrate native video planes. Native projection, camera, audio, microphone, and touch geometry still belong to the existing LIVI host. The explicit `glass-runtime.mjs` composition connects only to a local `core.sock` after its owner calls `start()`; it never launches LIVI.
 
 ## Main-process use
 
@@ -55,3 +55,14 @@ Parent EOF disposes the boundary/controller/transport before calling `onLost` on
 The future application entrypoint must opt into this attachment and wire its actual quit path. Injected-stream coverage does not validate Electron exit, SIGKILL handling in the native owner, compositor shutdown or physical input release. SIGTERM/single-instance/application ownership and native readiness remain separate integration work.
 
 If a stream was destroyed with an error before attachment, Node can still have that terminal error queued. The watcher keeps a temporary error drain until the terminal error/close event, then removes it. Only when destruction has already completed does it also schedule an unreferenced next-turn cleanup; asynchronous destruction retains the drain until completion. This avoids an uncaught shutdown error without leaving a persistent listener or invoking quit twice.
+
+
+## Explicit application entry point
+
+`electron/package.json` selects `main.mjs`, which passes the real Electron app/BrowserWindow/ipcMain into the tested `application.mjs` owner. On an authorized suitable host, an installed Electron executable can open the `electron/` directory after `npm run build`. It requires an explicit absolute `LIVI_CORE_SOCKET` ending in `core.sock` and loads only the local `dist/index.html`. It does not discover or launch an engine. Preferences use this application's separate userData directory. Sandbox-disabling and web-security-disabling launch flags are rejected. No insecure launch fallback exists.
+
+The application takes a single-instance lock before creating a window. Second-launch events deliberately do not restore, show, focus or issue any command to the existing window. A duplicate supervised launch (`LIVI_LIFELINE=1`) exits unsuccessfully: the pinned native supervisor interprets a successful UI exit as a request to stop core. A duplicate standalone launch exits normally. Lock contention is still a startup failure, not a supported way to share one UI across concurrent supervisors; the native supervisor retains its bounded retry policy. No lock is forcibly removed.
+
+The application wires the parent lifeline to its quit path, disposes before quitting on SIGTERM/SIGINT or normal closure, and exits unsuccessfully after renderer crash or failed page load. Startup/teardown races suppress late window creation/show. It never restarts native services or sends a native Quit/Restart action. Compositor mode selects the window preset and Wayland flag, but does not claim app-ID/plane/fullscreen/secondary-window acceptance. `desktopName` retains the pinned identity hint; actual packaged Wayland identity is not proven by metadata.
+
+This runnable main-window shell is not yet a complete replacement for all upstream Electron responsibilities. Secondary windows, camera/video integration and verified native health/input-death handling remain required before appliance use. All application lifecycle results here use injected Electron objects, with a real local runtime/socket seam test. Actual Electron startup and OS signal behavior remain unverified in this sandbox-blocked environment.
