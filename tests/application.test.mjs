@@ -5,14 +5,14 @@ import {startHeadunitApplication} from '../electron/application.mjs';
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 function fixture(options={}) {
  const events=[],ready=deferred(),load=deferred();const app=new EventEmitter(),signals=new EventEmitter();
- Object.assign(app,{requestSingleInstanceLock:()=>options.lock!==false,whenReady:()=>ready.promise,getPath:()=>'/tmp/headunit-app',quit:()=>events.push('quit'),exit:code=>events.push(['exit',code]),commandLine:{appendSwitch:(...args)=>events.push(['switch',...args])}});
+ Object.assign(app,{requestSingleInstanceLock:()=>options.lock!==false,whenReady:()=>ready.promise,getPath:()=>'/tmp/headunit-app',quit:()=>events.push('quit'),exit:code=>events.push(['exit',code]),setDesktopName:name=>events.push(['desktop',name]),commandLine:{appendSwitch:(...args)=>events.push(['switch',...args])}});
  const windows=[];let runtimeConfig;
  class Window extends EventEmitter {
   constructor(config){super();this.config=config;this.webContents=new EventEmitter();windows.push(this);events.push('window');}
   loadURL(url){this.url=url;events.push('load');return load.promise;}
   show(){events.push('show');}focus(){events.push('focus');}restore(){events.push('restore');}
  }
- const start=()=>startHeadunitApplication({app,BrowserWindow:Window,ipcMain:{},signals,env:{LIVI_CORE_SOCKET:'/tmp/native/core.sock',LIVI_LIFELINE:'1',LIVI_COMPOSITOR:'1'},pageURL:'file:///tmp/headunit/index.html',createRuntime:config=>{runtimeConfig=config;return {start:()=>events.push('start'),dispose:()=>events.push('dispose')};}});
+ const start=()=>startHeadunitApplication({app,BrowserWindow:Window,ipcMain:{},signals,env:{LIVI_CORE_SOCKET:'/tmp/native/core.sock',LIVI_LIFELINE:'1',LIVI_COMPOSITOR:'1',...options.env},platform:'linux',screen:options.screen,pageURL:'file:///tmp/headunit/index.html',createRuntime:config=>{runtimeConfig=config;return {start:()=>events.push('start'),dispose:()=>events.push('dispose')};}});
  return {events,app,signals,ready,load,windows,start,get runtimeConfig(){return runtimeConfig;}};
 }
 test('entrypoint waits for Electron, attaches before load, and never activates on second launch',async()=>{
@@ -71,4 +71,18 @@ test('real runtime is disposed before application quit without a native engine l
  const owner=startHeadunitApplication({app:f.app,BrowserWindow:Window,ipcMain:{handle:(name,fn)=>handlers.set(name,fn),removeHandler:name=>handlers.delete(name)},signals:f.signals,env:{LIVI_CORE_SOCKET:'/tmp/headunit-app/core.sock'},pageURL:'file:///tmp/headunit/index.html',createRuntime:config=>createGlassRuntime({...config,connectSocket:()=>{created++;return socket;}})});
  f.ready.resolve();await owner.ready;assert.equal(created,1);assert.ok(handlers.size>0);
  f.signals.emit('SIGTERM');owner.shutdown();assert.equal(socketDestroyed,1);assert.equal(f.events.filter(e=>e==='quit').length,1);
+});
+
+test('Linux identity is explicit before readiness and compositor dimensions remain unspecified',async()=>{
+ const f=fixture(),owner=f.start();assert.ok(f.events.some(e=>Array.isArray(e)&&e[0]==='desktop'&&e[1]==='dev.f-io.livi.desktop'));
+ f.ready.resolve();await Promise.resolve();assert.equal(f.windows[0].config.width,undefined);assert.equal(f.windows[0].config.height,undefined);
+ f.load.resolve();await owner.ready;owner.shutdown();
+});
+test('application owns compositor timers and cancels fullscreen when shutdown interrupts load',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ const f=fixture({env:{LIVI_KIOSK:'1'},screen:{getDisplayMatching:()=>({size:{width:1024,height:600}})}}),owner=f.start();
+ f.ready.resolve();await Promise.resolve();const win=f.windows[0];let fullscreen=0;
+ Object.assign(win,{isDestroyed:()=>false,isFullScreen:()=>false,getBounds:()=>({}),getContentSize:()=>[800,480],setContentSize:()=>{},setFullScreen:()=>fullscreen++});
+ win.emit('ready-to-show');assert.equal(win.listenerCount('resize'),1);f.signals.emit('SIGTERM');f.load.resolve();await owner.ready;t.mock.timers.tick(1000);
+ assert.equal(fullscreen,0);assert.equal(win.listenerCount('resize'),0);assert.ok(!f.events.includes('show'));
 });

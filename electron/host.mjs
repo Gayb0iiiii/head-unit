@@ -6,7 +6,7 @@ const preload = fileURLToPath(new URL('./preload.cjs',import.meta.url));
 export function headunitWindowOptions({compositor=false} = {}) {
   if(typeof compositor!=='boolean')throw new TypeError('Compositor mode must be boolean');
   return {
-    width:1280, height:720, transparent:true, backgroundColor:'#00000000',
+    ...(compositor ? {} : {width:1280,height:720}), transparent:true, backgroundColor:'#00000000',
     ...(compositor ? {title:'livi:main',frame:false,useContentSize:true,kiosk:false,fullscreenable:true,autoHideMenuBar:true} : {}),
     webPreferences:{backgroundThrottling:false,preload, contextIsolation:true, nodeIntegration:false, nodeIntegrationInSubFrames:false, sandbox:true, webSecurity:true, webviewTag:false},
   };

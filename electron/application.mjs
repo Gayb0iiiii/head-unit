@@ -1,9 +1,10 @@
 import path from 'node:path';
+import {attachCompositorWindow} from './compositor-window.mjs';
 import {headunitWindowOptions} from './host.mjs';
 import {createGlassRuntime} from './glass-runtime.mjs';
 
 /** Main-process owner. Does not spawn LIVI, alter services, or expose process controls to IPC. */
-export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=process,env=process.env,
+export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=process,env=process.env,screen,platform=process.platform,
   pageURL=new URL('../dist/index.html',import.meta.url).href,createRuntime=createGlassRuntime}) {
   const socketPath=env.LIVI_CORE_SOCKET;
   if(typeof socketPath!=='string'||!path.isAbsolute(socketPath)||path.basename(socketPath)!=='core.sock'||socketPath.includes('\0'))throw Error('Explicit LIVI_CORE_SOCKET required');
@@ -17,11 +18,13 @@ export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=proc
     app.exit(env.LIVI_LIFELINE==='1'?1:0);
     return {ready:Promise.resolve(),shutdown:()=>{}};
   }
-  let stopping=false,runtime,window;
+  if(platform==='linux')app.setDesktopName('dev.f-io.livi.desktop');
+  let stopping=false,runtime,window,detachWindow;
   const listeners=[];
   const on=(target,event,fn)=>{target.on(event,fn);listeners.push([target,event,fn]);};
   function cleanup() {
     for(const [target,event,fn] of listeners.splice(0))target.removeListener(event,fn);
+    detachWindow?.();
     runtime?.dispose();
   }
   function shutdown(code=0) {
@@ -40,6 +43,7 @@ export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=proc
   const ready=app.whenReady().then(async()=>{
     if(stopping)return;
     window=new BrowserWindow({...headunitWindowOptions({compositor}),show:false});
+    if(compositor)detachWindow=attachCompositorWindow({window,screen,kiosk:env.LIVI_KIOSK==='1'});
     on(window,'closed',()=>shutdown());
     on(window.webContents,'render-process-gone',()=>shutdown(1));
     runtime=createRuntime({ipcMain,trustedWindow:window,trustedUrl:pageURL,socketPath,
