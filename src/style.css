@@ -181,3 +181,13 @@ body[data-appearance=day] input[type=range]{accent-color:#155c70}
 body[data-appearance=day][data-native-front=projection],body[data-appearance=day][data-native-front=camera],body[data-appearance=day][data-native-front=cluster]{background:transparent}
 @media(prefers-reduced-transparency:reduce){body[data-appearance=day] :is(aside,.connection,.pill,.row,.panel,.projection-placeholder,.back,.home-switch,.dashboard-card,.dashboard-shortcut,.phone-capabilities,.glass-settings,.app-symbol){background:#edf5f8}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){body[data-appearance=day] :is(aside,.connection,.pill,.row,.panel,.projection-placeholder,.back,.home-switch,.dashboard-card,.dashboard-shortcut,.phone-capabilities,.glass-settings,.app-symbol){background:#edf5f8}}
+
+/* Match pinned streamBox: the picture is contained in the full UI viewport,
+   independently of dock/content columns. Configuration is not touch calibration. */
+body[data-native-front=projection] .native-projection-region{position:fixed;inset:0;width:100%;height:100%;container-type:size;z-index:-1;pointer-events:none;background:transparent}
+.native-picture{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;background:transparent}
+.native-picture-mask{position:absolute;background:#091827;pointer-events:none}
+.native-picture-mask.top{top:0;left:0;right:0}.native-picture-mask.bottom{bottom:0;left:0;right:0}.native-picture-mask.left{left:0;top:0;bottom:0}.native-picture-mask.right{right:0;top:0;bottom:0}
+.native-picture-notice{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:12px 18px;background:#091827e8;border-radius:14px;color:#e8eef5}
+/* No browser camera is attached: never reveal an old native plane as camera imagery. */
+body[data-native-front=camera],body[data-appearance=day][data-native-front=camera]{background:#091827}

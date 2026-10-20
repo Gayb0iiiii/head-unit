@@ -77,7 +77,7 @@ try {
   await click('main [data-action="settings"]');await heading('Settings');
   await click('[data-action="diagnostics"]');await heading('Diagnostics');
   core.patch([{op:'set',path:['front','main'],value:'camera'}]);
-  await heading('Native display in control');
+  await heading('Camera unavailable');
   core.patch([{op:'set',path:['front','main'],value:'livi'}]);await heading('Settings');
   checks.push('authoritative camera takeover clears diagnostics and restores Settings');
   await click('aside [data-action="phones"]');await heading('Phones');

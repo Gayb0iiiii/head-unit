@@ -393,3 +393,9 @@ test('opt-in runtime owns secondary windows and revokes their channels before so
  assert.ok(f.handlers.has('headunit-secondary:get-view'));runtime.start();socket.emit('connect');socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi',aux:'livi'},config:{auxScreenActive:true}}}));assert.equal(windows.length,1);
  runtime.dispose();windows[0].loaded();await new Promise(resolve=>setImmediate(resolve));assert.equal(f.handlers.size,0);
 });
+test('main IPC filters configured picture metadata and clears it on takeover or unavailable state',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath),f=fixture();f.controller.state={...f.controller.state,front:'projection',projectionReady:true,picture:{width:800,height:480,insets:null,cameraId:'private'}};
+ const detach=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url});
+ assert.deepEqual((await f.call(channels.getView)).picture,{width:800,height:480,insets:null});f.controller.state.front='camera';assert.equal((await f.call(channels.getView)).picture,undefined);
+ f.controller.state.front='projection';f.controller.state.connected=false;assert.equal((await f.call(channels.getView)).picture,undefined);detach();
+});

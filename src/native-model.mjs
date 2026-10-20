@@ -1,3 +1,4 @@
+import {filterPicture} from './picture.mjs';
 import {filterConnectionPhase} from './connection-status.mjs';
 import {emptyHomeStatus,filterHomeStatus} from './home-status.mjs';
 import {Headunit} from './model.mjs';
@@ -21,6 +22,7 @@ export class NativeHeadunit extends Headunit {
     this.state.connected = false;
     this.state.connectionPhase = 'unavailable';
     this.state.front = 'livi';
+    this.state.picture=null;
     this.state.notice = null;
     this.state.commandError = false;
     this.pendingPhone = null;
@@ -54,6 +56,7 @@ export class NativeHeadunit extends Headunit {
       status:['active','available','offline'].includes(p.status) ? p.status : 'offline', active:p.status === 'active'})) : [];
     if (!connected || ['camera','cluster'].includes(view.front) || (this.state.connected && this.state.screen !== view.route)) this.cancelSelection();
     this.state.projectionReady = connected && view.projectionReady === true;
+    this.state.picture=filterPicture(view?.picture,this.state.projectionReady,view?.front);
     this.state.connected = connected;
     this.state.connectionPhase = filterConnectionPhase(view?.connectionPhase,connected);
     this.state.phones = phones;

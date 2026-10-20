@@ -7,9 +7,10 @@ export function attachSecondaryView({api,document}) {
     const role=['cluster','aux'].includes(value?.role)?value.role:null;
     const connected=role!==null&&value?.connected===true;
     const front=connected&&['livi','cluster','camera','projection'].includes(value.front)?value.front:null;
+    if(document.body)document.body.dataset.nativeFront=front??'';
     label.textContent=role==='cluster'?'Cluster display':role==='aux'?'Auxiliary display':'Secondary display';
-    panel.hidden=connected&&value.presented===true&&front!==null&&front!=='livi';
-    status.textContent=connected&&front!==null?'Controls are on the main display.':'Waiting for connection.';
+    panel.hidden=connected&&value.presented===true&&['cluster','projection'].includes(front);
+    status.textContent=connected&&front==='camera'?'Camera unavailable. No camera source is connected to this shell.':connected&&front!==null?'Controls are on the main display.':'Waiting for connection.';
     if(connected&&front==='livi'&&value.presented===true&&!reported){
       reported=true;
       try{Promise.resolve(api.shown()).catch(()=>{});}catch{}

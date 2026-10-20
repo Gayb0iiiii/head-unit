@@ -1,6 +1,6 @@
 # Isolated Electron host boundary
 
-This directory contains attachment modules plus an explicit Electron application entry point. Attachment imports do not launch Electron; executing the application entry point imports Electron and creates its main window after readiness. It does not install Electron, start LIVI, register a protocol or integrate native video planes. Native projection, camera, audio, microphone, and touch geometry still belong to the existing LIVI host. The explicit `glass-runtime.mjs` composition connects only to a local `core.sock` after its owner calls `start()`; it never launches LIVI.
+This directory contains attachment modules plus an explicit Electron application entry point. Attachment imports do not launch Electron; executing the application entry point imports Electron and creates its main window after readiness. It does not install Electron, start LIVI, register a protocol or integrate native video planes. Native projection, audio, microphone, and touch geometry still require LIVI integration. Pinned camera content uses browser capture; this shell has no configured capture source and shows Camera unavailable. The explicit `glass-runtime.mjs` composition connects only to a local `core.sock` after its owner calls `start()`; it never launches LIVI.
 
 ## Main-process use
 
@@ -90,3 +90,5 @@ The secondary preload exposes only `headunitSecondary.getView()`, `onView(callba
 The page is a read-only status surface and becomes transparent when a known native plane owns the role. It adds no gauges or telemetry and leaves RealDash independent. It does not claim to render camera media, place native planes or calibrate touch.
 
 Deactivation, invalid config, resync/disconnect or shutdown revokes identity before destroying windows. Late loads/closes/replies cannot affect replacement leases. User close, load failure or renderer loss suppresses reopening until the role is explicitly deactivated/reactivated or a fresh synchronized connection arrives. This local suppression deliberately does not write native active flags or saved bounds. No native process or hardware is launched by the owner itself.
+
+The main public view may include bounded configured projection dimensions/insets while synchronized and actively presenting projection. These feed the pinned contained-picture CSS, not frame readiness or calibrated touch. Geometry is removed on takeover/disconnect. Main and secondary camera surfaces remain opaque and unavailable; device enumeration, capture and permission changes are not enabled. See [picture and camera contract](../docs/native-shell-integration.md#configured-picture-geometry-and-honest-camera-presentation--2026-10-20).
