@@ -347,3 +347,24 @@ test('initially unfocused host cannot accept projection input',async()=>{
  assert.ok(!f.controller.calls.some(call=>call[0]==='intent'&&call[1].type==='touch'));
  f.window.emit('focus');await f.call(channels.touch,[[{id:0,x:0,y:0,phase:'down'}]]);detach();
 });
+
+test('parent EOF disposes runtime before quit, rejects pending commands and cannot reconnect',async t=>{
+ const {PassThrough}=await import('node:stream');const {encode}=await import('../src/protocol.mjs');
+ const {createGlassRuntime}=await moduleAt(runtimePath);const f=fixture(),input=new PassThrough();
+ let created=0,destroyed=false,quits=0;
+ const socket=new EventEmitter();socket.write=()=>true;socket.destroy=()=>{destroyed=true;};
+ const runtime=createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,socketPath:'/tmp/headunit-contract/core.sock',preferencePath:'/tmp/headunit-contract/preferences.json',connectSocket:()=>{created++;return socket;},
+   lifeline:{env:{LIVI_LIFELINE:'1'},input,stat:()=>({isFIFO:()=>true,isSocket:()=>false}),onLost:()=>{quits++;assert.equal(f.handlers.size,0);assert.equal(destroyed,true);}}});
+ t.after(()=>runtime.dispose());
+ assert.equal(input.listenerCount('end'),0);runtime.start();runtime.start();assert.equal(created,1);
+ socket.emit('connect');socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},devices:[{id:'a',status:'available'}],sessions:{active:null}}}));
+ const pending=assert.rejects(()=>f.call(channels.selectPhone,['a']),/unavailable/);
+ input.end();await new Promise(resolve=>setImmediate(resolve));await pending;
+ assert.equal(quits,1);assert.equal(input.listenerCount('end'),0);assert.throws(()=>runtime.start(),/disposed/);
+ runtime.dispose();input.emit('close');assert.equal(quits,1);assert.equal(created,1);
+});
+test('an already lost parent prevents socket startup',async t=>{
+ const {PassThrough}=await import('node:stream');const {createGlassRuntime}=await moduleAt(runtimePath);const f=fixture(),input=new PassThrough();input.destroy();let quits=0;
+ const runtime=createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,socketPath:'/tmp/headunit-contract/core.sock',preferencePath:'/tmp/headunit-contract/preferences.json',connectSocket:()=>{throw Error('must not connect');},lifeline:{env:{LIVI_LIFELINE:'1'},input,stat:()=>({isFIFO:()=>false,isSocket:()=>true}),onLost:()=>quits++}});
+ t.after(()=>runtime.dispose());runtime.start();assert.equal(quits,1);assert.equal(f.handlers.size,0);assert.throws(()=>runtime.start(),/disposed/);
+});
