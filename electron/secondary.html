@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Secondary display</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;color:#e8eef5;background:transparent}body{margin:0;min-height:100vh;display:grid;place-items:center}section{box-sizing:border-box;max-width:32rem;margin:1.5rem;padding:1.5rem 2rem;border:1px solid #ffffff25;border-radius:1rem;background:#101923e8}h1{font-size:clamp(1.15rem,3vw,1.8rem);font-weight:500;margin:0 0 .6rem}p{color:#b9c6d4;line-height:1.5;margin:0}[hidden]{display:none!important}
+</style>
+</head>
+<body><section id="panel" aria-live="polite"><h1 id="role">Secondary display</h1><p id="status">Waiting for connection.</p></section><script type="module" src="secondary-renderer.mjs"></script></body>
+</html>

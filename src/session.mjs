@@ -6,6 +6,7 @@ function validateAction(a){
  if(a.kind==='media'&&keys==='control,kind'&&['play','pause'].includes(a.control))return;
  if(a.kind==='nextDevice'&&keys==='kind')return;
  if(a.kind==='show'&&keys==='front,kind,screen'&&a.screen==='main'&&['livi','projection'].includes(a.front))return;
+ if(a.kind==='show'&&keys==='front,kind,screen'&&['cluster','aux'].includes(a.screen)&&a.front==='livi')return;
  if(a.kind==='setConfig'&&keys==='kind,patch'&&a.patch&&typeof a.patch==='object'&&!Array.isArray(a.patch)&&Object.keys(a.patch).length&&Object.entries(a.patch).every(([k,v])=>['huVolume','audioVolume','navVolume','voiceAssistantVolume','callVolume'].includes(k)&&typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1))return;
  throw Error('Action not allowed by headunit adapter');
 }

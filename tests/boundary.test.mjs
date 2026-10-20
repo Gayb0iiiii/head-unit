@@ -380,3 +380,16 @@ test('runtime window-config subscription stays privileged and ends with runtime 
  const view=await f.call(channels.getView);assert.doesNotMatch(JSON.stringify(view),/zoomPercent|clusterScreenActive|never expose|kiosk/);
  const before=seen.length;runtime.dispose();socket.emit('data',encode({type:'patch',rev:1,ops:[]}));assert.equal(seen.length,before);assert.throws(()=>runtime.subscribeWindowConfig(()=>{}),/disposed/);
 });
+test('opt-in runtime owns secondary windows and revokes their channels before socket teardown',async()=>{
+ const {createGlassRuntime}=await moduleAt(runtimePath),{encode}=await import('../src/protocol.mjs');const f=fixture(),windows=[];
+ class Secondary extends EventEmitter {
+  constructor(){super();this.dead=false;this.url='';this.webContents=Object.assign(new EventEmitter(),{mainFrame:{url:''},getURL:()=>this.url,isDestroyed:()=>this.dead,send:()=>{},setWindowOpenHandler:()=>{},session:{setPermissionCheckHandler:()=>{},setPermissionRequestHandler:()=>{}}});windows.push(this);}
+  isDestroyed(){return this.dead;}isFullScreen(){return false;}getContentSize(){return [800,480];}
+  loadURL(url){this.url=url;this.webContents.mainFrame.url=url;return new Promise(resolve=>this.loaded=resolve);}
+  destroy(){this.dead=true;this.emit('closed');}showInactive(){throw Error('must not show after disposal');}
+ }
+ const socket=Object.assign(new EventEmitter(),{write:()=>true,destroy:()=>{assert.equal(f.handlers.size,0);assert.ok(windows.every(window=>window.dead));}});
+ const runtime=createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,socketPath:'/tmp/headunit-secondary/core.sock',preferencePath:'/tmp/headunit-secondary/preferences.json',connectSocket:()=>socket,secondary:{BrowserWindow:Secondary,screen:{}}});
+ assert.ok(f.handlers.has('headunit-secondary:get-view'));runtime.start();socket.emit('connect');socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi',aux:'livi'},config:{auxScreenActive:true}}}));assert.equal(windows.length,1);
+ runtime.dispose();windows[0].loaded();await new Promise(resolve=>setImmediate(resolve));assert.equal(f.handlers.size,0);
+});

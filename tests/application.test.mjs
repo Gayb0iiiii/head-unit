@@ -94,3 +94,9 @@ test('application attaches the privileged config consumer before runtime start a
  f.ready.resolve();await Promise.resolve();assert.equal(subscribed,1);assert.ok(f.events.indexOf('config-subscribe')<f.events.indexOf('start'));
  f.signals.emit('SIGTERM');f.load.resolve();await owner.ready;assert.equal(detached,1);assert.ok(f.events.indexOf('config-detach')<f.events.indexOf('dispose'));
 });
+test('secondary ownership is passed to runtime only with explicit opt-in and compositor mode',async()=>{
+ for(const [env,enabled] of [[{},false],[{HEADUNIT_SECONDARY_WINDOWS:'1'},true],[{HEADUNIT_SECONDARY_WINDOWS:'true'},false],[{HEADUNIT_SECONDARY_WINDOWS:'1',LIVI_COMPOSITOR:'0'},false]]){
+  const f=fixture({env}),owner=f.start();f.ready.resolve();await Promise.resolve();assert.equal(Boolean(f.runtimeConfig.secondary),enabled);
+  if(enabled)assert.equal(typeof f.runtimeConfig.secondary.BrowserWindow,'function');f.load.resolve();await owner.ready;owner.shutdown();
+ }
+});
