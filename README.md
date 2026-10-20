@@ -17,6 +17,7 @@ Phones, media and CarPlay are the headunit priority. Detailed instrumentation be
 
 ## What exists
 
+- Persistent Auto/Day/Night appearance controls with a pale coastal day palette and the existing night glass. Auto honestly retains the last mode while the headlight provider is unavailable; this does not control panel brightness. See [completion checklist](docs/completion-checklist.md).
 - Touch-first wallpaper-translucent, backdrop-blurred glass home with adjustable strength and persisted keyboard-accessible app/dashboard ordering, defaults and reset, and a saved left/right dock preference (compact screens retain the bottom dock). Known moving state locks personalization; no motion input is fabricated.
 - Touch-first glass-inspired home with Apps/Dashboard quick switch, narrow dock, large rounded tiles, phone-switching preview, a single settings page, configurable wallpapers, and nested diagnostics. Native Home shows sanitized observed track/artist/playback and optional battery/charging, with unavailable/stale states and explicit owner-checked play/pause. Signal and temperatures remain unavailable until their provider contracts are verified; no vehicle/aux battery or engine gauges are put on Home.
 - Node adapter modules for LIVI protocol 8: little-endian length-framed JSON, hello/welcome, ordered revisions, atomic patches, resync, action/reply IDs and local Unix socket reconnect.

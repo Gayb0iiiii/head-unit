@@ -279,3 +279,21 @@ test('native Home renders verified media/battery safely and explicit controls pr
  assert.match(ui.root.innerHTML,/Media status is stale/);assert.doesNotMatch(ui.root.innerHTML,/&lt;img/);
  assert.match(ui.root.innerHTML,/data-media="play"[^>]*disabled/);
 });
+
+test('Settings exposes persistent day/night controls, unavailable Auto status and focus retention',async()=>{
+ const app=await launch();app.click('action','settings');
+ assert.match(app.root.innerHTML,/Headlight signal unavailable/);
+ app.click('appearance','day');assert.equal(app.doc.body.dataset.appearance,'day');
+ assert.equal(app.doc.activeElement.dataset.focusKey,'appearance-day');
+ assert.match(app.root.innerHTML,/data-appearance="day"[^>]*aria-pressed="true"/);
+ app.click('appearance','auto');assert.equal(app.doc.body.dataset.appearance,'day');
+ const restored=await launch(app.data);assert.equal(restored.doc.body.dataset.appearance,'day');
+ restored.updateMotion('moving');restored.click('appearance','night');
+ assert.equal(restored.doc.body.dataset.appearance,'day');
+});
+test('native theme changes remain local and cannot send phone or media commands',async()=>{
+ const calls=[];const app=await launch(new Map(),{onView:()=>()=>{},getView:async()=>({connected:true,front:'livi',route:'settings',phones:[]}),navigate:()=>calls.push('navigate'),media:()=>calls.push('media')});
+ await new Promise(resolve=>setImmediate(resolve));
+ app.click('appearance','day');assert.equal(app.doc.body.dataset.appearance,'day');
+ assert.deepEqual(calls,[]);assert.match(app.root.innerHTML,/Panel brightness unavailable/);
+});
