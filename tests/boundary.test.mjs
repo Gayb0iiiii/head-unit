@@ -368,3 +368,15 @@ test('an already lost parent prevents socket startup',async t=>{
  const runtime=createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,socketPath:'/tmp/headunit-contract/core.sock',preferencePath:'/tmp/headunit-contract/preferences.json',connectSocket:()=>{throw Error('must not connect');},lifeline:{env:{LIVI_LIFELINE:'1'},input,stat:()=>({isFIFO:()=>false,isSocket:()=>true}),onLost:()=>quits++}});
  t.after(()=>runtime.dispose());runtime.start();assert.equal(quits,1);assert.equal(f.handlers.size,0);assert.throws(()=>runtime.start(),/disposed/);
 });
+
+test('runtime window-config subscription stays privileged and ends with runtime disposal',async()=>{
+ const {createGlassRuntime}=await moduleAt(runtimePath),{encode}=await import('../src/protocol.mjs');
+ const f=fixture(),socket=Object.assign(new EventEmitter(),{write:()=>true,destroy:()=>{}}),seen=[];
+ const runtime=createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,socketPath:'/tmp/headunit-config/core.sock',preferencePath:'/tmp/headunit-config/preferences.json',connectSocket:()=>socket});
+ assert.equal(typeof runtime.subscribeWindowConfig,'function');
+ runtime.subscribeWindowConfig(value=>seen.push(value));runtime.start();socket.emit('connect');
+ socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},devices:[],config:{uiZoomPercent:120,kiosk:{main:true},clusterScreenActive:true,wifiPassword:'never expose'}}}));
+ assert.equal(seen.at(-1).zoomPercent,120);assert.equal(seen.at(-1).cluster.active,true);
+ const view=await f.call(channels.getView);assert.doesNotMatch(JSON.stringify(view),/zoomPercent|clusterScreenActive|never expose|kiosk/);
+ const before=seen.length;runtime.dispose();socket.emit('data',encode({type:'patch',rev:1,ops:[]}));assert.equal(seen.length,before);assert.throws(()=>runtime.subscribeWindowConfig(()=>{}),/disposed/);
+});

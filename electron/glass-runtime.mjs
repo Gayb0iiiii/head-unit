@@ -1,3 +1,4 @@
+import {observeWindowConfig} from './window-config.mjs';
 import {watchParentLifeline} from './parent-lifeline.mjs';
 import {CoreTransport} from '../src/transport.mjs';
 import {HeadunitController} from '../src/controller.mjs';
@@ -17,6 +18,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
     transport.stop();
     throw error;
   }
+  const windowConfig=observeWindowConfig(transport);
   let disposed = false;
   let started = false;
   let detachLifeline = () => {};
@@ -25,6 +27,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
     if (disposed) return;
     disposed = true;
     detachLifeline();
+    windowConfig.dispose();
     contents.removeListener('destroyed',dispose);
     contents.removeListener('render-process-gone',dispose);
     detach();
@@ -34,6 +37,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
   contents.on('destroyed',dispose);
   contents.on('render-process-gone',dispose);
   return {
+    subscribeWindowConfig:windowConfig.subscribe,
     start() {
       if (disposed) throw Error('Glass runtime disposed');
       if(started)return;

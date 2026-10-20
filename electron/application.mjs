@@ -43,12 +43,12 @@ export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=proc
   const ready=app.whenReady().then(async()=>{
     if(stopping)return;
     window=new BrowserWindow({...headunitWindowOptions({compositor}),show:false});
-    if(compositor)detachWindow=attachCompositorWindow({window,screen,kiosk:env.LIVI_KIOSK==='1'});
     on(window,'closed',()=>shutdown());
     on(window.webContents,'render-process-gone',()=>shutdown(1));
     runtime=createRuntime({ipcMain,trustedWindow:window,trustedUrl:pageURL,socketPath,
       preferencePath:path.join(app.getPath('userData'),'headunit-preferences.json'),
       lifeline:{env,onLost:()=>shutdown()}});
+    if(compositor)detachWindow=attachCompositorWindow({window,screen,kiosk:env.LIVI_KIOSK==='1',subscribeConfig:runtime.subscribeWindowConfig});
     runtime.start();
     if(stopping)return;
     await window.loadURL(pageURL);

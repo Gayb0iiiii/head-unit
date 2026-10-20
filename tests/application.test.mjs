@@ -10,9 +10,10 @@ function fixture(options={}) {
  class Window extends EventEmitter {
   constructor(config){super();this.config=config;this.webContents=new EventEmitter();windows.push(this);events.push('window');}
   loadURL(url){this.url=url;events.push('load');return load.promise;}
+  isDestroyed(){return false;}
   show(){events.push('show');}focus(){events.push('focus');}restore(){events.push('restore');}
  }
- const start=()=>startHeadunitApplication({app,BrowserWindow:Window,ipcMain:{},signals,env:{LIVI_CORE_SOCKET:'/tmp/native/core.sock',LIVI_LIFELINE:'1',LIVI_COMPOSITOR:'1',...options.env},platform:'linux',screen:options.screen,pageURL:'file:///tmp/headunit/index.html',createRuntime:config=>{runtimeConfig=config;return {start:()=>events.push('start'),dispose:()=>events.push('dispose')};}});
+ const start=()=>startHeadunitApplication({app,BrowserWindow:Window,ipcMain:{},signals,env:{LIVI_CORE_SOCKET:'/tmp/native/core.sock',LIVI_LIFELINE:'1',LIVI_COMPOSITOR:'1',...options.env},platform:'linux',screen:options.screen,pageURL:'file:///tmp/headunit/index.html',createRuntime:config=>{runtimeConfig=config;return {subscribeWindowConfig:options.subscribeWindowConfig,start:()=>events.push('start'),dispose:()=>events.push('dispose')};}});
  return {events,app,signals,ready,load,windows,start,get runtimeConfig(){return runtimeConfig;}};
 }
 test('entrypoint waits for Electron, attaches before load, and never activates on second launch',async()=>{
@@ -85,4 +86,11 @@ test('application owns compositor timers and cancels fullscreen when shutdown in
  Object.assign(win,{isDestroyed:()=>false,isFullScreen:()=>false,getBounds:()=>({}),getContentSize:()=>[800,480],setContentSize:()=>{},setFullScreen:()=>fullscreen++});
  win.emit('ready-to-show');assert.equal(win.listenerCount('resize'),1);f.signals.emit('SIGTERM');f.load.resolve();await owner.ready;t.mock.timers.tick(1000);
  assert.equal(fullscreen,0);assert.equal(win.listenerCount('resize'),0);assert.ok(!f.events.includes('show'));
+});
+
+test('application attaches the privileged config consumer before runtime start and disposes it before quit',async()=>{
+ let subscribed=0,detached=0;
+ const f=fixture({subscribeWindowConfig:fn=>{subscribed++;f.events.push('config-subscribe');return()=>{detached++;f.events.push('config-detach');};}}),owner=f.start();
+ f.ready.resolve();await Promise.resolve();assert.equal(subscribed,1);assert.ok(f.events.indexOf('config-subscribe')<f.events.indexOf('start'));
+ f.signals.emit('SIGTERM');f.load.resolve();await owner.ready;assert.equal(detached,1);assert.ok(f.events.indexOf('config-detach')<f.events.indexOf('dispose'));
 });
