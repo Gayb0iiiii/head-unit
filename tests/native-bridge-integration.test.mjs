@@ -164,3 +164,23 @@ for(const order of ['state-before-failure','failure-before-state','success-befor
  assert.equal(f.controller.resume,true,'a newer explicit Play supersedes pause intent');
  assert.equal(f.preferences.at(-1).resume,true);
 });
+
+test('actual transport phases cross both filters and preload without raw errors or stale phones',async t=>{
+ const f=await fixture(t);
+ assert.equal(f.model.state.connectionPhase,'ready');
+ f.transport.start();assert.equal(f.model.state.connectionPhase,'connecting');
+ f.transport.socket.emit('connect');assert.equal(f.model.state.connectionPhase,'handshaking');
+ f.transport.socket.emit('error',new Error('secret path and credentials'));
+ assert.equal(f.model.state.connectionPhase,'backoff');
+ assert.equal(f.model.state.connected,false);assert.deepEqual(f.model.state.phones,[]);
+ assert.doesNotMatch(JSON.stringify(await f.api.getView()),/secret|credentials/);
+ f.transport.stop();assert.equal(f.model.state.connectionPhase,'stopped');
+ f.transport.connect();f.transport.socket.emit('connect');
+ f.transport.socket.emit('data',encode({type:'refused',reason:'secret refusal'}));
+ assert.equal(f.model.state.connectionPhase,'refused');
+ assert.doesNotMatch(JSON.stringify(await f.api.getView()),/secret/);
+ f.transport.connect();f.transport.socket.emit('connect');
+ f.transport.socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},devices:[],sessions:{active:null}}}));
+ assert.equal(f.model.state.connectionPhase,'ready');assert.equal(f.model.state.screen,'phones');
+ assert.equal(f.model.state.connected,true);
+});

@@ -1,3 +1,4 @@
+import {filterConnectionPhase} from '../src/connection-status.mjs';
 import {filterHomeStatus} from '../src/home-status.mjs';
 /** Dependency-injected main-process boundary. No Electron import, launch or socket connection. */
 const routes = new Set(['home','phones','settings','audio','vehicle','projection','dashboard']);
@@ -23,6 +24,7 @@ function rendererView(value) {
   const source = plain(value) ? value : {};
   const active=(Array.isArray(source.phones)?source.phones:[]).filter(phone=>plain(phone)&&phone.status==='active'&&text(phone.id,256));
   return {
+    connectionPhase:filterConnectionPhase(source.connectionPhase,source.connected),
     homeStatus:filterHomeStatus(source.homeStatus,source.connected===true,active.length===1?active[0].id:null),
     connected: source.connected === true,
     projectionReady: source.connected === true && source.projectionReady === true,

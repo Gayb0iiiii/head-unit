@@ -36,8 +36,9 @@ async function launch(data = new Map(), host = null) {
     activeElement: null,
     getElementById: id => id === 'app' ? root : elements.find(element => element.id === id),
     querySelectorAll(selector) {
-      const key = selector.slice(6, -1).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-      return elements.filter(element => key in element.dataset);
+      const [,tag,keyName] = selector.match(/^(button)?\[data-([\w-]+)\]$/);
+      const key = keyName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      return [...elements,doc.body].filter(element => (!tag || element.tag === tag) && key in element.dataset);
     }
   };
   const application = await import(`../src/app.mjs?unit=${++instance}`);
@@ -58,7 +59,7 @@ async function launch(data = new Map(), host = null) {
       const button = buttons.find(button => button.dataset[key] === value);
       assert.ok(button, `Rendered button ${key}=${value} exists`);
       assert.equal(typeof button.onclick, 'function');
-      if (!button.disabled) button.onclick();
+      if (!button.disabled) { button.onclick(); doc.body.onclick?.(); }
     }
   };
 }
@@ -296,4 +297,22 @@ test('native theme changes remain local and cannot send phone or media commands'
  await new Promise(resolve=>setImmediate(resolve));
  app.click('appearance','day');assert.equal(app.doc.body.dataset.appearance,'day');
  assert.deepEqual(calls,[]);assert.match(app.root.innerHTML,/Panel brightness unavailable/);
+});
+
+test('bubbled navigation clicks do not rewrite appearance preferences',async()=>{
+ let appearanceWrites=0;const data=new Map();const originalSet=data.set.bind(data);
+ data.set=(key,value)=>{if(key==='headunit.appearance')appearanceWrites++;return originalSet(key,value);};
+ const app=await launch(data);app.click('action','settings');app.click('appearance','day');
+ const before=appearanceWrites;app.click('action','home');
+ assert.equal(appearanceWrites,before,'navigation must not trigger body appearance handlers');
+ assert.equal(app.doc.body.dataset.appearance,'day');
+});
+
+test('native connection screen explains retry, refusal and synchronization without claiming readiness',async()=>{
+ let emit;const app=await launch(new Map(),{onView:fn=>{emit=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',connectionPhase:'connecting',phones:[]})});
+ await new Promise(resolve=>setImmediate(resolve));assert.match(app.root.innerHTML,/Connecting to LIVI/);
+ emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/retry automatically/);
+ emit({connected:false,connectionPhase:'refused'});assert.match(app.root.innerHTML,/Connection refused/);assert.doesNotMatch(app.root.innerHTML,/retry automatically/);
+ emit({connected:false,connectionPhase:'resyncing'});assert.match(app.root.innerHTML,/Synchronizing with LIVI/);
+ emit({connected:false,connectionPhase:'secret'});assert.doesNotMatch(app.root.innerHTML,/secret/);
 });

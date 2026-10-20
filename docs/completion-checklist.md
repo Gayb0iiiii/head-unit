@@ -6,6 +6,7 @@ Updated 2026-10-20. This repository is the ongoing head-unit project for the HZJ
 
 - [x] Glass Apps/Dashboard shell, touch controls, dock preference, wallpaper and saved layout; known-motion personalization lock.
 - [x] Trusted preload binding, bounded public filters, manual phone selection and reply/readiness ordering, cancellation on manual navigation.
+- [x] Bounded connection-phase guidance for connecting, synchronization, automatic retry, refusal and stopped states; no raw errors or added control capability.
 - [x] Startup fallback, bounded transport reconnect, no command replay, and explicit pause intent preserved through delayed state and phone return.
 - [x] Home media and optional phone battery, honest unavailable/stale/disconnected states, local observation expiry, owner-checked play/pause and independent clock.
 - [x] Settings Auto/Day/Night override, persistence, unavailable Auto fallback, day palette and native-background transparency. Live headlights remain disconnected.
@@ -16,7 +17,7 @@ Updated 2026-10-20. This repository is the ongoing head-unit project for the HZJ
 - [ ] Run secure Electron and browser acceptance in a compatible sandbox environment; inspect day/night contrast, touch targets, overflow and focus at 800×480, 1280×720 and portrait. Harnesses exist; visual acceptance is open.
 - [ ] Complete native host embedding: projection geometry, process isolation and lifecycle ownership. Implement against the pinned host contract before real runtime acceptance.
 - [ ] Complete native readiness/health and dead-client input release before promoting the modeled appliance supervisor to executable behavior.
-- [ ] Integrate verified provider contracts for headlight/motion inputs and connection status without widening the renderer to raw state.
+- [ ] Integrate verified provider contracts for headlight/motion inputs without widening the renderer to raw state.
 - [ ] Implement pairing/forget and Bluetooth-only/call/contact flows only after their backend capabilities, permissions and privacy lifecycle are defined. Current disabled controls are intentional.
 
 ## Hardware-dependent acceptance

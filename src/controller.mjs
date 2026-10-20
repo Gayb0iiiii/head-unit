@@ -1,3 +1,4 @@
+import {filterConnectionPhase} from './connection-status.mjs';
 import {activeDevice,homeView} from './home-view.mjs';
 import {publicView} from './view.mjs';
 const routes=new Set(['home','dashboard','phones','settings','audio','vehicle','projection']);
@@ -11,7 +12,7 @@ export class HeadunitController {
     if(!routes.has(this.preferred))this.preferred='home';
     this.unsubscribe=transport.subscribe(()=>this.sync());
   }
-  view() { return {...publicView(this.transport.session),projectionReady:this.transport.session.ready&&!!this.transport.session.state?.sessions?.active,route:this.route,preferredRoute:this.preferred,notice:this.projectionInterrupted?'projection-reconnecting':null}; }
+  view() { return {...publicView(this.transport.session),connectionPhase:filterConnectionPhase(this.transport.status,this.transport.session.ready),projectionReady:this.transport.session.ready&&!!this.transport.session.state?.sessions?.active,route:this.route,preferredRoute:this.preferred,notice:this.projectionInterrupted?'projection-reconnecting':null}; }
   subscribe(listener) {this.listeners.add(listener);listener(this.view());return ()=>this.listeners.delete(listener);}
   publish(){for(const listener of this.listeners)listener(this.view());}
   savePreferences(){const value={route:this.preferred,lastPhone:this.lastPhone,resume:this.resume};const encoded=JSON.stringify(value);if(encoded===this.lastSaved)return;try{this.preferences.save?.(value);this.lastSaved=encoded;}catch{}}

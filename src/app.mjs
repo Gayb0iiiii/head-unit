@@ -1,3 +1,4 @@
+import {connectionPresentation} from './connection-status.mjs';
 import {startClock} from './clock.mjs';
 import {Headunit} from './model.mjs';
 import {NativeHeadunit} from './native-model.mjs';
@@ -70,7 +71,7 @@ if(screen==='settings')content=renderSettings(s);
 if(screen==='diagnostics')content=native?`<header>${button('Back','back','back')}<h1>Diagnostics</h1></header><div class="panel"><h2>Native connection</h2><p>${s.connected?'Connected to LIVI':'Disconnected from LIVI'}</p><p>Projection, audio and microphone are owned by the native host.</p></div>`:`<header>${button('Back','back','back')}<h1>Diagnostics</h1></header><div class="panel"><h2>Hardware not connected</h2><p>Transport: simulated UI state</p><p>LIVI: 9.5.0 contract research</p><p>Vehicle service: independent, not connected</p><p>v4 baseline: awaiting file access</p><p>Audio, microphone, touch forwarding and MFi adapter: untested</p><div class="actions"><button data-action="disconnect">Simulate disconnect</button><button data-action="reconnect">Simulate reconnect</button></div></div>`;
 if(screen==='vehicle')content=`<header><h1>Vehicle</h1></header><div class="panel"><h2>Vehicle service stays independent</h2><p>No vehicle data or controls are connected in this scaffold. The existing vehicle service will be integrated after the v4 baseline is available.</p><p>Phone switching must never restart vehicle services.</p></div>`;
 if(screen==='audio')content=`<header><h1>Audio & microphone</h1></header><div class="panel"><h2>Owned by the native host</h2><p>Music, call audio, microphone input and audio focus stay in the native pipeline.</p><p>No audio devices are connected here. Hardware routing and echo testing are still required.</p></div>`;
-if(screen==='disconnected')content='<header><h1>LIVI disconnected</h1></header><div class="panel"><p>Waiting for the native engine. Phone and media controls are unavailable.</p></div>';
+if(screen==='disconnected'){const status=connectionPresentation(s.connectionPhase);content=`<header><h1>${status.title}</h1></header><div class="panel" role="status"><p>${status.detail}</p></div>`;}
 if(screen==='camera'||screen==='cluster')content='<header><h1>Native display in control</h1></header>';
 document.getElementById('app').innerHTML=`<aside aria-label="Dock"><output id="headunit-clock" class="time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})}</output><div class="dock-apps">${button('CarPlay','projection','dock-button')}${button('Phones','phones','dock-button')}</div>${button('Home','home','dock-button home-button')}</aside><main data-editing="${s.editingLayout}">${content}${native&&s.notice?'<p role="status">Projection reconnecting</p>':''}${native&&s.commandError?'<p role="alert">Native command unavailable</p>':''}<footer class="bottom-note"><span>${native?'LIVI native shell':'Software preview'}</span><span>${native?'Vehicle data unavailable':'No live audio or vehicle connection'}</span></footer></main>`;
 document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
@@ -100,7 +101,7 @@ document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
 document.querySelectorAll('[data-home-mode]').forEach(el=>el.onclick=()=>{layoutMessage='';model.setHomeMode(el.dataset.homeMode);render();});
 document.querySelectorAll('[data-media]').forEach(el=>el.onclick=()=>{model.media(el.dataset.media);render();});
 document.querySelectorAll('[data-phone]').forEach(el=>el.onclick=()=>{model.connect(el.dataset.phone);render();});
-document.querySelectorAll('[data-wallpaper]').forEach(el=>el.onclick=()=>{model.wallpaper(el.dataset.wallpaper);render();});
+document.querySelectorAll('button[data-wallpaper]').forEach(el=>el.onclick=()=>{model.wallpaper(el.dataset.wallpaper);render();});
 document.querySelectorAll('[data-move]').forEach(el=>el.onclick=()=>{
   const [kind,id,step]=el.dataset.move.split(':');
   if(model.moveLayoutItem(kind,id,Number(step))){
@@ -109,8 +110,8 @@ document.querySelectorAll('[data-move]').forEach(el=>el.onclick=()=>{
   }
   render(el.dataset.focusKey);
 });
-document.querySelectorAll('[data-appearance]').forEach(el=>el.onclick=()=>{model.setAppearancePreference(el.dataset.appearance);render(el.dataset.focusKey);});
-document.querySelectorAll('[data-dock-side]').forEach(el=>el.onclick=()=>{model.setDockSide(el.dataset.dockSide);render(el.dataset.focusKey);});
+document.querySelectorAll('button[data-appearance]').forEach(el=>el.onclick=()=>{model.setAppearancePreference(el.dataset.appearance);render(el.dataset.focusKey);});
+document.querySelectorAll('button[data-dock-side]').forEach(el=>el.onclick=()=>{model.setDockSide(el.dataset.dockSide);render(el.dataset.focusKey);});
 document.querySelectorAll('[data-glass-strength]').forEach(el=>el.oninput=()=>{
   model.setGlassStrength(Number(el.value));
   applyAppearance();

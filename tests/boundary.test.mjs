@@ -15,7 +15,7 @@ const channels = {
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
   touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media',
 };
-const expectedView = {homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null};
+const expectedView = {connectionPhase:'ready',homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null};
 const copy = value => JSON.parse(JSON.stringify(value));
 async function moduleAt(path) {
   assert.ok(existsSync(path), `${path.pathname.split('/').at(-1)} must implement the isolated boundary`);
