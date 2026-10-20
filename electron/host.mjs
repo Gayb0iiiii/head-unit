@@ -3,10 +3,12 @@ import {attachHeadunitBoundary} from './main-boundary.mjs';
 
 const preload = fileURLToPath(new URL('./preload.cjs',import.meta.url));
 /** Supply to a BrowserWindow created by the privileged host, before loading its UI. */
-export function headunitWindowOptions() {
+export function headunitWindowOptions({compositor=false} = {}) {
+  if(typeof compositor!=='boolean')throw new TypeError('Compositor mode must be boolean');
   return {
-    width:1280, height:720, transparent:true,
-    webPreferences:{preload, contextIsolation:true, nodeIntegration:false, nodeIntegrationInSubFrames:false, sandbox:true, webSecurity:true, webviewTag:false},
+    width:1280, height:720, transparent:true, backgroundColor:'#00000000',
+    ...(compositor ? {title:'livi:main',frame:false,useContentSize:true,kiosk:false,fullscreenable:true,autoHideMenuBar:true} : {}),
+    webPreferences:{backgroundThrottling:false,preload, contextIsolation:true, nodeIntegration:false, nodeIntegrationInSubFrames:false, sandbox:true, webSecurity:true, webviewTag:false},
   };
 }
 
@@ -17,7 +19,7 @@ export function attachHeadunitHost(options) {
   if (!preferences || preferences.preload !== preload || preferences.contextIsolation !== true || preferences.nodeIntegration !== false || preferences.nodeIntegrationInSubFrames === true || preferences.sandbox !== true || preferences.webSecurity !== true || preferences.webviewTag === true) throw new Error('Unsafe headunit window preferences');
   const detachBoundary = attachHeadunitBoundary(options);
   const prevent = event => event.preventDefault();
-  const navigationEvents = ['will-navigate','will-frame-navigate','will-redirect','will-attach-webview'];
+  const navigationEvents = ['will-navigate','will-frame-navigate','will-redirect','will-attach-webview','page-title-updated'];
   contents.setWindowOpenHandler(() => ({action:'deny'}));
   for (const name of navigationEvents) contents.on(name,prevent);
   let disposed = false;

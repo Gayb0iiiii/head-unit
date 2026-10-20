@@ -39,7 +39,7 @@ function fixture(url = 'file:///opt/headunit/index.html') {
   const ipcMain = {handle:(channel, fn) => {assert.ok(!handlers.has(channel)); handlers.set(channel, fn);}, removeHandler:channel => handlers.delete(channel)};
   const wc = new EventEmitter();
   Object.assign(wc, {mainFrame:{url}, currentUrl:url, dead:false, sent:[], getURL(){return this.currentUrl;}, isDestroyed(){return this.dead;}, send(...args){this.sent.push(args);}, setWindowOpenHandler(fn){this.openHandler=fn;}, getLastWebPreferences(){return {preload:preloadPath.pathname, contextIsolation:true, nodeIntegration:false, sandbox:true, webSecurity:true, webviewTag:false};}});
-  const window = {webContents:wc};
+  const window = Object.assign(new EventEmitter(),{webContents:wc,isFocused:()=>true});
   const controller = {
     calls:[], listeners:new Set(),
     state:{...copy(expectedView), credentials:'secret', transport:{native:true}},
@@ -158,7 +158,7 @@ test('host blocks navigation and popups; in-flight navigation revokes the bridge
   const {attachHeadunitHost} = await moduleAt(hostPath);
   const f=fixture(); const dispose=attachHeadunitHost({...f,trustedWindow:f.window,trustedUrl:f.url});
   assert.deepEqual(f.wc.openHandler({url:'https://evil.test/'}), {action:'deny'});
-  for (const name of ['will-navigate','will-frame-navigate','will-redirect','will-attach-webview']) {
+  for (const name of ['will-navigate','will-frame-navigate','will-redirect','will-attach-webview','page-title-updated']) {
     let blocked=false; f.wc.emit(name,{preventDefault(){blocked=true;},url:'https://evil.test/',isMainFrame:true}); assert.equal(blocked,true,name);
   }
   f.wc.emit('did-start-navigation',{url:'https://evil.test/',isMainFrame:true});
@@ -308,4 +308,42 @@ test('second view filter rejects malformed Home metadata, expired data and secre
  assert.equal((await f.call(channels.getView)).homeStatus.media.status,'unavailable');
  f.controller.state.homeStatus.phone.freshForMs=Infinity;assert.equal((await f.call(channels.getView)).homeStatus.phone.batteryPercent,null);
  f.controller.state.connected=false;assert.equal((await f.call(channels.getView)).homeStatus.media.status,'disconnected');dispose();
+});
+
+test('compositor window preset preserves native role geometry and secure renderer options',async()=>{
+ const {headunitWindowOptions}=await moduleAt(hostPath);
+ const options=headunitWindowOptions({compositor:true});
+ assert.equal(options.frame,false);assert.equal(options.title,'livi:main');
+ assert.equal(options.useContentSize,true);assert.equal(options.backgroundColor,'#00000000');
+ assert.equal(options.webPreferences.backgroundThrottling,false);
+ assert.equal(options.webPreferences.sandbox,true);assert.equal(options.webPreferences.contextIsolation,true);
+ assert.equal(options.kiosk,false);assert.equal(options.fullscreenable,true);
+ assert.throws(()=>headunitWindowOptions({compositor:'yes'}));
+});
+for(const reason of ['blur','unresponsive'])test(`host ${reason} releases contacts and gates input until focus and responsiveness return`,async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
+ const {HeadunitController}=await import('../src/controller.mjs');
+ const f=fixture(),pointers=[];
+ const session={ready:true,state:{front:{main:'projection'},devices:[],sessions:{active:'carplay'}},pointer:p=>pointers.push(p),path:()=>{},action:()=>1};
+ const controller=new HeadunitController({session,subscribe:fn=>{fn();return()=>{};}});
+ const detach=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,controller});
+ const down=[{id:0,x:.3,y:.4,phase:'down'}];
+ await f.call(channels.touch,[down]);f.window.emit(reason);
+ assert.deepEqual(pointers.at(-1),[{id:0,x:.3,y:.4,phase:'cancel'}]);
+ assert.equal(controller.contacts.size,0);
+ await assert.rejects(()=>f.call(channels.touch,[down]),/unavailable/i);
+ f.window.emit('blur');f.window.emit('unresponsive');
+ f.window.emit('focus');await assert.rejects(()=>f.call(channels.touch,[down]),/unavailable/i);
+ f.window.emit('responsive');await f.call(channels.touch,[down]);
+ assert.equal(controller.contacts.size,1);
+ detach();assert.equal(controller.contacts.size,0);
+ for(const event of ['blur','focus','unresponsive','responsive'])assert.equal(f.window.listenerCount(event),0);
+ controller.dispose();
+});
+test('initially unfocused host cannot accept projection input',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath);const f=fixture();f.window.isFocused=()=>false;
+ const detach=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url});
+ await assert.rejects(()=>f.call(channels.touch,[[{id:0,x:0,y:0,phase:'down'}]]),/unavailable/i);
+ assert.ok(!f.controller.calls.some(call=>call[0]==='intent'&&call[1].type==='touch'));
+ f.window.emit('focus');await f.call(channels.touch,[[{id:0,x:0,y:0,phase:'down'}]]);detach();
 });

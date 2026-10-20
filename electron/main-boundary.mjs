@@ -56,10 +56,17 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
   if (!contents || !controller || !['view','subscribe','intent'].every(key => typeof controller[key] === 'function')) throw new TypeError('Trusted window and controller required');
   let disposed = false;
   let navigating = false;
+  let focused = trustedWindow.isFocused?.() === true;
+  let responsive = true;
+  const windowLifecycle = [];
   let unsubscribe;
   const registered = [];
   const lifecycle = [];
   function on(name, listener) { contents.on(name,listener); lifecycle.push([name,listener]); }
+  function onWindow(name,listener) {
+    if(typeof trustedWindow.on!=='function'||typeof trustedWindow.removeListener!=='function')return;
+    trustedWindow.on(name,listener);windowLifecycle.push([name,listener]);
+  }
   function pageTrusted() {
     try { return !disposed && !navigating && !contents.isDestroyed() && contents.getURL() === url && contents.mainFrame?.url === url; }
     catch { return false; }
@@ -94,6 +101,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     cancelContacts();
     for (const channel of registered) ipcMain.removeHandler(channel);
     for (const [name,listener] of lifecycle) contents.removeListener(name,listener);
+    for (const [name,listener] of windowLifecycle) trustedWindow.removeListener(name,listener);
     unsubscribe?.();
   }
   try {
@@ -101,7 +109,10 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     action('headunit:navigate',route => routes.has(route),route => ({type:'navigate',route}));
     action('headunit:select-phone',id => text(id,256),id => ({type:'selectPhone',id}));
     action('headunit:set-volume',bounded,value => ({type:'volume',value}));
-    action('headunit:touch',pointsValid,points => ({type:'touch',points:points.map(({id,x,y,phase}) => ({id,x,y,phase}))}));
+    action('headunit:touch',pointsValid,points => {
+      if(!focused||!responsive)throw Error('Input owner unavailable');
+      return {type:'touch',points:points.map(({id,x,y,phase}) => ({id,x,y,phase}))};
+    });
     action('headunit:cancel-touch',() => true,() => ({type:'cancelTouch'}),0);
     action('headunit:media',(control,phoneId) => (control === 'play' || control === 'pause') && text(phoneId,256),(control,phoneId) => ({type:'media',control,phoneId}),2);
     // Account for both current Event details and Electron's older positional API.
@@ -110,6 +121,10 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     });
     on('did-navigate',() => { navigating = false; });
     on('did-navigate-in-page',(_event,_url,isMainFrame) => { if (isMainFrame) navigating = false; });
+    onWindow('blur',()=>{focused=false;cancelContacts();});
+    onWindow('focus',()=>{focused=true;});
+    onWindow('unresponsive',()=>{responsive=false;cancelContacts();});
+    onWindow('responsive',()=>{responsive=true;});
     on('destroyed',dispose);
     on('render-process-gone',dispose);
     unsubscribe = controller.subscribe(view => {

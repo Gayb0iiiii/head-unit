@@ -25,7 +25,8 @@ async function fixture(t,saved={route:'phones'}) {
  const url='file:///headunit/index.html';
  Object.assign(contents,{mainFrame:{url},getURL:()=>url,isDestroyed:()=>false,send:(channel,view)=>ipc.emit(channel,{},view)});
  const event={sender:contents,senderFrame:contents.mainFrame};
- const detach=attachHeadunitBoundary({ipcMain:{handle:(c,f)=>handlers.set(c,f),removeHandler:c=>handlers.delete(c)},trustedWindow:{webContents:contents},trustedUrl:url,controller});
+ const window=Object.assign(new EventEmitter(),{webContents:contents,isFocused:()=>true});
+ const detach=attachHeadunitBoundary({ipcMain:{handle:(c,f)=>handlers.set(c,f),removeHandler:c=>handlers.delete(c)},trustedWindow:window,trustedUrl:url,controller});
  const results=[];
  ipc.invoke=async(channel,...args)=>{try {const value=await handlers.get(channel)(event,...args);results.push(value);return value;}catch(error){results.push(error.message);throw error;}};
  let api;
@@ -37,7 +38,7 @@ async function fixture(t,saved={route:'phones'}) {
  const reply=(id,error)=>socket.emit('data',encode({type:'reply',id,...(error?{error}: {})}));
  const activate=()=>patch([{op:'set',path:['devices'],value:[{id:'a',status:'available'},{id:'b',status:'active'}]}]);
  const ready=()=>patch([{op:'set',path:['sessions','active'],value:{id:'session'}}]);
- return {model,controller,transport,actions,reply,patch,activate,ready,results,api,preferences};
+ return {model,controller,transport,actions,reply,patch,activate,ready,results,api,preferences,window,inputs:()=>messages.filter(m=>m.type==='input')};
 }
 test('native reply failure crosses real session/controller/IPC/preload without leaking errors or stale selection',async t=>{
  const f=await fixture(t); f.model.connect('b'); const id=f.actions().at(-1).id;
@@ -183,4 +184,17 @@ test('actual transport phases cross both filters and preload without raw errors 
  f.transport.socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},devices:[],sessions:{active:null}}}));
  assert.equal(f.model.state.connectionPhase,'ready');assert.equal(f.model.state.screen,'phones');
  assert.equal(f.model.state.connected,true);
+});
+
+test('window input loss sends one full cancel frame through real transport and never replays contacts',async t=>{
+ const f=await fixture(t);f.patch([{op:'set',path:['front','main'],value:'projection'}]);
+ await f.api.touch([{id:0,x:.2,y:.3,phase:'down'},{id:1,x:.7,y:.8,phase:'down'}]);
+ f.window.emit('unresponsive');
+ assert.deepEqual(f.inputs().at(-1).input.points,[{id:0,x:.2,y:.3,phase:'cancel'},{id:1,x:.7,y:.8,phase:'cancel'}]);
+ const count=f.inputs().length;f.window.emit('unresponsive');f.window.emit('blur');
+ assert.equal(f.inputs().length,count);
+ await assert.rejects(()=>f.api.touch([{id:0,x:.2,y:.3,phase:'down'}]),/unavailable/);
+ f.window.emit('responsive');await assert.rejects(()=>f.api.touch([{id:0,x:.2,y:.3,phase:'down'}]),/unavailable/);
+ f.window.emit('focus');assert.equal(f.inputs().length,count,'readiness cannot replay held input');
+ await f.api.touch([{id:0,x:.2,y:.3,phase:'down'}]);assert.equal(f.inputs().length,count+1);
 });
