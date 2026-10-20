@@ -33,3 +33,54 @@ The CI `native-input` job applies this exact patch to a separate pinned checkout
 - Held knob/select/PTT semantics are explicit; PTT key-up uses the press-time binding. Select expiry belongs to the actor/lease, so retired timers cannot release replacement holds. No renderer privileges, device/control API or readiness protocol is added.
 
 These are best-effort native command emissions. A dead transport, process, helper or phone can still prevent delivery. No test proves physical touch/key/PTT release, correct calibration or vehicle readiness. Projection touch remains disabled in the shell. Native engine startup, actual phone/media/compositor validation and secure Electron acceptance remain separate gates.
+
+## Full engine compilation, without startup
+
+The `native-engine` CI job provisions the development packages listed in
+`ubuntu24-build-packages.txt` from the Ubuntu 24.04 runner's configured repositories.
+It does not change apt sources or install a native service. This separate build
+includes `livi-core`, `livi-helperd`, `livi-gst-host` and `livi-compositor` release
+binaries for the pinned compiler's `x86_64-unknown-linux-gnu` target. It does not
+build firmware, package an appliance, probe GStreamer or execute those binaries.
+
+On an authorized Ubuntu 24.04 build host, provisioning is:
+
+```sh
+sudo apt-get update
+xargs -a native/ubuntu24-build-packages.txt sudo apt-get install --yes --no-install-recommends
+```
+
+With the pinned compiler and the already verified/applied source:
+
+```sh
+python3 scripts/native-check.py engine-compile /path/to/pinned-livi
+python3 scripts/native-check.py engine-test /path/to/pinned-livi
+```
+
+Preflight requires CMake and discoverable development libraries, including
+GStreamer >=1.24 and GLib/GIO >=2.56. Cargo fetch uses the unchanged lockfile;
+compilation and tests are frozen. The test selection is deliberately restricted:
+NAL parsing, codec descriptions, compositor panel/rank arithmetic and in-memory
+spectrum calculations. These tests do not start pipelines or a compositor loop.
+The separate `native-input` job retains input disconnect/ownership regressions.
+
+`native-evidence/engine-build.json` records compiler identity, lock/license hashes,
+Cargo license metadata (including unspecified licenses), installed system package
+versions, direct package copyright hashes, fixed build metadata, runner image and
+static ELF inspection/hash/size for each binary. Build success is only recorded
+after all four artifacts and patched source pass checks. A failed preflight clears
+previous artifact evidence. CI retains the report for 14 days; it does not upload
+binaries. Workspace license inventory includes packages outside the selected
+build; it is not distribution clearance. Upstream GPL notices remain intact.
+
+This is a repeatable pinned source/toolchain recipe, **not a byte-for-byte
+reproducibility claim**: runner images and Ubuntu packages receive updates. The
+report records actual inputs so differences can be investigated. Hardware target
+selection, ARM builds and distribution obligations need separate acceptance.
+
+In the saved Debian coding environment, a direct full build stops at missing
+`glib-2.0.pc`; guarded preflight stops at missing CMake. Read-only apt simulation
+cannot locate the development packages and reports an unreadable apt configuration
+file. No local apt install, source change or privilege/security workaround was
+performed. The separately provisioned CI job is the full-build verification path;
+its exact commit/job result, not this recipe alone, establishes a passing build.

@@ -1,0 +1,10 @@
+build-essential
+pkg-config
+libssl-dev
+libgstreamer1.0-dev
+libgstreamer-plugins-base1.0-dev
+cmake
+libwayland-dev
+libxkbcommon-dev
+libegl-dev
+libdrm-dev
