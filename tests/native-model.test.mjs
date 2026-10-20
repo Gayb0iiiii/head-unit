@@ -90,3 +90,32 @@ test('native status expires without view traffic and cancels its timer on stop',
  assert.equal(model.state.homeStatus.media.status,'stale');assert.equal(model.state.homeStatus.media.title,null);
  model.stop();assert.equal(timers.size,0);
 });
+
+for (const destination of ['phones','dashboard']) test(`native navigation ends layout editing: ${destination}`,async()=>{
+  const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
+  host.emit({connected:true,route:'home',front:'livi',phones:[]});
+  model.beginLayoutEdit();
+  if(destination==='dashboard')model.setHomeMode('dashboard');else model.navigate(destination);
+  assert.equal(model.state.editingLayout,false);
+  assert.deepEqual(host.calls,[['navigate',destination]]);
+  model.stop();
+});
+
+for (const interruption of [
+  {connected:false,route:'disconnected',front:'livi'},
+  {connected:true,route:'camera',front:'camera'},
+  {connected:true,route:'cluster',front:'cluster'},
+  {connected:true,route:'projection',front:'projection'},
+  {connected:true,route:'phones',front:'livi'},
+  {connected:true,route:'dashboard',front:'livi'}
+]) test(`native view departure ends layout editing: ${interruption.route}`,async()=>{
+  const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
+  host.emit({connected:true,route:'home',front:'livi',phones:[]});model.beginLayoutEdit();
+  host.emit({connected:true,route:'home',front:'livi',phones:[]});
+  assert.equal(model.state.editingLayout,true,'same-route status updates preserve editing');
+  host.emit({...interruption,phones:[]});
+  assert.equal(model.state.editingLayout,false);
+  host.emit({connected:true,route:'home',front:'livi',phones:[]});
+  assert.equal(model.state.editingLayout,false,'returning Home does not restore editing');
+  model.stop();
+});

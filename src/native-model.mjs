@@ -50,6 +50,7 @@ export class NativeHeadunit extends Headunit {
   applyView(view) {
     this.revision++;
     const connected = view?.connected === true;
+    if (!connected || view.front !== 'livi' || this.state.screen !== view.route) this.endLayoutEdit();
     const phones = connected && Array.isArray(view.phones) ? view.phones.filter(p =>
       p && typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 256
     ).map(p => ({id:p.id, name:typeof p.name === 'string' ? p.name : 'Phone',
@@ -129,6 +130,7 @@ export class NativeHeadunit extends Headunit {
 
   navigate(route) {
     if (!navigableRoutes.has(route)) throw Error('Unknown route');
+    this.endLayoutEdit();
     this.cancelSelection();
     this.state.commandError = false;
     this.command('navigate',route);

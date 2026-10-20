@@ -85,7 +85,7 @@ Local Pi music is a later, low-priority feature. DSP model, RCA/optical output, 
 
 ## Complete pinned-source gate
 
-The full 1,924-path upstream tree was previously acquired and verified, but that checkout path is absent in this saved environment. A new isolated sparse worktree at the exact pin supports the [reproducible native patch](native/README.md), core binary compilation and reviewed input tests. Full helper/media/compositor builds and deliberately authorized isolated runtime acceptance remain open. Source plans: docs/native-build-plan.md and docs/native-shell-integration.md. Core startup can modify host services and is not a harmless handshake probe. See docs/runtime-validation-gate.md.
+The full 1,924-path upstream tree was previously acquired and verified, but that checkout path is absent in this saved environment. A new isolated sparse worktree at the exact pin supports the [reproducible native patch](native/README.md), core binary compilation and reviewed input tests. Full helper/media/compositor release builds and 40 restricted tests passed in Ubuntu CI at `f0645c6`; deliberately authorized isolated runtime acceptance remains open. Source plans: docs/native-build-plan.md and docs/native-shell-integration.md. Core startup can modify host services and is not a harmless handshake probe. See docs/runtime-validation-gate.md.
 
 Startup fallback and projection dropout return Home; the host exposes a narrow reconnect-notice code, without replacing later manual navigation. Browser/native binding and actual background phone recovery still require runtime verification.
 
