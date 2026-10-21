@@ -1,0 +1,11 @@
+{
+  "name": "headunit-electron-smoke",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "devDependencies": {
+    "electron": "44.7.2"
+  }
+}

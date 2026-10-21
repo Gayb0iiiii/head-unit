@@ -1,3 +1,4 @@
+import {resolveAppearance} from './appearance.mjs';
 /** UI simulation only. Never sends projection, audio, or vehicle commands. */
 const restorableScreens = new Set(['home', 'phones', 'projection', 'settings', 'diagnostics', 'vehicle', 'audio']);
 const homeModes = new Set(['apps', 'dashboard']);
@@ -18,6 +19,7 @@ export class Headunit {
     this.lastPhone = null;
     this.state = {
       screen: 'home', homeMode: 'apps', activePhone: null,
+      appearancePreference: 'auto', appearance: resolveAppearance(),
       vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
       glassStrength: 55, appOrder: [...defaultOrders.apps], dashboardOrder: [...defaultOrders.dashboard],
       editingLayout: false, motionState: 'unknown', persistenceError: false,
@@ -28,6 +30,8 @@ export class Headunit {
     };
     try {
       const saved = JSON.parse(storage?.getItem('headunit.appearance') || '{}');
+      if (['auto','day','night'].includes(saved?.appearancePreference)) this.state.appearancePreference = saved.appearancePreference;
+      this.state.appearance = resolveAppearance(this.state.appearancePreference, undefined, saved?.lastAppearance);
       if (['left','right'].includes(saved?.dockSide)) this.state.dockSide = saved.dockSide;
       if (wallpapers.has(saved?.wallpaper)) this.state.wallpaper = saved.wallpaper;
       if (validGlassStrength(saved?.glassStrength)) this.state.glassStrength = saved.glassStrength;
@@ -108,8 +112,27 @@ export class Headunit {
 
   saveAppearance() {
     this.savePreference('headunit.appearance', {
+      appearancePreference: this.state.appearancePreference, lastAppearance: this.state.appearance.mode,
       wallpaper: this.state.wallpaper, glassStrength: this.state.glassStrength, dockSide: this.state.dockSide
     });
+  }
+
+  setAppearancePreference(value) {
+    if (!['auto','day','night'].includes(value)) throw Error('Unknown appearance preference');
+    if (this.state.motionState === 'moving') return false;
+    this.state.appearancePreference = value;
+    this.state.appearance = resolveAppearance(value, this.headlights, this.state.appearance.mode);
+    this.saveAppearance();
+    return true;
+  }
+
+  // Future verified provider seam only; neither preview nor native bridge supplies it yet.
+  updateHeadlights(value) {
+    if (value !== null && typeof value !== 'boolean') throw Error('Invalid headlight signal');
+    this.headlights = value;
+    const previous = this.state.appearance.mode;
+    this.state.appearance = resolveAppearance(this.state.appearancePreference, value, previous);
+    if (previous !== this.state.appearance.mode) this.saveAppearance();
   }
 
   setDockSide(value) {

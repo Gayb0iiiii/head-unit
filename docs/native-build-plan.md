@@ -1,6 +1,6 @@
 # Preserve LIVI's engine: pinned native build and verification plan
 
-Status: source audit complete; every build, install, test, packaging, probe and runtime command below is **UNEXECUTED**. No upstream script or native executable was run. This plan keeps the original engine and replaces/adapts only its presentation boundary; it does not treat the JavaScript prototype or its fake sockets as proof that native CarPlay/Android Auto works.
+Historical audit status: the commands in this original full-engine plan were **UNEXECUTED** at audit time. **2026-10-20 update:** the separate [pinned native patch workflow](../native/README.md) now builds `livi-core`, compiles core/AA test harnesses and runs a reviewed input-ownership subset with the pinned Rust compiler. The helper/media/compositor/full-engine stages below remain unexecuted. No upstream script or native executable was run. This plan keeps the original engine and replaces/adapts only its presentation boundary; it does not treat the JavaScript prototype or its fake sockets as proof that native CarPlay/Android Auto works.
 
 ## 1. Audited source and conclusion
 
@@ -106,7 +106,7 @@ AppImage integration may additionally need `fuse3`. Real operation also requires
 | Dependency/build output directories | No upstream node_modules, .pnpm-store, native/target, staged native builds or out directory |
 | Bundled source assets | Complete GStreamer runtime asset directories and LIVI Link firmware files exist; none were executed |
 
-**Current blocker:** this executor cannot perform the pinned native build without approved toolchain/development-dependency provisioning. Network reachability and dependency download success have not been tested. No setup/install request is implied by this document.
+**Audit-time dependency gap, now partly resolved:** pinned Rust was installed under `/workspace`, official archive checksums verified, locked Cargo dependencies downloaded, and core built without native startup. Existing OpenSSL development files sufficed for core. Full helper/media/compositor prerequisites remain separate; no GStreamer/Wayland development packages or native services were installed. See [native patch workflow](../native/README.md) for actual current evidence.
 
 ## 5. External assets and excluded build paths
 
@@ -353,3 +353,11 @@ For the optional original Electron baseline, these are app-lock versions (peer-r
 | `pnpm-lock.yaml` | `9d42c0bfcd70ff49a3efdd758051c84503fb0e688bf4964a9679b78bf5c4f164` |
 | `scripts/build-native.mjs` | `5c170c8877e8f4a665c7703059ee1bbe8c09a36f981fcd0b76e7b9c84e956b79` |
 | `electron-builder.yml` | `d954f0e10d5c6d00f48712b82f9050e0da01d816b14886cb7e0d1bc03e73ccdd` |
+
+## Native input ownership build checkpoint — 2026-10-20
+
+The earlier complete-checkout path was missing in this saved environment. A separate sparse worktree at the exact pin was materialized from the available Git objects, including native sources, embedded icon files and the embedded hostapd configuration text. No configuration was installed. The first compile exposed the missing text include; adding the pinned source directory resolved it without a stub.
+
+Official rustc/std/cargo/rustfmt archives were checksum-verified and installed into `/workspace/native-tools/rust-beta-2026-10-03` with ldconfig disabled. Rust reports `1.100.0-beta.3`, compiler commit `7bbda45cb1ec0a378d91959646a8fa904be3192a`. Cargo cache/output stay under `/workspace/native-tools`. Both unchanged core test-harness compilation and patched core binary/test-harness compilation succeeded. This is an x86_64 core checkpoint, not an ARM build or full engine build.
+
+The maintained patch and guard script live in this repository; no external upstream branch/repository is created or pushed. A fresh second worktree accepted the exact patch and passed source checks. The native CI job performs the same guarded apply, core build/test compilation and frozen reviewed regression subset. Original lockfiles, license and protocol 8 remain unchanged. This milestone does not authorize native startup or make a readiness/health claim.

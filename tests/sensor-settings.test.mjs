@@ -24,9 +24,9 @@ test('default settings have no rules, no invented readings, and honest motion st
   const store = storage();
   assert.deepEqual(readSensorRules(store).rules, []);
   const html = renderSensorSettings({storage:store});
-  assert.match(html, /No rules configured/);
-  assert.match(html, /No live sensor data/);
-  assert.match(html, /Motion state unavailable/);
+  assert.match(html, /No alert rules added/);
+  assert.match(html, /Sensor readings and alerts are unavailable/);
+  assert.match(html, /Motion information unavailable/);
   assert.match(html, /Add rule/);
   assert.doesNotMatch(html, /role="alert"|30 °C|Overheating/);
   assert.equal(store.raw, undefined);
@@ -65,7 +65,7 @@ test('unavailable storage is reported and valid changes remain only in this sess
   assert.equal(result.ok, true);
   assert.equal(result.persisted, false);
   assert.equal(ui.getRules().length, 1);
-  assert.match(element.innerHTML, /only.*this session/i);
+  assert.match(element.innerHTML, /temporary.*reload or close/i);
 });
 
 test('add, edit, and remove keep stable IDs and persist only valid rules', async () => {
@@ -107,7 +107,7 @@ test('missing and stale rules are distinct and do not gain numeric thresholds', 
   for (const saved of ui.getRules()) assert.equal('threshold' in saved, false);
   const html = renderSensorSettings({rules:ui.getRules()});
   assert.match(html, /Reading missing/);
-  assert.match(html, /Reading stale/);
+  assert.match(html, /Reading out of date/);
 });
 
 test('moving guard prevents add, edit, and remove even when motion changes after mount', async () => {
@@ -138,7 +138,7 @@ test('native editor exposes labeled controls for sensor, threshold, timing, and 
     assert.match(html, new RegExp(`<label[^>]*for="sensor-rule-${name}"`));
   }
   assert.match(html, /once until normal/i);
-  assert.match(html, /No sound backend/);
+  assert.match(html, /Alert sounds are unavailable/);
   assert.match(html, /gauge|absolute/);
 });
 
@@ -277,7 +277,7 @@ test('unit changes cancel the open editor without saving or reinterpreting its t
   const canonicalRules = store.raw;
   ui.setUnitPreferences({temperature:'fahrenheit',pressure:'psi'});
   assert.doesNotMatch(element.innerHTML,/data-sensor-rule-form/);
-  assert.match(element.innerHTML,/editor.*closed.*without saving/i);
+  assert.match(element.innerHTML,/Unsaved rule changes were discarded/i);
   assert.equal(store.raw,canonicalRules);
   assert.equal(ui.getRules()[0].threshold,30);
   assert.match(element.innerHTML,/86 °F/);
@@ -319,7 +319,7 @@ test('unit storage failures keep an honest local selection without claiming pers
   const result=ui.setUnitPreferences({temperature:'fahrenheit',pressure:'bar'});
   assert.equal(result.ok,true); assert.equal(result.persisted,false);
   assert.match(element.innerHTML,/value="fahrenheit" selected/);
-  assert.match(element.innerHTML,/only.*this session/i);
+  assert.match(element.innerHTML,/temporary.*reload or close/i);
 });
 
 test('save, cancel, and remove restore keyboard focus to an existing rule action', async () => {
@@ -354,7 +354,7 @@ test('detached settings snapshots preserve session-only rules and units across r
   const second = bindSensorSettings(element,{storage:store,snapshot});
   assert.equal(second.getRules()[0].threshold,30);
   assert.deepEqual(second.getUnitPreferences(),{temperature:'fahrenheit',pressure:'bar'});
-  assert.match(element.innerHTML,/only.*this session/i);
+  assert.match(element.innerHTML,/temporary.*reload or close/i);
   snapshot.rules[0].threshold = -999;
   snapshot.unitPreferences.temperature = 'celsius';
   assert.equal(second.getRules()[0].threshold,30);

@@ -11,4 +11,56 @@ jobs:
         with:
           node-version: '24'
       - run: npm test
+      - run: npm run test:electron:fixture
       - run: npm run build
+  native-input:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: f-io/LIVI
+          ref: 4bcd1335c2daedba40640e6dc432cd2ed7acfaa4
+          path: .native-source
+          sparse-checkout: |
+            native
+            src/main/shared/assets
+            scripts/livi-link/common
+          persist-credentials: false
+      - run: rustup toolchain install beta-2026-10-03 --profile minimal
+      - run: python3 scripts/native-check.py apply .native-source
+      - run: rustup run beta-2026-10-03 python3 scripts/native-check.py compile .native-source
+      - run: rustup run beta-2026-10-03 python3 scripts/native-check.py test .native-source
+  native-engine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: f-io/LIVI
+          ref: 4bcd1335c2daedba40640e6dc432cd2ed7acfaa4
+          path: .native-source
+          sparse-checkout: |
+            native
+            src/main/shared/assets
+            scripts/livi-link/common
+          persist-credentials: false
+      - run: rustup toolchain install beta-2026-10-03 --profile minimal
+      - name: Install development packages from the runner's configured Ubuntu repositories
+        run: |
+          sudo apt-get update
+          xargs -a native/ubuntu24-build-packages.txt sudo apt-get install --yes --no-install-recommends
+      - run: python3 scripts/native-check.py apply .native-source
+      - run: rustup run beta-2026-10-03 python3 scripts/native-check.py engine-compile .native-source
+      - run: rustup run beta-2026-10-03 python3 scripts/native-check.py engine-test .native-source
+      - name: Retain build inputs and static artifact inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-engine-evidence
+          path: native-evidence/
+          if-no-files-found: warn
+          retention-days: 14

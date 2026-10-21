@@ -194,3 +194,7 @@ Sources: [LIVI license](https://github.com/f-io/LIVI/blob/4bcd1335c2daedba40640e
 
 No live phone pairing/switching, audio/mic loopback, native rendering, reverse-camera transitions, hardware MFi, compositor startup, or on-device reconnect was executed. Those require a suitable host, real adapters/phones and explicit hardware/integration scope.
 
+
+## Home metadata projection
+
+The bounded Home slice rechecked the pinned NowPlaying and DeviceView Rust schemas and active-session publication behavior. See [home-status.md](home-status.md) for exact fields, source hashes, local observation expiry and ownership checks. SignalStrength exists but its shared CP/AA scale is not established by this audit; the shell does not invent signal bars. Playback controls use existing explicit play/pause actions, with an additional renderer-to-host owner check that is not added to the native wire protocol.

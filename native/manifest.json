@@ -1,0 +1,42 @@
+{
+  "upstream": "https://github.com/f-io/LIVI",
+  "commit": "4bcd1335c2daedba40640e6dc432cd2ed7acfaa4",
+  "tree": "6ba67543ebeb593cd6423b96786acff834de2857",
+  "patch": "patches/0001-client-input-ownership.patch",
+  "patch_sha256": "59fc90af7e6bca6dea7649d1c2c66b7a99a5fc4ad87154166951b5dea3b42ab0",
+  "license": "GPL-3.0 (retain upstream LICENSE and notices)",
+  "rustc": {
+    "release": "1.100.0-beta.3",
+    "commit-hash": "7bbda45cb1ec0a378d91959646a8fa904be3192a",
+    "host": "x86_64-unknown-linux-gnu"
+  },
+  "toolchain_channel": "beta-2026-10-03",
+  "files": {
+    "native/livi-helperd/bin/livi-core/src/projection.rs": {
+      "original": "75ee8cafc48134596e75f5463bc13f05e007d96b0e72ab7b9374b058586652b0",
+      "patched": "8fd0092fb6d5d7b6bf482ff5d6a40c8af8d7622c5f34543c818732f42708121a"
+    },
+    "native/livi-helperd/bin/livi-core/src/projection/owned_input.rs": {
+      "original": null,
+      "patched": "f0b3f9c0c03d712824ebd113eccbbf84ff3a8a68ac11ceee86e5f30e09720f9b"
+    },
+    "native/livi-helperd/bin/livi-core/src/server.rs": {
+      "original": "7680a1e1c0baf0bcdafe1d9f8110ef26766a5659397d36b7b2b75cb324e0549b",
+      "patched": "2871fe022a1f6825219da3dd121f54eea1b4f225e69df44a21fdbe3b0abf397e"
+    },
+    "native/livi-helperd/crates/livi-aa-stack/src/aa_session.rs": {
+      "original": "0a4d5d309f8b8eb2c70b278f9f6f425167267748a2a430aade61a2dbe8f7f8fe",
+      "patched": "5031a10a42d6f063459312752b336de72bf2028dd8bea2c50b92121e1a8b2ee7"
+    },
+    "native/livi-helperd/crates/livi-aa-stack/src/commands.rs": {
+      "original": "a97c79e00f4df9c9717f546a3793976e05805022d47f46a079ec3d598a03720b",
+      "patched": "2de70f419f3f1aa9042b3990819e1ee5d47b5a734e996db51a7b4c4cdd60da1f"
+    }
+  },
+  "official_archives": {
+    "rustc": "28b8642145b8dba94dedb7054787690b8c591d254183b12e1913f876df1b1983",
+    "rust-std": "d55c78b086d64e518a29ac3f7731266a9dc2844ad0f380e42ed25c03c9406ec2",
+    "cargo": "11eb87b36f6477353fe4e860c451cf3b60e02d0aa4cfc8d52731eb4ecfcf52cf",
+    "rustfmt-preview": "ae899cf5ef82de3d7fbf0f794355296c12f641eac69de824b9a4048b6e3898b5"
+  }
+}

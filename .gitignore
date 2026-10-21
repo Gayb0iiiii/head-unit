@@ -7,3 +7,6 @@ dist/
 __pycache__/
 *.pyc
 .DS_Store
+evidence/electron-smoke/
+.native-source/
+native-evidence/
