@@ -19,6 +19,6 @@ test('public geometry is filtered again without leaked extras or inherited value
 test('projection layout uses the pinned centered contain formula and bounded view-area masks',()=>{
  const html=pictureMarkup(configuredPicture(session(cfg)));
  assert.match(html,/min\(100cqw, calc\(100cqh \* 1920 \/ 1080\)\)/);assert.match(html,/min\(100cqh, calc\(100cqw \* 1080 \/ 1920\)\)/);assert.match(html,/native-picture-mask/);
- assert.doesNotMatch(pictureMarkup(null),/native-picture-mask|min\(100cq/);assert.match(pictureMarkup(null),/Picture geometry unavailable/);
+ assert.doesNotMatch(pictureMarkup(null),/native-picture-mask|min\(100cq/);assert.match(pictureMarkup(null),/Phone display size unavailable/);
  const portrait=pictureMarkup({width:600,height:1000,insets:null});assert.match(portrait,/100cqh \* 600 \/ 1000/);assert.doesNotMatch(portrait,/native-picture-mask/);
 });

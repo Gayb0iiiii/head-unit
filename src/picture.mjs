@@ -16,8 +16,8 @@ export function configuredPicture(session) {
 }
 export function pictureMarkup(value) {
   const picture=filterPicture(value,true,'projection');
-  if(!picture)return '<div class="native-projection-region"><p class="native-picture-notice" role="status">Picture geometry unavailable</p></div>';
+  if(!picture)return '<div class="native-projection-region"><p class="native-picture-notice" role="status">Phone display size unavailable</p></div>';
   const {width,height,insets}=picture;
   const masks=insets?`<div class="native-picture-mask top" style="height:${insets.top/height*100}%"></div><div class="native-picture-mask bottom" style="height:${insets.bottom/height*100}%"></div><div class="native-picture-mask left" style="width:${insets.left/width*100}%"></div><div class="native-picture-mask right" style="width:${insets.right/width*100}%"></div>`:'';
-  return `<div class="native-projection-region" aria-label="Configured projection picture"><div class="native-picture" style="width:min(100cqw, calc(100cqh * ${width} / ${height}));height:min(100cqh, calc(100cqw * ${height} / ${width}))">${masks}</div></div>`;
+  return `<div class="native-projection-region" aria-label="Phone display area"><div class="native-picture" style="width:min(100cqw, calc(100cqh * ${width} / ${height}));height:min(100cqh, calc(100cqw * ${height} / ${width}))">${masks}</div></div>`;
 }

@@ -42,7 +42,7 @@ try {
   runtime=createGlassRuntime({ipcMain,trustedWindow:window,trustedUrl:entry.href,
     socketPath:core.socketPath,preferencePath:join(directory,'preferences.json')});
   await window.loadFile(fileURLToPath(entry));
-  await heading('LIVI disconnected');
+  await heading('System disconnected');
   checks.push('startup: actual preload exposes disconnected view before socket start');
 
   const isolation=await evaluate(`({require:typeof require,process:typeof process,Buffer:typeof Buffer,
@@ -82,7 +82,7 @@ try {
   checks.push('authoritative camera takeover clears diagnostics and restores Settings');
   await click('aside [data-action="phones"]');await heading('Phones');
   await click('[data-phone="passenger"]');
-  await waitFor(`document.querySelector('[role="alert"]')?.textContent==='Native command unavailable'`,'rejected selection');
+  await waitFor(`document.querySelector('[role="alert"]')?.textContent==='Unable to complete that action.'`,'rejected selection');
   assert.equal(await evaluate(`document.body.textContent.includes('fake-selection-rejected-private-detail')`),false);
   core.patch([{op:'set',path:['devices'],value:[{id:'driver',name:'Driver',status:'available'},{id:'passenger',name:'Passenger',status:'active'}]}]);
   await waitFor(`document.querySelector('[data-phone="passenger"] small')?.textContent==='Active'`,'authoritative phone update');
@@ -90,7 +90,7 @@ try {
   checks.push('correlated rejection is sanitized; later independent activity cannot open projection');
   await screenshot('phones-rejected');
   await core.close();core=null;
-  await heading('LIVI disconnected');
+  await heading('System disconnected');
   const disconnected=await evaluate('window.headunit.getView()');
   assert.equal(disconnected.connected,false);assert.deepEqual(disconnected.phones,[]);
   await screenshot('disconnected');

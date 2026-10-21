@@ -3,9 +3,9 @@ import {SENSOR_REGISTRY, DEFAULT_UNIT_PREFERENCES, validateUnitPreferences, sens
 
 export const SENSOR_RULES_KEY = 'livi.sensor-rules.v1';
 export const UNIT_PREFERENCES_KEY = 'livi.units.v1';
-const sensorConditions = {above:'Value above',below:'Value below',missing:'Reading missing',stale:'Reading stale'};
+const sensorConditions = {above:'Value above',below:'Value below',missing:'Reading missing',stale:'Reading out of date'};
 const escapeSensorText = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
-const sensorSessionWarning = 'Storage unavailable. Changes last only for this session while the settings panel stays open.';
+const sensorSessionWarning = 'Settings could not be saved. Changes are temporary and will be lost when you reload or close the app.';
 let sensorRuleSequence = 0;
 
 function validatedSensorRules(rules) {
@@ -20,7 +20,7 @@ function validatedSensorRules(rules) {
           toDisplayValue(rule.sensor,rule.threshold,preferences);
           toDisplayDelta(rule.sensor,rule.hysteresis,preferences);
         }
-      } catch {throw new RangeError('Threshold and hysteresis must be displayable in all supported units.');}
+      } catch {throw new RangeError('Threshold and reset margin are too large to display in all available units.');}
     }
     if (ids.has(rule.id)) throw new TypeError('Duplicate rule ID.');
     ids.add(rule.id);
@@ -39,7 +39,7 @@ export function readSensorRules(storage) {
     const data = JSON.parse(raw);
     if (!data || data.version !== 1) throw new TypeError('Unsupported settings version.');
     return {rules:validatedSensorRules(data.rules),warning:''};
-  } catch { return {rules:[],warning:'Saved sensor rules could not be loaded. No rules are active here. Add a rule to replace the invalid settings.'}; }
+  } catch { return {rules:[],warning:'Saved alert settings could not be loaded. No alerts are active. Add a rule to replace these settings.'}; }
 }
 
 /** Own-page display settings; native CarPlay owns its separate unit preferences. */
@@ -62,7 +62,7 @@ function sensorUnitControls(preferences, moving) {
   return `<div class="sensor-unit-settings"><h2>Units</h2><fieldset data-unit-controls${moving === true ? ' disabled' : ''}><legend>Display units</legend><div class="sensor-fields">
 <div class="sensor-field"><label for="sensor-units-temperature">Temperature</label><select id="sensor-units-temperature" name="temperature" data-sensor-unit="temperature">${option('celsius','Celsius (°C)',preferences.temperature)}${option('fahrenheit','Fahrenheit (°F)',preferences.temperature)}</select></div>
 <div class="sensor-field"><label for="sensor-units-pressure">Pressure</label><select id="sensor-units-pressure" name="pressure" data-sensor-unit="pressure">${option('psi','PSI',preferences.pressure)}${option('kPa','kPa',preferences.pressure)}${option('bar','bar',preferences.pressure)}</select></div>
-</div></fieldset><p class="help">Applies to this headunit’s own pages. CarPlay uses the phone’s own units. Gauge and absolute pressures remain distinct.</p></div>`;
+</div></fieldset><p class="help">Choose the units shown here. CarPlay uses your phone’s settings. Changing units does not change the pressure type.</p></div>`;
 }
 
 function sensorUnitLabel(sensor, preferences) {
@@ -78,7 +78,7 @@ function sensorRuleSummary(rule, preferences) {
     try {threshold = ` ${new Intl.NumberFormat('en',{maximumFractionDigits:6}).format(toDisplayValue(rule.sensor,rule.threshold,preferences))} ${sensorUnitLabel(rule.sensor,preferences)}`;}
     catch {threshold = ' (value unavailable in selected units)';}
   }
-  return `${condition}${threshold} · ${rule.audio ? 'Sound requested' : 'Silent'} · ${rule.repeat === 'repeat' ? 'Repeats' : 'Once until normal'}${rule.enabled ? '' : ' · Disabled'}`;
+  return `${condition}${threshold} · ${rule.audio ? 'Sound selected (unavailable)' : 'Silent'} · ${rule.repeat === 'repeat' ? 'Repeats' : 'Once until normal'}${rule.enabled ? '' : ' · Disabled'}`;
 }
 function sensorDraft(rule, preferences) {
   if (!rule) return {id:'',sensor:'',label:'',condition:'above',threshold:'',hysteresis:'0',debounceMs:'1000',staleAfterMs:'5000',repeatMs:'60000',repeat:'once',audio:'false',enabled:true};
@@ -96,14 +96,14 @@ ${select('sensor','Sensor',option('','Choose a sensor',editor.sensor)+Object.val
 <div class="sensor-field"><label for="sensor-rule-label">Rule name (optional)</label><input id="sensor-rule-label" name="label" type="text" maxlength="80" value="${escapeSensorText(editor.label)}"></div>
 ${select('condition','Condition',Object.entries(sensorConditions).map(([value,label]) => option(value,label,editor.condition)).join(''))}
 ${number('threshold',`Threshold (${unit})`,{step:'any',disabled:!numeric})}
-${number('hysteresis',`Hysteresis (${unit})`,{step:'any',min:0,disabled:!numeric})}
-${number('debounceMs','Debounce (milliseconds)',{min:0})}
-${number('staleAfterMs','Stale after (milliseconds)',{min:1})}
-${select('audio','Alert sound',option('false','Silent',editor.audio)+option('true','Audible (when supported)',editor.audio))}
+${number('hysteresis',`Reset margin (${unit})`,{step:'any',min:0,disabled:!numeric})}
+${number('debounceMs','Alert delay (milliseconds)',{min:0})}
+${number('staleAfterMs','Reading expires after (milliseconds)',{min:1})}
+${select('audio','Alert sound',option('false','Silent',editor.audio)+option('true','Sound (currently unavailable)',editor.audio))}
 ${select('repeat','Alert behavior',option('once','Once until normal',editor.repeat)+option('repeat','Repeat while active',editor.repeat))}
 ${number('repeatMs','Repeat interval (milliseconds)',{min:1000,disabled:editor.repeat !== 'repeat'})}
 <div class="sensor-field sensor-checkbox"><label for="sensor-rule-enabled">Rule enabled</label><input id="sensor-rule-enabled" name="enabled" type="checkbox"${editor.enabled ? ' checked' : ''}></div>
-</div><p id="sensor-rule-help" class="help">Thresholds use the selected units. Hysteresis sets the gap before a warning clears; debounce avoids brief spikes. No sound backend is connected; audible rules save intent only.</p><div class="actions"><button type="submit">${editor.id ? 'Save changes' : 'Add rule'}</button><button type="button" data-sensor-action="cancel">Cancel</button></div></fieldset></form>`;
+</div><p id="sensor-rule-help" class="help">Use the selected units for thresholds. The reset margin controls when a warning clears; the delay ignores brief changes. Alert sounds are unavailable; your sound preference is saved.</p><div class="actions"><button type="submit">${editor.id ? 'Save changes' : 'Add rule'}</button><button type="button" data-sensor-action="cancel">Cancel</button></div></fieldset></form>`;
 }
 
 /** A pure settings view. It cannot invent readings or trigger warnings. */
@@ -121,10 +121,10 @@ export function renderSensorSettings(options = {}) {
   return `<div class="sensor-settings-content">${sensorUnitControls(preferences,moving)}
 ${unitWarning ? `<p class="sensor-unit-warning" role="status">${escapeSensorText(unitWarning)}</p>` : ''}
 ${options.notice ? `<p class="sensor-settings-notice" role="status">${escapeSensorText(options.notice)}</p>` : ''}
-<h2>Sensor alerts</h2><p class="help">No live sensor data is connected. Rules are saved for a future sensor connection.</p><p class="sensor-motion-note">${moving === true ? 'Park before editing sensor rules.' : moving === false ? 'Vehicle reports stationary. Edit only while safely parked.' : 'Motion state unavailable. Edit only while safely parked.'}</p>
+<h2>Sensor alerts</h2><p class="help">Sensor readings and alerts are unavailable. You can save alert settings here.</p><p class="sensor-motion-note">${moving === true ? 'Park before editing sensor rules.' : moving === false ? 'Edit only while safely parked.' : 'Motion information unavailable. Edit only while safely parked.'}</p>
 ${warning ? `<p class="sensor-storage-note" role="status">${escapeSensorText(warning)}</p>` : ''}
 <p id="sensor-rule-error"${options.error ? ' role="alert"' : ''}>${escapeSensorText(options.error || '')}</p>
-${rules.length ? `<ul class="sensor-rule-list">${rules.map(rule => `<li><div><strong>${escapeSensorText(rule.label)}</strong><p>${escapeSensorText(sensorRuleSummary(rule,preferences))}</p></div><div class="actions"><button type="button" data-sensor-action="edit" data-sensor-rule-id="${escapeSensorText(rule.id)}" aria-label="Edit ${escapeSensorText(rule.label)}"${disabled}>Edit</button><button type="button" data-sensor-action="remove" data-sensor-rule-id="${escapeSensorText(rule.id)}" aria-label="Remove ${escapeSensorText(rule.label)}"${disabled}>Remove</button></div></li>`).join('')}</ul>` : '<p class="sensor-empty">No rules configured.</p>'}
+${rules.length ? `<ul class="sensor-rule-list">${rules.map(rule => `<li><div><strong>${escapeSensorText(rule.label)}</strong><p>${escapeSensorText(sensorRuleSummary(rule,preferences))}</p></div><div class="actions"><button type="button" data-sensor-action="edit" data-sensor-rule-id="${escapeSensorText(rule.id)}" aria-label="Edit ${escapeSensorText(rule.label)}"${disabled}>Edit</button><button type="button" data-sensor-action="remove" data-sensor-rule-id="${escapeSensorText(rule.id)}" aria-label="Remove ${escapeSensorText(rule.label)}"${disabled}>Remove</button></div></li>`).join('')}</ul>` : '<p class="sensor-empty">No alert rules added.</p>'}
 ${renderedEditor ? sensorEditorMarkup(renderedEditor,preferences,moving) : `<button type="button" data-sensor-action="add"${disabled || (rules.length >= MAX_SENSOR_RULES ? ' disabled' : '')}>Add rule</button>`}</div>`;
 }
 
@@ -186,7 +186,7 @@ export function bindSensorSettings(root, options = {}) {
     let next;
     try {next = validateUnitPreferences(input);}
     catch (failure) {return fail(failure.message || 'Choose valid display units.');}
-    notice = editor ? 'Units changed. The open rule editor was closed without saving.' : 'Display units updated.';
+    notice = editor ? 'Units changed. Unsaved rule changes were discarded.' : 'Display units updated.';
     editor = null; error = ''; unitPreferences = next;
     let persisted = false;
     try {
@@ -222,7 +222,7 @@ export function bindSensorSettings(root, options = {}) {
   function requiredNumber(value, label) {
     if (String(value ?? '').trim() === '') throw new TypeError(`${label} is required.`);
     const number = Number(value);
-    if (!Number.isFinite(number)) throw new TypeError(`${label} must be a finite number.`);
+    if (!Number.isFinite(number)) throw new TypeError(`Enter a valid number for ${label.toLowerCase()}.`);
     return number;
   }
   function submit(event) {
@@ -233,13 +233,13 @@ export function bindSensorSettings(root, options = {}) {
     try {
       if (!Object.hasOwn(SENSOR_REGISTRY,editor.sensor)) throw new TypeError('Choose a sensor.');
       const id = editor.id || `rule-${Date.now().toString(36)}-${++sensorRuleSequence}`;
-      const rule = {id,sensor:editor.sensor,label:editor.label.trim() || SENSOR_REGISTRY[editor.sensor].label,condition:editor.condition,hysteresis:0,debounceMs:requiredNumber(editor.debounceMs,'Debounce'),staleAfterMs:requiredNumber(editor.staleAfterMs,'Stale interval'),repeatMs:editor.repeat === 'repeat' ? requiredNumber(editor.repeatMs,'Repeat interval') : 60000,repeat:editor.repeat,audio:editor.audio === 'true',enabled:editor.enabled};
+      const rule = {id,sensor:editor.sensor,label:editor.label.trim() || SENSOR_REGISTRY[editor.sensor].label,condition:editor.condition,hysteresis:0,debounceMs:requiredNumber(editor.debounceMs,'Alert delay'),staleAfterMs:requiredNumber(editor.staleAfterMs,'Reading expiry'),repeatMs:editor.repeat === 'repeat' ? requiredNumber(editor.repeatMs,'Repeat interval') : 60000,repeat:editor.repeat,audio:editor.audio === 'true',enabled:editor.enabled};
       if (['above','below'].includes(rule.condition)) {
         const original = rules.find(item => item.id === editor.id && item.sensor === rule.sensor);
         const unchangedThreshold = original?.threshold !== undefined && String(editor.threshold) === String(toDisplayValue(rule.sensor,original.threshold,preferences()));
         const unchangedHysteresis = original && String(editor.hysteresis) === String(toDisplayDelta(rule.sensor,original.hysteresis,preferences()));
         rule.threshold = unchangedThreshold ? original.threshold : toCanonicalValue(rule.sensor,requiredNumber(editor.threshold,'Threshold'),preferences());
-        rule.hysteresis = unchangedHysteresis ? original.hysteresis : toCanonicalDelta(rule.sensor,requiredNumber(editor.hysteresis,'Hysteresis'),preferences());
+        rule.hysteresis = unchangedHysteresis ? original.hysteresis : toCanonicalDelta(rule.sensor,requiredNumber(editor.hysteresis,'Reset margin'),preferences());
       }
       saveRule(rule);
     } catch (failure) {fail(failure.message || 'Check the rule values.');}

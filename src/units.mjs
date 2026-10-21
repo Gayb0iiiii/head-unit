@@ -10,11 +10,11 @@ export function validateUnitPreferences(input = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)
     || ![Object.prototype, null].includes(Object.getPrototypeOf(input))
     || Object.keys(input).some(key => !Object.hasOwn(DEFAULT_UNIT_PREFERENCES, key))) {
-    throw new TypeError('Invalid unit preferences');
+    throw new TypeError('Choose valid temperature and pressure units');
   }
   const preferences = { ...DEFAULT_UNIT_PREFERENCES, ...input };
   if (!temperatureUnits.has(preferences.temperature) || !pressureUnits.has(preferences.pressure)) {
-    throw new TypeError('Invalid unit preference');
+    throw new TypeError('Choose valid temperature and pressure units');
   }
   return preferences;
 }
@@ -58,7 +58,7 @@ export function sensorDisplayUnit(sensorId, preferences) {
 const kPaPerPressureUnit = Object.freeze({ psi: 6.894757293168361, kPa: 1, bar: 100 });
 function finite(value) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TypeError('Sensor value must be a finite number');
+    throw new TypeError('Enter a valid sensor value');
   }
   return value;
 }

@@ -10,7 +10,7 @@ export function attachSecondaryView({api,document}) {
     if(document.body)document.body.dataset.nativeFront=front??'';
     label.textContent=role==='cluster'?'Cluster display':role==='aux'?'Auxiliary display':'Secondary display';
     panel.hidden=connected&&value.presented===true&&['cluster','projection'].includes(front);
-    status.textContent=connected&&front==='camera'?'Camera unavailable. No camera source is connected to this shell.':connected&&front!==null?'Controls are on the main display.':'Waiting for connection.';
+    status.textContent=connected&&front==='camera'?'Camera unavailable. No camera feed is available.':connected&&front!==null?'Controls are on the main display.':'Waiting for connection.';
     if(connected&&front==='livi'&&value.presented===true&&!reported){
       reported=true;
       try{Promise.resolve(api.shown()).catch(()=>{});}catch{}

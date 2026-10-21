@@ -10,7 +10,7 @@ with sync_playwright() as p:
     page.goto('http://127.0.0.1:8095')
     page.locator('main [data-action="phones"]').click()
     page.get_by_role('button', name='Connect Driver’s iPhone', exact=True).click()
-    expect(page.get_by_role('heading', name='Projection preview', exact=True)).to_be_visible()
+    expect(page.get_by_role('heading', name='CarPlay demo', exact=True)).to_be_visible()
     page.locator('[data-action="home"]').click()
     expect(page.get_by_text('Driver’s iPhone', exact=True)).to_be_visible()
     page.locator('[data-action="settings"]').click()
@@ -28,7 +28,7 @@ with sync_playwright() as p:
     page.locator('[data-appearance="night"]').click()
     expect(page.locator('body')).to_have_attribute('data-appearance', 'night')
     page.locator('[data-action="diagnostics"]').click()
-    expect(page.get_by_role('heading', name='Hardware not connected', exact=True)).to_be_visible()
+    expect(page.get_by_role('heading', name='Demo mode', exact=True)).to_be_visible()
     page.get_by_role('button', name='Back', exact=True).click()
     expect(page.get_by_role('heading', name='Settings', exact=True)).to_be_visible()
     page.locator('[data-action="home"]').click()
@@ -96,7 +96,7 @@ with sync_playwright() as p:
             page.evaluate('(route)=>testHost.emit({route,front:route,connected:route!=="disconnected"})', interruption)
         page.evaluate("testHost.requests.at(-1).reject(new Error('Headunit operation unavailable'))")
         if interruption == 'failure':
-            expect(page.get_by_role('alert')).to_have_text('Native command unavailable')
+            expect(page.get_by_role('alert')).to_have_text('Unable to complete that action.')
         else:
             expect(page.get_by_role('alert')).to_have_count(0)
         page.evaluate("testHost.emit({connected:true,route:'phones',front:'livi',projectionReady:true,phones:[{id:'b',name:'Passenger',status:'active'}]})")
@@ -112,9 +112,9 @@ with sync_playwright() as p:
     expect(page.get_by_text('Playing', exact=True)).to_be_visible()
     page.evaluate("testHost.rejectMedia=true")
     page.locator('[data-media="play"]').click()
-    expect(page.get_by_role('alert')).to_have_text('Native command unavailable')
+    expect(page.get_by_role('alert')).to_have_text('Unable to complete that action.')
     page.evaluate("testHost.emit({homeStatus:{media:{status:'stale',phoneId:'a'}}})")
-    expect(page.get_by_text('Media status is stale. Waiting for a core update.', exact=True)).to_be_visible()
+    expect(page.get_by_text('Media information is out of date. Waiting for an update.', exact=True)).to_be_visible()
     expect(page.locator('[data-media="play"]')).to_be_disabled()
     assert not errors, errors
     browser.close()

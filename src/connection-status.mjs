@@ -5,15 +5,15 @@ export function filterConnectionPhase(phase,connected) {
   return disconnectedPhases.has(phase)?phase:'unavailable';
 }
 const messages={
-  idle:{title:'Waiting for LIVI',detail:'The host connection has not started.'},
-  connecting:{title:'Connecting to LIVI',detail:'Waiting for the native engine connection.'},
-  handshaking:{title:'Synchronizing with LIVI',detail:'Connected to the host. Waiting for its initial state.'},
-  resyncing:{title:'Synchronizing with LIVI',detail:'Refreshing native state before controls become available.'},
-  backoff:{title:'Reconnecting to LIVI',detail:'The host will retry automatically. Phone and media controls will return after synchronization.'},
-  refused:{title:'Connection refused',detail:'The native host could not accept this shell. Host configuration needs attention.'},
-  error:{title:'LIVI connection unavailable',detail:'The connection ended. Check the native host before reconnecting.'},
-  stopped:{title:'LIVI connection stopped',detail:'The host connection is stopped. Automatic retries are not running.'},
-  unavailable:{title:'LIVI disconnected',detail:'Connection status is unavailable. Phone and media controls are unavailable.'}
+  idle:{title:'Waiting for connection',detail:'Phone and media controls are unavailable until the system connects.'},
+  connecting:{title:'Connecting',detail:'Connecting to the system…'},
+  handshaking:{title:'Connecting',detail:'Updating connection information…'},
+  resyncing:{title:'Updating connection',detail:'Controls are temporarily unavailable while connection information updates.'},
+  backoff:{title:'Reconnecting',detail:'Trying to reconnect automatically. Phone and media controls are temporarily unavailable.'},
+  refused:{title:'Unable to connect',detail:'The system could not accept the connection.'},
+  error:{title:'Connection lost',detail:'Phone and media controls are unavailable.'},
+  stopped:{title:'Connection stopped',detail:'Automatic reconnection is off.'},
+  unavailable:{title:'System disconnected',detail:'Phone and media controls are unavailable.'}
 };
 export function connectionPresentation(phase) {
   return {...messages[filterConnectionPhase(phase,false)]};

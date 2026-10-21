@@ -92,7 +92,7 @@ test('glass interface uses native phone state and waits for the selected phone',
   assert.deepEqual(calls,[['selectPhone','two'],['navigate','projection']]);
   publish({connected:true,projectionReady:true,route:'projection',front:'projection',phones:[{id:'two',name:'Passenger',status:'active'}]});
   assert.match(ui.root.innerHTML,/native-projection-region/);
-  assert.doesNotMatch(ui.root.innerHTML,/Projection preview|Simulated/);
+  assert.doesNotMatch(ui.root.innerHTML,/CarPlay demo|Simulated/);
 });
 
 test('glass phone list offers manual wake for a remembered offline phone', async () => {
@@ -124,7 +124,7 @@ test('Home switches directly between app grid and a clearly simulated music/vehi
   assert.match(ui.root.innerHTML, /Unavailable/);
   assert.match(ui.root.innerHTML, /data-action="projection"/);
   assert.doesNotMatch(ui.root.innerHTML, /312|km\/h|Demo values|battery/i);
-  assert.match(ui.root.innerHTML, /No live audio or vehicle connection/);
+  assert.match(ui.root.innerHTML, /Simulated phones · No live audio or vehicle data/);
   ui.click('homeMode', 'apps');
   assert.match(ui.root.innerHTML, /class="apps"/);
   assert.doesNotMatch(ui.root.innerHTML, /class="dashboard"/);
@@ -156,7 +156,7 @@ test('last screen survives reload and Home returns to the chosen dashboard witho
   assert.match(reloaded.root.innerHTML, /data-home-mode="dashboard"[^>]*aria-pressed="true"/);
   assert.match(reloaded.root.innerHTML, /Choose a phone/);
 });
-test('Phones labels unsupported pairing, modes, forgetting, and contacts without fake controls',async()=>{const ui=await launch();ui.click('action','phones');assert.match(ui.root.innerHTML,/<button disabled[^>]*>Add phone<\/button>/);assert.match(ui.root.innerHTML,/Remove saved phone/);assert.match(ui.root.innerHTML,/Bluetooth-only/);assert.match(ui.root.innerHTML,/Contact sync/);assert.match(ui.root.innerHTML,/backend integration/);});
+test('Phones labels unsupported pairing, modes, forgetting, and contacts without fake controls',async()=>{const ui=await launch();ui.click('action','phones');assert.match(ui.root.innerHTML,/<button disabled[^>]*>Add phone<\/button>/);assert.match(ui.root.innerHTML,/Remove saved phone/);assert.match(ui.root.innerHTML,/Connection options are unavailable/);assert.match(ui.root.innerHTML,/Contacts are unavailable/);assert.doesNotMatch(ui.root.innerHTML,/backend|integration|v4|scaffold/);});
 
 
 test('app editing reorders, announces position and preserves the exact keyboard control', async () => {
@@ -229,8 +229,8 @@ test('moving host state ends editing and disables personalization without preten
 
 test('Settings includes empty optional sensor rules with no fabricated alerts or audio',async()=>{
  const ui=await launch();ui.click('action','settings');
- assert.match(ui.root.innerHTML,/No rules configured/);
- assert.match(ui.root.innerHTML,/No live sensor data is connected/);
+ assert.match(ui.root.innerHTML,/No alert rules added/);
+ assert.match(ui.root.innerHTML,/Sensor readings and alerts are unavailable/);
  assert.match(ui.root.innerHTML,/data-sensor-action="add"/);
  assert.doesNotMatch(ui.root.innerHTML,/sensor-alert:/);
 });
@@ -251,7 +251,7 @@ test('Settings offers persisted left and right dock buttons and locks them while
 test('whole CarPlay tile is a single projection button and dashboard playback stays separate',async()=>{
  const ui=await launch();const tile=ui.root.innerHTML.match(/<button class="tile mint"[^>]*data-action="projection"[^>]*>([\s\S]*?)<\/button>/);
  assert.ok(tile);assert.match(tile[1],/CarPlay/);assert.doesNotMatch(tile[1],/<button|demo-playback/);
- ui.click('action','projection');assert.match(ui.root.innerHTML,/Projection preview/);
+ ui.click('action','projection');assert.match(ui.root.innerHTML,/CarPlay demo/);
  ui.click('action','home');ui.click('homeMode','dashboard');ui.click('action','demo-playback');assert.match(ui.root.innerHTML,/Your dashboard/);assert.match(ui.root.innerHTML,/Pause demo track/);
 });
 
@@ -277,7 +277,7 @@ test('native Home renders verified media/battery safely and explicit controls pr
  ui.click('media','pause');assert.deepEqual(calls,[['pause','a']]);assert.match(ui.root.innerHTML,/Good to go/);
  ui.click('action','edit-layout');assert.doesNotMatch(ui.root.innerHTML,/data-move="dashboard:/);
  publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{media:{status:'stale',phoneId:'a'}}});
- assert.match(ui.root.innerHTML,/Media status is stale/);assert.doesNotMatch(ui.root.innerHTML,/&lt;img/);
+ assert.match(ui.root.innerHTML,/Media information is out of date/);assert.doesNotMatch(ui.root.innerHTML,/&lt;img/);
  assert.match(ui.root.innerHTML,/data-media="play"[^>]*disabled/);
 });
 
@@ -310,10 +310,10 @@ test('bubbled navigation clicks do not rewrite appearance preferences',async()=>
 
 test('native connection screen explains retry, refusal and synchronization without claiming readiness',async()=>{
  let emit;const app=await launch(new Map(),{onView:fn=>{emit=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',connectionPhase:'connecting',phones:[]})});
- await new Promise(resolve=>setImmediate(resolve));assert.match(app.root.innerHTML,/Connecting to LIVI/);
- emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/retry automatically/);
- emit({connected:false,connectionPhase:'refused'});assert.match(app.root.innerHTML,/Connection refused/);assert.doesNotMatch(app.root.innerHTML,/retry automatically/);
- emit({connected:false,connectionPhase:'resyncing'});assert.match(app.root.innerHTML,/Synchronizing with LIVI/);
+ await new Promise(resolve=>setImmediate(resolve));assert.match(app.root.innerHTML,/Connecting to the system/);
+ emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/reconnect automatically/);
+ emit({connected:false,connectionPhase:'refused'});assert.match(app.root.innerHTML,/Unable to connect/);assert.doesNotMatch(app.root.innerHTML,/reconnect automatically/);
+ emit({connected:false,connectionPhase:'resyncing'});assert.match(app.root.innerHTML,/Updating connection/);
  emit({connected:false,connectionPhase:'secret'});assert.doesNotMatch(app.root.innerHTML,/secret/);
 });
 test('native picture geometry replaces the content-column placeholder and clears through repeated interruptions',async()=>{
@@ -321,8 +321,8 @@ test('native picture geometry replaces the content-column placeholder and clears
  const projection={connected:true,projectionReady:true,front:'projection',route:'projection',phones:[],picture:{width:800,height:480,insets:{top:10,bottom:0,left:0,right:0}}};
  for(let i=0;i<2;i++){
   publish(projection);assert.match(ui.root.innerHTML,/100cqh \* 800 \/ 480/);assert.match(ui.root.innerHTML,/native-picture-mask/);
-  publish({...projection,front:'camera',route:'camera'});assert.match(ui.root.innerHTML,/Camera unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|Native display in control/);
-  publish({...projection,picture:null});assert.match(ui.root.innerHTML,/Picture geometry unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask/);
+  publish({...projection,front:'camera',route:'camera'});assert.match(ui.root.innerHTML,/Camera unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|Display in use/);
+  publish({...projection,picture:null});assert.match(ui.root.innerHTML,/Phone display size unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask/);
   publish({connected:false,route:'disconnected',picture:projection.picture});assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|100cqh/);
  }
 });
