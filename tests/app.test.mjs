@@ -74,6 +74,13 @@ test('production bridge stays empty until an authoritative view arrives',async()
  let publish;
  const ui=await launch(new Map(),{onView:fn=>{publish=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',phones:[]})},'production');
  assert.doesNotMatch(ui.root.innerHTML,/Driver.s iPhone|Passenger.s iPhone|Coastal drive|Simulated/);
+ assert.match(ui.root.innerHTML,/<h1>Home<\/h1>/);
+ assert.match(ui.root.innerHTML,/id="headunit-home-clock"/);
+ assert.match(ui.root.innerHTML,/Now playing/);
+ assert.match(ui.root.innerHTML,/Weather/);
+ assert.match(ui.root.innerHTML,/outdoor temperature unavailable/i);
+ assert.match(ui.root.innerHTML,/data-action="settings"/);
+ assert.doesNotMatch(ui.root.innerHTML,/Choose a phone|data-phone=|data-media=/);
  publish({connected:true,route:'home',front:'livi',phones:[]});
  assert.match(ui.root.innerHTML,/<h1>Home<\/h1>/);
  assert.doesNotMatch(ui.root.innerHTML,/Driver.s iPhone|Passenger.s iPhone|Coastal drive|Simulated|data-media=/);
@@ -278,7 +285,7 @@ for(const target of ['home','phones','projection','camera','cluster','disconnect
  const host={onView(fn){publish=fn;return()=>{};},getView:async()=>({connected:true,projectionReady:true,route:'settings',front:'livi',phones:[]}),navigate:async()=>({accepted:true})};
  const ui=await launch(new Map(),host);
  ui.click('action','diagnostics');assert.match(ui.root.innerHTML,/<h1>Diagnostics<\/h1>/);
- if(['home','phones','projection'].includes(target))ui.click('action',target);
+ if(['home','projection'].includes(target))ui.click('action',target);
  publish({connected:target!=='disconnected',route:target,front:['camera','cluster','projection'].includes(target)?target:'livi',phones:[]});
  assert.doesNotMatch(ui.root.innerHTML,/<h1>Diagnostics<\/h1>/);
  publish({connected:true,projectionReady:true,route:'settings',front:'livi',phones:[]});
@@ -295,7 +302,8 @@ test('native Home renders verified media/battery safely and explicit controls pr
  ui.click('media','pause');assert.deepEqual(calls,[['pause','a']]);assert.match(ui.root.innerHTML,/<h1>Home<\/h1>/);
  ui.click('action','edit-layout');assert.doesNotMatch(ui.root.innerHTML,/data-move="dashboard:/);
  publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{media:{status:'stale',phoneId:'a'}}});
- assert.doesNotMatch(ui.root.innerHTML,/Media information is out of date|&lt;img|data-media="play"/);
+ assert.match(ui.root.innerHTML,/Media information is out of date/);
+ assert.doesNotMatch(ui.root.innerHTML,/&lt;img|data-media="play"/);
 });
 
 test('Settings exposes persistent day/night controls, unavailable Auto status and focus retention',async()=>{
@@ -309,11 +317,38 @@ test('Settings exposes persistent day/night controls, unavailable Auto status an
  restored.updateMotion('moving');restored.click('appearance','night');
  assert.equal(restored.doc.body.dataset.appearance,'day');
 });
-test('native theme changes remain local and cannot send phone or media commands',async()=>{
- const calls=[];const app=await launch(new Map(),{onView:()=>()=>{},getView:async()=>({connected:true,front:'livi',route:'settings',phones:[]}),navigate:()=>calls.push('navigate'),media:()=>calls.push('media')});
+test('offline native theme changes persist locally without phone or media commands',async()=>{
+ const calls=[];const data=new Map();const host={onView:()=>()=>{},getView:async()=>({connected:false,front:'livi',route:'disconnected',phones:[]}),navigate:()=>calls.push('navigate'),media:()=>calls.push('media')};
+ const app=await launch(data,host,'production');
  await new Promise(resolve=>setImmediate(resolve));
+ app.click('action','settings');
  app.click('appearance','day');assert.equal(app.doc.body.dataset.appearance,'day');
  assert.deepEqual(calls,[]);assert.match(app.root.innerHTML,/Panel brightness unavailable/);
+ const restored=await launch(data,host,'production');assert.equal(restored.doc.body.dataset.appearance,'day');
+});
+test('Debug overlay is off by default and can be enabled from offline Settings',async()=>{
+ const data=new Map();let reads=0;
+ const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),getMetrics:async()=>{reads++;return {cpuPercent:null,gpuPercent:null};}};
+ const app=await launch(data,host,'production');app.click('action','settings');
+ assert.doesNotMatch(app.root.innerHTML,/id="debug-overlay"/);assert.equal(reads,0);
+ app.click('debugOverlay','true');assert.match(app.root.innerHTML,/id="debug-overlay"/);
+ assert.match(app.root.innerHTML,/UI FPS unavailable/);
+ app.click('debugOverlay','false');assert.doesNotMatch(app.root.innerHTML,/id="debug-overlay"/);
+ assert.equal(reads,0);
+});
+test('production sidebar follows requested order and all destinations have honest screens',async()=>{
+ const calls=[];const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),navigate:route=>{calls.push(route);return Promise.resolve({accepted:true});}};
+ const app=await launch(new Map(),host,'production');await new Promise(resolve=>setImmediate(resolve));
+ const order=[...app.root.innerHTML.matchAll(/class="dock-button" data-action="([^"]+)"/g)].map(match=>match[1]);
+ assert.deepEqual(order.slice(0,5),['radio','bluetooth','projection','settings','apps']);
+ app.click('action','radio');assert.match(app.root.innerHTML,/<h1>Radio<\/h1>/);assert.match(app.root.innerHTML,/Digital.*AM.*FM/s);assert.doesNotMatch(app.root.innerHTML,/data-action="tune"/);
+ assert.match(app.root.innerHTML,/data-action="radio"[^>]*aria-current="page"/);
+ app.click('action','bluetooth');assert.match(app.root.innerHTML,/<h1>Bluetooth<\/h1>/);assert.doesNotMatch(app.root.innerHTML,/Pair now|Connected device/);
+ app.click('action','projection');assert.match(app.root.innerHTML,/<h1>CarPlay<\/h1>/);
+ app.click('action','settings');assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);
+ app.click('action','apps');assert.match(app.root.innerHTML,/<h1>Apps<\/h1>/);
+ app.click('action','home');assert.match(app.root.innerHTML,/<h1>Home<\/h1>/);
+ assert.deepEqual(calls,[]);
 });
 
 test('bubbled navigation clicks do not rewrite appearance preferences',async()=>{
@@ -327,7 +362,13 @@ test('bubbled navigation clicks do not rewrite appearance preferences',async()=>
 
 test('native connection screen explains retry, refusal and synchronization without claiming readiness',async()=>{
  let emit;const app=await launch(new Map(),{onView:fn=>{emit=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',connectionPhase:'connecting',phones:[]})});
- await new Promise(resolve=>setImmediate(resolve));assert.match(app.root.innerHTML,/Connecting to the system/);
+ await new Promise(resolve=>setImmediate(resolve));assert.match(app.root.innerHTML,/<h1>Home<\/h1>/);assert.match(app.root.innerHTML,/Connecting to the system/);
+ emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/System unavailable/);assert.doesNotMatch(app.root.innerHTML,/reconnect automatically|Unable to complete that action/);
+ assert.doesNotMatch(app.root.innerHTML,/data-phone=|data-media=/);
+ app.click('action','settings');assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);assert.doesNotMatch(app.root.innerHTML,/data-action="audio"/);
+ emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);
+ app.click('action','home');assert.match(app.root.innerHTML,/<h1>Home<\/h1>/);assert.match(app.root.innerHTML,/System unavailable/);
+ emit({connected:true,route:'home',front:'livi',phones:[]});
  emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/reconnect automatically/);
  emit({connected:false,connectionPhase:'refused'});assert.match(app.root.innerHTML,/Unable to connect/);assert.doesNotMatch(app.root.innerHTML,/reconnect automatically/);
  emit({connected:false,connectionPhase:'resyncing'});assert.match(app.root.innerHTML,/Updating connection/);

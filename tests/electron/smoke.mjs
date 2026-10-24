@@ -42,14 +42,14 @@ try {
   runtime=createGlassRuntime({ipcMain,trustedWindow:window,trustedUrl:entry.href,
     socketPath:core.socketPath,preferencePath:join(directory,'preferences.json')});
   await window.loadFile(fileURLToPath(entry));
-  await heading('System disconnected');
+  await heading('Home');
   checks.push('startup: actual preload exposes disconnected view before socket start');
 
   const isolation=await evaluate(`({require:typeof require,process:typeof process,Buffer:typeof Buffer,
     api:Object.keys(window.headunit).sort(),frozen:Object.isFrozen(window.headunit),
     listeners:typeof listeners,ipc:typeof window.ipcRenderer})`);
   assert.deepEqual(isolation,{require:'undefined',process:'undefined',Buffer:'undefined',
-    api:['cancelTouch','getView','media','navigate','onView','selectPhone','setVolume','touch'],
+    api:['cancelTouch','getMetrics','getView','media','navigate','onView','selectPhone','setVolume','touch'],
     frozen:true,listeners:'undefined',ipc:'undefined'});
   const prefs=window.webContents.getLastWebPreferences();
   assert.equal(prefs.sandbox,true);assert.equal(prefs.contextIsolation,true);
@@ -70,7 +70,7 @@ try {
   checks.push('real renderer isolation: no Node globals/raw IPC; sandboxed isolated preload');
 
   runtime.start();
-  await heading('Good to go.');
+  await heading('Home');
   assert.equal(await evaluate(`JSON.stringify(await window.headunit.getView()).includes('fake-private-config')`),false);
   checks.push('startup: actual Unix socket hello/welcome renders authoritative Home');
   await screenshot('home-1280x720');
@@ -80,7 +80,8 @@ try {
   await heading('Camera unavailable');
   core.patch([{op:'set',path:['front','main'],value:'livi'}]);await heading('Settings');
   checks.push('authoritative camera takeover clears diagnostics and restores Settings');
-  await click('aside [data-action="phones"]');await heading('Phones');
+  await click('aside [data-action="home"]');await heading('Home');
+  await click('main [data-action="phones"]');await heading('Phones');
   await click('[data-phone="passenger"]');
   await waitFor(`document.querySelector('[role="alert"]')?.textContent==='Unable to complete that action.'`,'rejected selection');
   assert.equal(await evaluate(`document.body.textContent.includes('fake-selection-rejected-private-detail')`),false);
@@ -90,7 +91,7 @@ try {
   checks.push('correlated rejection is sanitized; later independent activity cannot open projection');
   await screenshot('phones-rejected');
   await core.close();core=null;
-  await heading('System disconnected');
+  await heading('Home');
   const disconnected=await evaluate('window.headunit.getView()');
   assert.equal(disconnected.connected,false);assert.deepEqual(disconnected.phones,[]);
   await screenshot('disconnected');

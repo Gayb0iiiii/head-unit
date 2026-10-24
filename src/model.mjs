@@ -21,7 +21,7 @@ export class Headunit {
       screen: 'home', homeMode: 'apps', activePhone: null,
       appearancePreference: 'auto', appearance: resolveAppearance(),
       vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
-      glassStrength: 55, appOrder: [...defaultOrders.apps], dashboardOrder: [...defaultOrders.dashboard],
+      glassStrength: 55, debugOverlay:false, appOrder: [...defaultOrders.apps], dashboardOrder: [...defaultOrders.dashboard],
       editingLayout: false, motionState: 'unknown', persistenceError: false,
       phones: simulation ? [
         { id: 'phone-a', name: 'Driver’s iPhone', active: false },
@@ -35,6 +35,7 @@ export class Headunit {
       if (['left','right'].includes(saved?.dockSide)) this.state.dockSide = saved.dockSide;
       if (wallpapers.has(saved?.wallpaper)) this.state.wallpaper = saved.wallpaper;
       if (validGlassStrength(saved?.glassStrength)) this.state.glassStrength = saved.glassStrength;
+      if (typeof saved?.debugOverlay==='boolean') this.state.debugOverlay=saved.debugOverlay;
     } catch {}
     try {
       const saved = JSON.parse(storage?.getItem('headunit.navigation') || '{}');
@@ -113,8 +114,15 @@ export class Headunit {
   saveAppearance() {
     this.savePreference('headunit.appearance', {
       appearancePreference: this.state.appearancePreference, lastAppearance: this.state.appearance.mode,
-      wallpaper: this.state.wallpaper, glassStrength: this.state.glassStrength, dockSide: this.state.dockSide
+      wallpaper: this.state.wallpaper, glassStrength: this.state.glassStrength, dockSide: this.state.dockSide,
+      debugOverlay:this.state.debugOverlay
     });
+  }
+
+  setDebugOverlay(value){
+    if(typeof value!=='boolean')throw Error('Debug overlay setting must be boolean');
+    this.state.debugOverlay=value;
+    this.saveAppearance();
   }
 
   setAppearancePreference(value) {

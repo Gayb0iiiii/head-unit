@@ -14,6 +14,41 @@ function bridge() {
     emit(view) { listener?.(view); }
   };
 }
+test('initial backend absence leaves local settings usable without host commands or an action error',async()=>{
+ const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
+ host.emit({connected:false,connectionPhase:'backoff'});
+ assert.equal(model.everConnected,false);assert.equal(model.state.commandError,false);
+ assert.equal(model.state.screen,'home');
+ model.navigate('settings');assert.equal(model.state.screen,'settings');assert.deepEqual(host.calls,[]);
+ host.emit({connected:false,connectionPhase:'backoff'});assert.equal(model.state.screen,'settings');
+ model.home();assert.equal(model.state.screen,'home');assert.deepEqual(host.calls,[]);
+ model.stop();
+});
+test('a lost backend is distinguished from initial absence and restores authoritative route on return',async()=>{
+ const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
+ host.emit({connected:true,route:'home',front:'livi',phones:[]});assert.equal(model.everConnected,true);
+ model.state.commandError=true;
+ host.emit({connected:false,connectionPhase:'backoff',notice:'projection-reconnecting'});assert.equal(model.state.screen,'home');
+ assert.equal(model.state.commandError,false);assert.equal(model.state.notice,null);
+ model.navigate('settings');host.emit({connected:true,route:'phones',front:'livi',phones:[]});
+ assert.equal(model.state.screen,'phones');assert.deepEqual(host.calls,[]);model.stop();
+});
+test('a failed initial view read is not reported as a failed user action',async()=>{
+ const host=bridge();host.getView=async()=>{throw Error('socket unavailable');};
+ const model=new NativeHeadunit(undefined,host);await model.start();
+ assert.equal(model.state.commandError,false);assert.equal(model.state.screen,'home');model.stop();
+});
+test('local Radio Bluetooth and Apps routes never call the LIVI navigation bridge',async()=>{
+ const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
+ for(const route of ['radio','bluetooth','apps']){
+   model.navigate(route);assert.equal(model.state.screen,route);
+   host.emit({connected:false,connectionPhase:'backoff'});assert.equal(model.state.screen,route);
+ }
+ assert.deepEqual(host.calls,[]);
+ host.emit({connected:true,front:'livi',route:'home',phones:[]});assert.equal(model.state.screen,'apps');
+ host.emit({connected:true,front:'camera',route:'camera',phones:[]});assert.equal(model.state.screen,'camera');
+ model.stop();
+});
 
 test('native phone switching waits for observed active phone and never invents a device', async () => {
   const host = bridge();

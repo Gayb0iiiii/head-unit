@@ -118,6 +118,15 @@ test('glass strength has a balanced default and persists without replacing wallp
   }
   assert.equal(h.state.glassStrength, 100);
 });
+test('debug overlay is disabled by default and persists only an explicit boolean',()=>{
+ const storage=memoryStorage(),model=new Headunit(storage,{simulation:false});
+ assert.equal(model.state.debugOverlay,false);
+ model.setDebugOverlay(true);
+ assert.equal(new Headunit(storage,{simulation:false}).state.debugOverlay,true);
+ model.setDebugOverlay(false);
+ assert.equal(new Headunit(storage,{simulation:false}).state.debugOverlay,false);
+ assert.throws(()=>model.setDebugOverlay('true'));
+});
 
 test('saved layouts keep allowlisted unique IDs and append missing defaults', () => {
   const storage = memoryStorage();

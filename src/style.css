@@ -45,6 +45,23 @@ main>.bottom-note{margin-top:auto;padding-top:20px}.dashboard-shortcuts+.bottom-
 body[data-native-front=projection],body[data-native-front=camera],body[data-native-front=cluster]{background:transparent}
 body[data-native-front=projection]:before,body[data-native-front=camera]:before,body[data-native-front=cluster]:before{display:none}
 body[data-native-front=projection] .native-projection-region{flex:1;min-height:0;background:transparent;pointer-events:none}
+.debug-settings{margin:20px 0;padding:20px;border:1px solid rgb(232 247 255 / .24);border-radius:22px;background:rgb(9 24 39 / .35)}
+.debug-settings [role=group]{display:flex;gap:10px}
+.debug-settings button{min-width:72px;min-height:48px;padding:10px 16px;border-radius:14px;background:rgb(255 255 255 / .12)}
+.debug-settings button[aria-pressed=true]{background:#e5f0fa;color:#18354c}
+.debug-overlay{position:fixed;z-index:10;top:12px;right:12px;padding:9px 12px;border-radius:12px;background:rgb(8 20 32 / .9);border:1px solid rgb(232 247 255 / .36);color:#f3f7fc;font:600 13px/1.4 ui-monospace,monospace;pointer-events:none;max-width:calc(100vw - 24px)}
+.home-summary{display:grid;grid-template-columns:minmax(130px,1fr) minmax(220px,2fr);gap:14px;margin-bottom:16px}
+.home-summary .panel{padding:18px 22px;border-radius:22px}
+.home-summary h2{font-size:17px;margin-bottom:6px}
+.home-summary time{font-size:29px;font-weight:650;font-variant-numeric:tabular-nums}
+.home-summary p{font-size:14px;margin:0}
+.radio-formats{display:flex;gap:10px;flex-wrap:wrap}
+.radio-formats span{padding:8px 14px;border-radius:999px;border:1px solid rgb(232 247 255 / .3)}
+html[data-mode=production] .dock-apps{gap:5px}
+html[data-mode=production] .dock-button{min-height:64px}
+html[data-mode=production] .dock-button[aria-current=page]{background:rgb(232 247 255 / .18);box-shadow:inset 0 0 0 1px rgb(232 247 255 / .4)}
+@media(max-height:560px) and (min-width:650px){html[data-mode=production] aside{gap:5px;padding:8px 3px}html[data-mode=production] .dock-apps{gap:0}html[data-mode=production] .dock-button{min-height:49px;gap:1px;font-size:10px}html[data-mode=production] .dock-button svg{width:24px;height:24px}.home-summary .panel{padding:10px 14px}.home-summary time{font-size:22px}}
+@media(max-width:649px){html[data-mode=production] .dock-apps{flex:1;min-width:0;overflow-x:auto}html[data-mode=production] .dock-button{flex:none;min-width:59px;width:59px;min-height:58px;font-size:10px}html[data-mode=production] aside{gap:3px}.home-summary{grid-template-columns:1fr}}
 
 /* Wallpaper glass: transparency and backdrop blur live on the surface itself.
    No element opacity or foreground blur, so type and symbols remain crisp.

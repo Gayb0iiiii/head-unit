@@ -4,7 +4,7 @@ import {headunitWindowOptions} from './host.mjs';
 import {createGlassRuntime} from './glass-runtime.mjs';
 
 /** Main-process owner. Does not spawn LIVI, alter services, or expose process controls to IPC. */
-export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=process,env=process.env,screen,platform=process.platform,
+export function startHeadunitApplication({app,BrowserWindow,Menu,ipcMain,signals=process,env=process.env,screen,platform=process.platform,
   pageURL=new URL('../dist/index.html',import.meta.url).href,createRuntime=createGlassRuntime}) {
   const socketPath=env.LIVI_CORE_SOCKET;
   if(typeof socketPath!=='string'||!path.isAbsolute(socketPath)||path.basename(socketPath)!=='core.sock'||socketPath.includes('\0'))throw Error('Explicit LIVI_CORE_SOCKET required');
@@ -44,6 +44,7 @@ export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=proc
   const ready=app.whenReady().then(async()=>{
     if(stopping)return;
     if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: Electron ready; creating window');
+    Menu?.setApplicationMenu(null);
     window=new BrowserWindow({...headunitWindowOptions({compositor}),show:false});
     on(window,'closed',()=>{if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: window closed');shutdown();});
     on(window.webContents,'render-process-gone',(_event,details)=>{console.error('Headunit renderer exited:',details);shutdown(1);});

@@ -4,7 +4,8 @@ import {emptyHomeStatus,filterHomeStatus} from './home-status.mjs';
 import {Headunit} from './model.mjs';
 
 const visibleRoutes = new Set(['home','dashboard','phones','settings','audio','vehicle','projection','camera','cluster','disconnected']);
-const navigableRoutes = new Set(['home','dashboard','phones','settings','audio','vehicle','projection']);
+const navigableRoutes = new Set(['home','dashboard','phones','settings','audio','vehicle','projection','radio','bluetooth','apps']);
+const localRoutes = new Set(['radio','bluetooth','apps']);
 
 /** Browser-side projection of the privileged, authoritative host view. */
 export class NativeHeadunit extends Headunit {
@@ -16,7 +17,7 @@ export class NativeHeadunit extends Headunit {
     this.state.mediaPending = false;
     this.bridge = bridge;
     this.onChange = onChange;
-    this.state.screen = 'disconnected';
+    this.state.screen = 'home';
     this.state.phones = [];
     this.state.activePhone = null;
     this.state.connected = false;
@@ -25,6 +26,8 @@ export class NativeHeadunit extends Headunit {
     this.state.picture=null;
     this.state.notice = null;
     this.state.commandError = false;
+    this.everConnected = false;
+    this.localRoute = null;
     this.pendingPhone = null;
     this.selectionAccepted = false;
     this.choiceGeneration = 0;
@@ -38,7 +41,6 @@ export class NativeHeadunit extends Headunit {
       const initial = await this.bridge.getView();
       if (this.revision === before) this.applyView(initial);
     } catch {
-      this.state.commandError = true;
       this.onChange();
     }
   }
@@ -50,6 +52,8 @@ export class NativeHeadunit extends Headunit {
   applyView(view) {
     this.revision++;
     const connected = view?.connected === true;
+    if(connected)this.everConnected=true;
+    if(connected&&view.front!=='livi')this.localRoute=null;
     if (!connected || view.front !== 'livi' || this.state.screen !== view.route) this.endLayoutEdit();
     const phones = connected && Array.isArray(view.phones) ? view.phones.filter(p =>
       p && typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 256
@@ -59,6 +63,7 @@ export class NativeHeadunit extends Headunit {
     this.state.projectionReady = connected && view.projectionReady === true;
     this.state.picture=filterPicture(view?.picture,this.state.projectionReady,view?.front);
     this.state.connected = connected;
+    if(!connected)this.state.commandError=false;
     this.state.connectionPhase = filterConnectionPhase(view?.connectionPhase,connected);
     this.state.phones = phones;
     const active=phones.filter(p=>p.active);
@@ -68,10 +73,10 @@ export class NativeHeadunit extends Headunit {
     this.state.homeStatus=filterHomeStatus(view?.homeStatus,connected,activePhone);
     this.scheduleExpiry();
     this.state.front = connected && ['livi','projection','camera','cluster'].includes(view.front) ? view.front : 'livi';
-    this.state.screen = connected && visibleRoutes.has(view.route) ? view.route : 'disconnected';
+    this.state.screen = this.localRoute || (connected && visibleRoutes.has(view.route) ? view.route : ['settings','projection'].includes(this.state.screen)?this.state.screen:'home');
     if (view.route === 'dashboard') this.state.homeMode = 'dashboard';
     else if (view.route === 'home') this.state.homeMode = 'apps';
-    this.state.notice = view.notice === 'projection-reconnecting' ? view.notice : null;
+    this.state.notice = connected && view.notice === 'projection-reconnecting' ? view.notice : null;
     this.advanceSelection();
     this.onChange();
   }
@@ -133,6 +138,13 @@ export class NativeHeadunit extends Headunit {
     this.endLayoutEdit();
     this.cancelSelection();
     this.state.commandError = false;
+    this.localRoute=localRoutes.has(route)?route:null;
+    if(this.localRoute){this.state.screen=this.localRoute;this.onChange();return;}
+    if(!this.state.connected){
+      this.state.screen=['settings','projection'].includes(route)?route:'home';
+      this.onChange();
+      return;
+    }
     this.command('navigate',route);
   }
 

@@ -13,9 +13,16 @@ function fixture(options={}) {
   isDestroyed(){return false;}
   show(){events.push('show');}focus(){events.push('focus');}restore(){events.push('restore');}
  }
- const start=()=>startHeadunitApplication({app,BrowserWindow:Window,ipcMain:{},signals,env:{LIVI_CORE_SOCKET:'/tmp/native/core.sock',LIVI_LIFELINE:'1',LIVI_COMPOSITOR:'1',...options.env},platform:'linux',screen:options.screen,pageURL:'file:///tmp/headunit/index.html',createRuntime:config=>{runtimeConfig=config;return {subscribeWindowConfig:options.subscribeWindowConfig,start:()=>events.push('start'),dispose:()=>events.push('dispose')};}});
+ const start=()=>startHeadunitApplication({app,BrowserWindow:Window,Menu:options.Menu,ipcMain:{},signals,env:{LIVI_CORE_SOCKET:'/tmp/native/core.sock',LIVI_LIFELINE:'1',LIVI_COMPOSITOR:'1',...options.env},platform:'linux',screen:options.screen,pageURL:'file:///tmp/headunit/index.html',createRuntime:config=>{runtimeConfig=config;return {subscribeWindowConfig:options.subscribeWindowConfig,start:()=>events.push('start'),dispose:()=>events.push('dispose')};}});
  return {events,app,signals,ready,load,windows,start,get runtimeConfig(){return runtimeConfig;}};
 }
+test('kiosk clears the application menu before showing a window',async()=>{
+ const f=fixture({Menu:{setApplicationMenu:menu=>f.events.push(['menu',menu])}}),owner=f.start();
+ f.ready.resolve();await Promise.resolve();
+ assert.ok(f.events.findIndex(event=>Array.isArray(event)&&event[0]==='menu'&&event[1]===null)<f.events.indexOf('window'));
+ assert.ok(f.events.some(event=>Array.isArray(event)&&event[0]==='menu'));
+ f.load.resolve();await owner.ready;owner.shutdown();
+});
 test('entrypoint waits for Electron, attaches before load, and never activates on second launch',async()=>{
  const f=fixture(),owner=f.start();assert.equal(f.windows.length,0);
  f.ready.resolve();await Promise.resolve();assert.equal(f.windows.length,1);

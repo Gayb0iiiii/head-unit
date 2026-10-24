@@ -8,7 +8,9 @@ test('connection phase exposes only fixed status codes and readiness overrides s
  assert.equal(filterConnectionPhase('ready','true'),'unavailable');
 });
 test('connection guidance distinguishes managed retry from stopped or refused states',()=>{
- assert.match(connectionPresentation('backoff').detail,/automatically/);
+ assert.match(connectionPresentation('backoff',true).detail,/automatically/);
+ assert.match(connectionPresentation('backoff',false).title,/System unavailable/);
+ assert.doesNotMatch(connectionPresentation('backoff',false).detail,/reconnect|temporarily/i);
  for(const phase of ['refused','stopped','error','unavailable'])assert.doesNotMatch(connectionPresentation(phase).detail,/automatically/);
  assert.doesNotMatch(JSON.stringify(connectionPresentation('<secret>')),/secret/);
 });

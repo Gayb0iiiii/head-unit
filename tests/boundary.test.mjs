@@ -13,7 +13,7 @@ const runtimePath = new URL('../electron/glass-runtime.mjs', import.meta.url);
 const channels = {
   view: 'headunit:view', getView: 'headunit:get-view', navigate: 'headunit:navigate',
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
-  touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media',
+  touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media', metrics:'headunit:get-metrics',
 };
 const expectedView = {connectionPhase:'ready',homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null};
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -57,13 +57,20 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
   const calls=[];
   const {api, exposed} = await preload(async (...args) => {calls.push(copy(args)); return copy(expectedView);});
   assert.deepEqual([...exposed.keys()], ['headunit']);
-  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','getView','media','navigate','onView','selectPhone','setVolume','touch']);
+  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','getMetrics','getView','media','navigate','onView','selectPhone','setVolume','touch']);
   assert.equal(Object.isFrozen(api), true);
   assert.deepEqual(await api.getView(), expectedView);
-  await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
+  await api.getMetrics();await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
   await api.touch([{id:0,x:0.2,y:0.8,phase:'down'}]); await api.cancelTouch(); await api.media('pause','phone-1');
-  assert.deepEqual(calls, [[channels.getView],[channels.navigate,'settings'],[channels.selectPhone,'phone-1'],[channels.setVolume,0.4],[channels.touch,[{id:0,x:0.2,y:0.8,phase:'down'}]],[channels.cancelTouch],[channels.media,'pause','phone-1']]);
+  assert.deepEqual(calls, [[channels.getView],[channels.metrics],[channels.navigate,'settings'],[channels.selectPhone,'phone-1'],[channels.setVolume,0.4],[channels.touch,[{id:0,x:0.2,y:0.8,phase:'down'}]],[channels.cancelTouch],[channels.media,'pause','phone-1']]);
   for (const key of ['invoke','send','ipcRenderer','session','transport','core','intent']) assert.equal(api[key], undefined);
+});
+test('metrics IPC returns only bounded counters and rejects extra arguments',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
+ const f=fixture();const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,systemMetrics:{sample:async()=>({cpuPercent:34.5,gpuPercent:999,secret:'hidden'})}});
+ assert.deepEqual(await f.call(channels.metrics),{cpuPercent:34.5,gpuPercent:null});
+ await assert.rejects(()=>f.call(channels.metrics,['/etc/passwd']),/arguments/i);
+ dispose();
 });
 
 test('preload strips privileged events and removes exactly its listener on unsubscribe', async () => {

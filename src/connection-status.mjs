@@ -15,6 +15,7 @@ const messages={
   stopped:{title:'Connection stopped',detail:'Automatic reconnection is off.'},
   unavailable:{title:'System disconnected',detail:'Phone and media controls are unavailable.'}
 };
-export function connectionPresentation(phase) {
+export function connectionPresentation(phase,previouslyConnected=false) {
+  if(!previouslyConnected&&phase==='backoff')return {title:'System unavailable',detail:'CarPlay, phone and media features are unavailable while the system connection is offline.'};
   return {...messages[filterConnectionPhase(phase,false)]};
 }

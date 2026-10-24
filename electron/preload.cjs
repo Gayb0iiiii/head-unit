@@ -4,6 +4,7 @@ const {contextBridge, ipcRenderer} = require('electron');
 const listeners = new Set();
 const api = Object.freeze({
   getView: () => ipcRenderer.invoke('headunit:get-view'),
+  getMetrics: () => ipcRenderer.invoke('headunit:get-metrics'),
   onView(callback) {
     if (typeof callback !== 'function') throw new TypeError('A view callback is required');
     // The privileged IpcRendererEvent must never reach the page's callback.

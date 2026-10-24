@@ -5,6 +5,7 @@ import {CoreTransport} from '../src/transport.mjs';
 import {HeadunitController} from '../src/controller.mjs';
 import {FilePreferences} from '../src/preferences.mjs';
 import {attachHeadunitHost} from './host.mjs';
+import {createSystemMetrics} from './system-metrics.mjs';
 
 /** Attach the glass shell to a host-owned window. Only start() opens core.sock. */
 export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary}) {
@@ -13,7 +14,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
   const controller = new HeadunitController(transport,preferences);
   let detach;
   try {
-    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller});
+    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics()});
   } catch (error) {
     controller.dispose();
     transport.stop();

@@ -53,7 +53,7 @@ function pointsValid(points) {
 }
 
 /** One host window owns these channels. Call the returned function when detaching. */
-export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller}) {
+export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics}) {
   const url = trustedURL(trustedUrl);
   const contents = trustedWindow?.webContents;
   if (!contents || !controller || !['view','subscribe','intent'].every(key => typeof controller[key] === 'function')) throw new TypeError('Trusted window and controller required');
@@ -109,6 +109,11 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
   }
   try {
     register('headunit:get-view',0,() => true,() => rendererView(controller.view()));
+    register('headunit:get-metrics',0,() => true,async()=>{
+      const sample=await systemMetrics?.sample?.();
+      const percent=value=>Number.isFinite(value)&&value>=0&&value<=100?value:null;
+      return {cpuPercent:percent(sample?.cpuPercent),gpuPercent:percent(sample?.gpuPercent)};
+    });
     action('headunit:navigate',route => routes.has(route),route => ({type:'navigate',route}));
     action('headunit:select-phone',id => text(id,256),id => ({type:'selectPhone',id}));
     action('headunit:set-volume',bounded,value => ({type:'volume',value}));
