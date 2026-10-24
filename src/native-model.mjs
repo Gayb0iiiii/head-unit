@@ -9,7 +9,7 @@ const localRoutes = new Set(['radio','bluetooth','apps']);
 
 /** Browser-side projection of the privileged, authoritative host view. */
 export class NativeHeadunit extends Headunit {
-  constructor(storage, bridge, onChange = () => {}, clock = {now:()=>performance.now(),setTimeout,clearTimeout}) {
+  constructor(storage, bridge, onChange = () => {}, clock = {now:()=>performance.now(),setTimeout:(fn,delay)=>globalThis.setTimeout(fn,delay),clearTimeout:id=>globalThis.clearTimeout(id)}) {
     super(storage,{simulation:false});
     this.clock = clock;
     this.mediaGeneration = 0;
@@ -54,7 +54,7 @@ export class NativeHeadunit extends Headunit {
     const connected = view?.connected === true;
     if(connected)this.everConnected=true;
     if(connected&&view.front!=='livi')this.localRoute=null;
-    if (!connected || view.front !== 'livi' || this.state.screen !== view.route) this.endLayoutEdit();
+    if ((connected && view.front !== 'livi') || (!this.localRoute && (!connected || this.state.screen !== view.route))) this.endLayoutEdit();
     const phones = connected && Array.isArray(view.phones) ? view.phones.filter(p =>
       p && typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 256
     ).map(p => ({id:p.id, name:typeof p.name === 'string' ? p.name : 'Phone',

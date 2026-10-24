@@ -14,6 +14,16 @@ function bridge() {
     emit(view) { listener?.(view); }
   };
 }
+test('default native status clock binds browser timers for an observed media expiry',async()=>{
+ const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout;
+ try{
+   globalThis.setTimeout=function(fn,delay){assert.equal(this,globalThis);assert.ok(delay>0&&delay<=1000);return 7;};
+   globalThis.clearTimeout=function(){assert.equal(this,globalThis);};
+   const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
+   host.emit({connected:true,route:'home',front:'livi',phones:[{id:'p',name:'Phone',status:'active'}],homeStatus:{media:{status:'available',phoneId:'p',title:'Track',artist:'Artist',playing:true,freshForMs:1000}}});
+   assert.equal(model.state.homeStatus.media.status,'available');model.stop();
+ }finally{globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;}
+});
 test('initial backend absence leaves local settings usable without host commands or an action error',async()=>{
  const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
  host.emit({connected:false,connectionPhase:'backoff'});

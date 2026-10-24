@@ -7,6 +7,7 @@ const defaultOrders = Object.freeze({
   apps: Object.freeze(['projection', 'phones', 'vehicle', 'audio', 'settings']),
   dashboard: Object.freeze(['music', 'temperature'])
 });
+const nativeAppOrder=Object.freeze(['radio','bluetooth','projection','settings']);
 const orderKey = kind => kind === 'apps' ? 'appOrder' : 'dashboardOrder';
 const sanitizeOrder = (value, defaults) => [...new Set([
   ...(Array.isArray(value) ? value.filter(id => defaults.includes(id)) : []), ...defaults
@@ -16,12 +17,13 @@ const validGlassStrength = value => Number.isInteger(value) && value >= 0 && val
 export class Headunit {
   constructor(storage, {simulation = true} = {}) {
     this.storage = storage;
+    this.orders={apps:simulation?defaultOrders.apps:nativeAppOrder,dashboard:defaultOrders.dashboard};
     this.lastPhone = null;
     this.state = {
       screen: 'home', homeMode: 'apps', activePhone: null,
       appearancePreference: 'auto', appearance: resolveAppearance(),
       vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
-      glassStrength: 55, debugOverlay:false, appOrder: [...defaultOrders.apps], dashboardOrder: [...defaultOrders.dashboard],
+      glassStrength: 55, debugOverlay:false, appOrder: [...this.orders.apps], dashboardOrder: [...defaultOrders.dashboard],
       editingLayout: false, motionState: 'unknown', persistenceError: false,
       phones: simulation ? [
         { id: 'phone-a', name: 'Driver’s iPhone', active: false },
@@ -44,7 +46,7 @@ export class Headunit {
     } catch {}
     try {
       const saved = JSON.parse(storage?.getItem('headunit.layout') || '{}');
-      this.state.appOrder = sanitizeOrder(saved?.appOrder, defaultOrders.apps);
+      this.state.appOrder = sanitizeOrder(saved?.appOrder, this.orders.apps);
       this.state.dashboardOrder = sanitizeOrder(saved?.dashboardOrder, defaultOrders.dashboard);
     } catch {}
     this.preferredScreen = this.state.screen;
@@ -175,8 +177,8 @@ export class Headunit {
   endLayoutEdit() { this.state.editingLayout = false; }
 
   moveLayoutItem(kind, id, direction) {
-    if (!Object.hasOwn(defaultOrders, kind)) throw Error('Unknown layout');
-    if (!defaultOrders[kind].includes(id) || ![-1, 1].includes(direction)) throw Error('Invalid layout move');
+    if (!Object.hasOwn(this.orders, kind)) throw Error('Unknown layout');
+    if (!this.orders[kind].includes(id) || ![-1, 1].includes(direction)) throw Error('Invalid layout move');
     if (!this.state.editingLayout || this.state.motionState === 'moving') return false;
     const order = this.state[orderKey(kind)];
     const current = order.indexOf(id), next = current + direction;
@@ -187,9 +189,9 @@ export class Headunit {
   }
 
   resetLayout(kind) {
-    if (!Object.hasOwn(defaultOrders, kind)) throw Error('Unknown layout');
+    if (!Object.hasOwn(this.orders, kind)) throw Error('Unknown layout');
     if (!this.state.editingLayout || this.state.motionState === 'moving') return false;
-    this.state[orderKey(kind)] = [...defaultOrders[kind]];
+    this.state[orderKey(kind)] = [...this.orders[kind]];
     this.saveLayout();
     return true;
   }

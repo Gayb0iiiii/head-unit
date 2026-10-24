@@ -1,5 +1,5 @@
 /** Update only the clock node; align to wall-clock minutes and allow deterministic tests. */
-export function startClock(update,clock={now:()=>Date.now(),setTimeout,clearTimeout}) {
+export function startClock(update,clock={now:()=>Date.now(),setTimeout:(fn,delay)=>globalThis.setTimeout(fn,delay),clearTimeout:id=>globalThis.clearTimeout(id)}) {
   let timer,stopped=false;
   function tick(){
     if(stopped)return;

@@ -9,3 +9,14 @@ test('clock updates at minute boundaries without a model render and stops cleanl
  assert.deepEqual(seen,[61500,120000]);assert.equal([...pending.values()][0].delay,60000);
  stop();assert.equal(pending.size,0);
 });
+test('default clock calls browser timers with the global receiver',()=>{
+ const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout;
+ let timer;
+ try{
+   globalThis.setTimeout=function(fn,delay){assert.equal(this,globalThis);timer={fn,delay};return 7;};
+   globalThis.clearTimeout=function(id){assert.equal(this,globalThis);assert.equal(id,7);};
+   const stop=startClock(()=>{});
+   assert.ok(timer.delay>0&&timer.delay<=60000);
+   stop();
+ }finally{globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;}
+});
