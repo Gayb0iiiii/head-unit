@@ -1,0 +1,27 @@
+[Unit]
+Description=Headunit UI-only Wayland session (demo data)
+After=systemd-user-sessions.service
+Conflicts=getty@tty1.service
+ConditionPathExists=/dev/dri/card0
+StartLimitIntervalSec=60
+StartLimitBurst=3
+OnFailure=getty@tty1.service
+
+[Service]
+Type=simple
+User=cruiser
+PAMName=login
+Environment=XDG_SESSION_TYPE=wayland
+EnvironmentFile=-/etc/default/headunit-preview
+WorkingDirectory=/home/cruiser/head-unit
+ExecStart=/home/cruiser/head-unit/deployment/orangepi-ui-launch.sh
+TTYPath=/dev/tty1
+StandardInput=tty-force
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

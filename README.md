@@ -1,5 +1,7 @@
 # LIVI headunit integration checkpoint
 
+For a prepared Orange Pi 5 Plus UI-only boot path, see [deployment/orangepi-preview.md](deployment/orangepi-preview.md). This fullscreen preview is separate from native LIVI/CarPlay readiness.
+
 Separate, reversible prototype. This is not an update to the existing v4 demo and does not contain a live CarPlay renderer.
 
 ## Run
