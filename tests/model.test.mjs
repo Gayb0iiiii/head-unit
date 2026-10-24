@@ -235,6 +235,25 @@ test('known motion also blocks wallpaper and glass personalization until station
   assert.equal(h.state.wallpaper, 'dusk');
   assert.equal(h.state.glassStrength, 90);
 });
+test('UI scale is bounded, persisted, and can be restored independently of wallpaper',()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key),setItem:(key,value)=>data.set(key,value)};
+ const h=new Headunit(storage,{simulation:false});
+ assert.equal(h.state.uiScale,100);
+ assert.throws(()=>h.setUiScale(150));assert.throws(()=>h.setUiScale(91));
+ h.setUiScale(115);assert.equal(new Headunit(storage,{simulation:false}).state.uiScale,115);
+ h.wallpaper('dusk');assert.equal(new Headunit(storage,{simulation:false}).state.uiScale,115);
+ data.set('headunit.appearance',JSON.stringify({uiScale:999,wallpaper:'coast'}));
+ assert.equal(new Headunit(storage,{simulation:false}).state.uiScale,100);
+});
+test('custom wallpaper accepts only a validated local data image and reset clears saved bytes',()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key),setItem:(key,value)=>data.set(key,value),removeItem:key=>data.delete(key)};
+ const h=new Headunit(storage,{simulation:false});
+ const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/uXcAAAAASUVORK5CYII=';
+ assert.throws(()=>h.setCustomWallpaper('url(https://example.com/x)'));
+ h.setCustomWallpaper(png);assert.equal(h.state.wallpaper,'custom');
+ assert.equal(new Headunit(storage,{simulation:false}).state.wallpaper,'custom');
+ h.resetCustomWallpaper();assert.equal(h.state.wallpaper,'coast');assert.equal(data.has('headunit.wallpaper.image'),false);
+});
 
 test('dock side defaults left and persists either explicit side without losing appearance',()=>{
  const storage=memoryStorage(),h=new Headunit(storage);assert.equal(h.state.dockSide,'left');

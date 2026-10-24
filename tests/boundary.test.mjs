@@ -13,9 +13,10 @@ const runtimePath = new URL('../electron/glass-runtime.mjs', import.meta.url);
 const channels = {
   view: 'headunit:view', getView: 'headunit:get-view', navigate: 'headunit:navigate',
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
-  touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media', metrics:'headunit:get-metrics',
+  touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media', metrics:'headunit:get-metrics', stopMetrics:'headunit:stop-metrics',
+  desktop:'headunit:exit-to-desktop',
 };
-const expectedView = {connectionPhase:'ready',homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null};
+const expectedView = {connectionPhase:'ready',homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null,desktopAvailable:false};
 const copy = value => JSON.parse(JSON.stringify(value));
 async function moduleAt(path) {
   assert.ok(existsSync(path), `${path.pathname.split('/').at(-1)} must implement the isolated boundary`);
@@ -57,20 +58,32 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
   const calls=[];
   const {api, exposed} = await preload(async (...args) => {calls.push(copy(args)); return copy(expectedView);});
   assert.deepEqual([...exposed.keys()], ['headunit']);
-  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','getMetrics','getView','media','navigate','onView','selectPhone','setVolume','touch']);
+  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','exitToDesktop','getMetrics','getView','media','navigate','onView','selectPhone','setVolume','stopMetrics','touch']);
   assert.equal(Object.isFrozen(api), true);
   assert.deepEqual(await api.getView(), expectedView);
-  await api.getMetrics();await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
+  await api.getMetrics();await api.stopMetrics();await api.exitToDesktop();await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
   await api.touch([{id:0,x:0.2,y:0.8,phase:'down'}]); await api.cancelTouch(); await api.media('pause','phone-1');
-  assert.deepEqual(calls, [[channels.getView],[channels.metrics],[channels.navigate,'settings'],[channels.selectPhone,'phone-1'],[channels.setVolume,0.4],[channels.touch,[{id:0,x:0.2,y:0.8,phase:'down'}]],[channels.cancelTouch],[channels.media,'pause','phone-1']]);
+  assert.deepEqual(calls, [[channels.getView],[channels.metrics],[channels.stopMetrics],[channels.desktop],[channels.navigate,'settings'],[channels.selectPhone,'phone-1'],[channels.setVolume,0.4],[channels.touch,[{id:0,x:0.2,y:0.8,phase:'down'}]],[channels.cancelTouch],[channels.media,'pause','phone-1']]);
   for (const key of ['invoke','send','ipcRenderer','session','transport','core','intent']) assert.equal(api[key], undefined);
 });
 test('metrics IPC returns only bounded counters and rejects extra arguments',async()=>{
  const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
- const f=fixture();const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,systemMetrics:{sample:async()=>({cpuPercent:34.5,gpuPercent:999,secret:'hidden'})}});
- assert.deepEqual(await f.call(channels.metrics),{cpuPercent:34.5,gpuPercent:null});
+ const f=fixture();let stopped=0;const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,systemMetrics:{sample:async()=>({cpuPercent:34.5,gpuPercent:999,ramUsedBytes:1024,ramTotalBytes:2048,networkDownBytesPerSec:120,networkUpBytesPerSec:40,pingMs:31,secret:'hidden'}),stop:()=>stopped++}});
+ assert.deepEqual(await f.call(channels.metrics),{cpuPercent:34.5,gpuPercent:null,ramUsedBytes:1024,ramTotalBytes:2048,networkDownBytesPerSec:120,networkUpBytesPerSec:40,pingMs:31});
  await assert.rejects(()=>f.call(channels.metrics,['/etc/passwd']),/arguments/i);
+ assert.deepEqual(await f.call(channels.stopMetrics),{stopped:true});assert.equal(stopped,1);
+ await assert.rejects(()=>f.call(channels.stopMetrics,['google.com']),/arguments/i);
  dispose();
+});
+test('Desktop handoff stays unavailable without an installed provider and requires a confirmed request',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
+ const missing=fixture();const stopMissing=attachHeadunitBoundary({...missing,trustedWindow:missing.window,trustedUrl:missing.url});
+ assert.equal((await missing.call(channels.getView)).desktopAvailable,false);
+ await assert.rejects(()=>missing.call(channels.desktop),/unavailable/i);stopMissing();
+ const ready=fixture();let calls=0;const stopReady=attachHeadunitBoundary({...ready,trustedWindow:ready.window,trustedUrl:ready.url,desktopHandoff:{available:true,request:async()=>{calls++;return true;}}});
+ assert.equal((await ready.call(channels.getView)).desktopAvailable,true);
+ assert.deepEqual(await ready.call(channels.desktop),{accepted:true});assert.equal(calls,1);
+ await assert.rejects(()=>ready.call(channels.desktop,['/bin/sh']),/arguments/i);stopReady();
 });
 
 test('preload strips privileged events and removes exactly its listener on unsubscribe', async () => {

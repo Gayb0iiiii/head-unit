@@ -26,6 +26,7 @@ export class NativeHeadunit extends Headunit {
     this.state.picture=null;
     this.state.notice = null;
     this.state.commandError = false;
+    this.state.desktopAvailable=false;
     this.everConnected = false;
     this.localRoute = null;
     this.pendingPhone = null;
@@ -63,6 +64,7 @@ export class NativeHeadunit extends Headunit {
     this.state.projectionReady = connected && view.projectionReady === true;
     this.state.picture=filterPicture(view?.picture,this.state.projectionReady,view?.front);
     this.state.connected = connected;
+    this.state.desktopAvailable=view?.desktopAvailable===true&&typeof this.bridge.exitToDesktop==='function';
     if(!connected)this.state.commandError=false;
     this.state.connectionPhase = filterConnectionPhase(view?.connectionPhase,connected);
     this.state.phones = phones;
@@ -131,6 +133,11 @@ export class NativeHeadunit extends Headunit {
     this.state.commandError=false;this.state.mediaPending=true;
     const settled=()=>{this.state.mediaPending=false;};
     this.command('media',{control,phoneId:media.phoneId},settled,settled,()=>generation===this.mediaGeneration);
+  }
+
+  exitToDesktop(){
+    if(!this.state.desktopAvailable||this.state.motionState==='moving')throw Error('Desktop session unavailable');
+    this.command('exitToDesktop',undefined);
   }
 
   navigate(route) {

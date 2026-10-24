@@ -21,7 +21,7 @@ function trustedURL(value) {
 }
 
 // Defense in depth if a future controller accidentally returns native state.
-function rendererView(value) {
+function rendererView(value,desktopAvailable=false) {
   const source = plain(value) ? value : {};
   const active=(Array.isArray(source.phones)?source.phones:[]).filter(phone=>plain(phone)&&phone.status==='active'&&text(phone.id,256));
   const picture=filterPicture(source.picture,source.connected===true&&source.projectionReady===true,source.front);
@@ -39,6 +39,7 @@ function rendererView(value) {
     route: displayedRoutes.has(source.route) ? source.route : 'disconnected',
     preferredRoute: routes.has(source.preferredRoute) ? source.preferredRoute : 'home',
     notice: source.notice === 'projection-reconnecting' ? 'projection-reconnecting' : null,
+    desktopAvailable:desktopAvailable===true,
   };
 }
 
@@ -53,7 +54,7 @@ function pointsValid(points) {
 }
 
 /** One host window owns these channels. Call the returned function when detaching. */
-export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics}) {
+export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff}) {
   const url = trustedURL(trustedUrl);
   const contents = trustedWindow?.webContents;
   if (!contents || !controller || !['view','subscribe','intent'].every(key => typeof controller[key] === 'function')) throw new TypeError('Trusted window and controller required');
@@ -102,18 +103,31 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     if (disposed) return;
     disposed = true;
     cancelContacts();
+    try{systemMetrics?.stop?.();}catch{}
     for (const channel of registered) ipcMain.removeHandler(channel);
     for (const [name,listener] of lifecycle) contents.removeListener(name,listener);
     for (const [name,listener] of windowLifecycle) trustedWindow.removeListener(name,listener);
     unsubscribe?.();
   }
   try {
-    register('headunit:get-view',0,() => true,() => rendererView(controller.view()));
+    register('headunit:get-view',0,() => true,() => rendererView(controller.view(),desktopHandoff?.available));
+    register('headunit:exit-to-desktop',0,() => true,async()=>{
+      if(desktopHandoff?.available!==true||typeof desktopHandoff.request!=='function')throw Error('Desktop session unavailable');
+      if(await desktopHandoff.request()!==true)throw Error('Desktop session unavailable');
+      return {accepted:true};
+    });
     register('headunit:get-metrics',0,() => true,async()=>{
       const sample=await systemMetrics?.sample?.();
       const percent=value=>Number.isFinite(value)&&value>=0&&value<=100?value:null;
-      return {cpuPercent:percent(sample?.cpuPercent),gpuPercent:percent(sample?.gpuPercent)};
+      const bytes=value=>Number.isSafeInteger(value)&&value>=0&&value<=Number.MAX_SAFE_INTEGER?value:null;
+      const rate=value=>Number.isSafeInteger(value)&&value>=0&&value<=1e9?value:null;
+      const ping=value=>Number.isInteger(value)&&value>=0&&value<=5000?value:null;
+      const ramTotalBytes=bytes(sample?.ramTotalBytes),ramUsedBytes=bytes(sample?.ramUsedBytes);
+      return {cpuPercent:percent(sample?.cpuPercent),gpuPercent:percent(sample?.gpuPercent),
+        ramUsedBytes:ramTotalBytes!==null&&ramUsedBytes!==null&&ramUsedBytes<=ramTotalBytes?ramUsedBytes:null,ramTotalBytes,
+        networkDownBytesPerSec:rate(sample?.networkDownBytesPerSec),networkUpBytesPerSec:rate(sample?.networkUpBytesPerSec),pingMs:ping(sample?.pingMs)};
     });
+    register('headunit:stop-metrics',0,()=>true,()=>{systemMetrics?.stop?.();return {stopped:true};});
     action('headunit:navigate',route => routes.has(route),route => ({type:'navigate',route}));
     action('headunit:select-phone',id => text(id,256),id => ({type:'selectPhone',id}));
     action('headunit:set-volume',bounded,value => ({type:'volume',value}));
@@ -138,7 +152,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     unsubscribe = controller.subscribe(view => {
       if (pageTrusted()) {
         // A frame can disappear between the trust check and the send.
-        try { contents.send('headunit:view',rendererView(view)); } catch {}
+        try { contents.send('headunit:view',rendererView(view,desktopHandoff?.available)); } catch {}
       }
     });
     return dispose;

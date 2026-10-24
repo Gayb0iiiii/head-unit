@@ -119,7 +119,7 @@ sudo systemctl daemon-reload
 
 If SSH and display are both unavailable, `systemd.mask=headunit-ui.service` on a one-time boot kernel command line can suppress the service; verify the board's bootloader editing method before relying on this path. Do not remove the source until the unit is disabled.
 
-A future Desktop button can switch to a separately managed Ubuntu desktop session while this head-unit session remains the boot default. That needs explicit seat/session handoff and a return path; no desktop or button is installed here.
+Settings now includes a capability-gated “Exit to Desktop” control. It remains disabled until a verified second graphical session and narrow handoff provider are installed; it does not close to a terminal. The manual installation and return-path plan is in [desktop-session-handoff.md](../docs/desktop-session-handoff.md). No desktop or provider is installed on the Pi by this branch.
 
 ## Native boundary
 

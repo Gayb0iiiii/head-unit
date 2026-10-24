@@ -2,6 +2,7 @@ import {pictureMarkup} from './picture.mjs';
 import {connectionPresentation} from './connection-status.mjs';
 import {startClock} from './clock.mjs';
 import {startDebugOverlay} from './debug-overlay.mjs';
+import {readWallpaperFile} from './wallpaper-image.mjs';
 import {Headunit} from './model.mjs';
 import {NativeHeadunit} from './native-model.mjs';
 import {renderSensorSettings, bindSensorSettings} from './sensor-settings.mjs';
@@ -15,6 +16,7 @@ const model=native?new NativeHeadunit(storage,window.headunit,()=>render()):prod
 let diagnosticsOpen=false;
 let stopDebugOverlay;
 let settingsAdvancedOpen=false;
+let wallpaperImportError='';
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const glyphs={home:'<rect x="4" y="4" width="6" height="6" rx="2"/><rect x="14" y="4" width="6" height="6" rx="2"/><rect x="4" y="14" width="6" height="6" rx="2"/><rect x="14" y="14" width="6" height="6" rx="2"/>',phones:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>',projection:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>',settings:'<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',vehicle:'<path d="m4 10 2-5h12l2 5M3 16h18V10H3zM6 16v3m12-3v3M6 13h2m8 0h2"/>',audio:'<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/>',back:'<path d="m14 5-7 7 7 7"/>',dashboard:'<rect x="3" y="4" width="11" height="16" rx="2"/><rect x="17" y="4" width="4" height="7" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>',play:'<path d="m9 5 11 7-11 7z"/>',pause:'<path d="M8 5v14M16 5v14"/>'};
 glyphs.radio='<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M7 5l10-3M7 11h10M8 16h2m3 0h3"/>';
@@ -34,6 +36,10 @@ function applyAppearance(){
   document.body.dataset.appearance=model.state.appearance.mode;
   document.body.dataset.wallpaper=model.state.wallpaper;
   document.body.dataset.dockSide=model.state.dockSide;
+  document.documentElement.style?.setProperty('--ui-scale',String(model.state.uiScale/100));
+  document.documentElement.style?.setProperty('--ui-scale-inverse',String(100/model.state.uiScale));
+  if(model.state.customWallpaper)document.body.style.setProperty('--custom-wallpaper',`url("${model.state.customWallpaper}")`);
+  else document.body.style.removeProperty?.('--custom-wallpaper');
   document.body.style.setProperty('--glass-blur',`${strength*28/100}px`);
   document.body.style.setProperty('--glass-tint',`${0.18+strength*0.0044}`);
   document.body.style.setProperty('--glass-highlight',`${0.05+strength*0.0011}`);
@@ -81,11 +87,13 @@ function renderSettings(s){return `<header><h1>Settings</h1></header>
 function renderNativeSettings(s){return `<header class="settings-header"><h1>Settings</h1><span>${s.motionState==='moving'?'Editing locked while moving':'Edit while parked'}</span></header>
 <div class="settings-grid">
 <section class="settings-card settings-appearance"><h2>Day & night</h2><div class="appearance-modes" role="group" aria-label="Day and night appearance">${['auto','day','night'].map(mode=>`<button data-appearance="${mode}" data-focus-key="appearance-${mode}" aria-pressed="${s.appearancePreference===mode}" ${s.motionState==='moving'?'disabled':''}>${mode[0].toUpperCase()+mode.slice(1)}</button>`).join('')}</div><p class="settings-note" role="status">${s.appearance.source==='fallback'?`Headlight signal unavailable. Keeping ${s.appearance.mode} appearance.`:s.appearance.source==='manual'?`${s.appearance.mode==='day'?'Day':'Night'} mode selected.`:'Appearance follows the headlights.'}</p><p class="settings-note">Panel brightness unavailable; appearance changes colors only.</p></section>
-<section class="settings-card settings-wallpaper"><h2>Wallpaper</h2><div class="swatches">${['coast','dusk','graphite'].map(w=>`<button class="swatch ${w}" data-wallpaper="${w}" data-focus-key="wallpaper-${w}" aria-pressed="${s.wallpaper===w}" ${s.motionState==='moving'?'disabled':''}><span>${w[0].toUpperCase()+w.slice(1)}</span></button>`).join('')}</div></section>
+<section class="settings-card settings-wallpaper"><h2>Wallpaper</h2><div class="swatches">${['coast','dusk','graphite',...(s.customWallpaper?['custom']:[])].map(w=>`<button class="swatch ${w}" data-wallpaper="${w}" data-focus-key="wallpaper-${w}" aria-pressed="${s.wallpaper===w}" ${s.motionState==='moving'?'disabled':''}><span>${w[0].toUpperCase()+w.slice(1)}</span></button>`).join('')}</div><div class="wallpaper-import"><label class="file-button">Choose image<input type="file" data-wallpaper-file accept="image/png,image/jpeg,image/webp" ${s.motionState==='moving'?'disabled':''}></label>${s.customWallpaper?`<button class="text-button" data-reset-wallpaper ${s.motionState==='moving'?'disabled':''}>Reset image</button>`:''}</div><p class="settings-note" role="status">${wallpaperImportError||'Local PNG, JPEG or WebP · up to 1 MB'}</p></section>
 <section class="settings-card settings-glass"><div class="glass-heading"><h2>Glass strength</h2><output id="glass-value" for="glass-strength">${s.glassStrength}%</output></div><input id="glass-strength" type="range" min="0" max="100" step="1" value="${s.glassStrength}" data-glass-strength="true" data-focus-key="glass-strength" ${s.motionState==='moving'?'disabled':''} aria-label="Glass strength"><div class="range-endpoints"><span>Clear</span><span>Frosted</span></div><button class="text-button" data-action="reset-glass" ${s.motionState==='moving'?'disabled':''}>Reset glass strength</button></section>
 <section class="settings-card settings-dock"><h2>Dock position</h2><div class="dock-position" role="group" aria-label="Dock position">${['left','right'].map(side=>`<button data-dock-side="${side}" data-focus-key="dock-${side}" aria-pressed="${s.dockSide===side}" ${s.motionState==='moving'?'disabled':''}>${side==='left'?'Left':'Right'}</button>`).join('')}</div><p class="settings-note">The dock stays along the bottom on narrow displays.</p></section>
+<section class="settings-card settings-scale"><h2>UI scale</h2><label for="ui-scale">Controls and text</label><input id="ui-scale" type="range" min="90" max="115" step="5" value="${s.uiScale}" data-ui-scale aria-describedby="ui-scale-help" ${s.motionState==='moving'?'disabled':''}><output id="ui-scale-value" for="ui-scale">${s.uiScale}%</output><p id="ui-scale-help" class="settings-note">Adjust for your display and viewing distance.</p><button class="text-button" data-reset-ui-scale ${s.motionState==='moving'?'disabled':''}>Reset scale</button></section>
 </div><p id="save-status" class="save-status" role="status">${saveNotice()}</p>
-<div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="debug-settings"><h2>Debug overlay</h2><p class="settings-note">UI frames and system CPU; GPU appears when supported.</p><div role="group" aria-label="Debug overlay">${[false,true].map(value=>`<button data-debug-overlay="${value}" aria-pressed="${s.debugOverlay===value}">${value?'On':'Off'}</button>`).join('')}</div></section></div>
+<div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="debug-settings"><h2>Debug overlay</h2><p class="settings-note">UI frames, system CPU and RAM, active-network rates, and TCP ping to google.com. GPU use needs a supported counter.</p><div role="group" aria-label="Debug overlay">${[false,true].map(value=>`<button data-debug-overlay="${value}" aria-pressed="${s.debugOverlay===value}">${value?'On':'Off'}</button>`).join('')}</div></section></div>
+<section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop switch not set up'}</small></span><b>›</b></button><p class="settings-note">Head-unit remains the boot interface. Return to it from the desktop session.</p></section>
 <details class="settings-advanced"${settingsAdvancedOpen?' open':''}><summary>Units & sensor rules</summary><section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section></details>`;}
 
 function render(focusKey=document.activeElement?.dataset?.focusKey){const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected))diagnosticsOpen=false;const screen=diagnosticsOpen?'diagnostics':s.screen==='dashboard'?'home':s.screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
@@ -109,7 +117,7 @@ if(screen==='audio')content=`<header><h1>Audio & microphone</h1></header><div cl
 if(screen==='disconnected'){const status=connectionPresentation(s.connectionPhase,model.everConnected);content=`<header><h1>${status.title}</h1></header><div class="panel" role="status"><p>${status.detail}</p></div>`;}
 if(screen==='camera')content='<header><h1>Camera unavailable</h1></header><section class="panel" role="status"><p>No camera feed is available.</p></section>';
 if(screen==='cluster')content='<header><h1>Display in use</h1></header>';
-document.getElementById('app').innerHTML=`<aside aria-label="Dock">${native?'':`<output id="headunit-clock" class="time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})}</output>`}<div class="dock-apps" role="navigation" aria-label="Primary">${native?[...['Radio:radio','Bluetooth:bluetooth','CarPlay:projection','Settings:settings','Apps:apps']].map(item=>{const [name,key]=item.split(':');return dockButton(name,key,screen===key);}).join(''):`${button('CarPlay','projection','dock-button')}${button('Phones','phones','dock-button')}`}</div>${button('Home','home','dock-button home-button')}</aside><main data-screen="${screen}" data-editing="${s.editingLayout}">${content}${native&&s.notice?'<p role="status">Reconnecting to phone display…</p>':''}${native&&s.commandError?'<p role="alert">Unable to complete that action.</p>':''}${native?'':`<footer class="bottom-note"><span>Demo mode</span><span>Simulated phones · No live audio or vehicle data</span></footer>`}</main>${native&&s.debugOverlay?'<output id="debug-overlay" class="debug-overlay" aria-label="System performance">UI FPS unavailable · CPU unavailable · GPU unavailable</output>':''}`;
+document.getElementById('app').innerHTML=`<aside aria-label="Dock">${native?'':`<output id="headunit-clock" class="time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})}</output>`}<div class="dock-apps" role="navigation" aria-label="Primary">${native?[...['Radio:radio','Bluetooth:bluetooth','CarPlay:projection','Settings:settings','Apps:apps']].map(item=>{const [name,key]=item.split(':');return dockButton(name,key,screen===key);}).join(''):`${button('CarPlay','projection','dock-button')}${button('Phones','phones','dock-button')}`}</div>${button('Home','home','dock-button home-button')}</aside><main data-screen="${screen}" data-editing="${s.editingLayout}">${content}${native&&s.notice?'<p role="status">Reconnecting to phone display…</p>':''}${native&&s.commandError?'<p role="alert">Unable to complete that action.</p>':''}${native?'':`<footer class="bottom-note"><span>Demo mode</span><span>Simulated phones · No live audio or vehicle data</span></footer>`}</main>${native&&s.debugOverlay?'<output id="debug-overlay" class="debug-overlay" aria-label="System performance">UI FPS unavailable · CPU unavailable · GPU use unavailable · RAM unavailable · ↓ unavailable ↑ unavailable · Ping unavailable</output>':''}`;
 if(native&&s.debugOverlay&&!stopDebugOverlay)stopDebugOverlay=startDebugOverlay(window.headunit,()=>document.getElementById('debug-overlay'));
 if((!native||!s.debugOverlay)&&stopDebugOverlay){stopDebugOverlay();stopDebugOverlay=null;}
 document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
@@ -131,6 +139,7 @@ document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
   else if(a==='back'&&native)diagnosticsOpen=false;
   else if(a==='back')model.navigate('settings');
   else if(a==='diagnostics'&&native)diagnosticsOpen=true;
+  else if(a==='exit-to-desktop'&&native)model.exitToDesktop();
   else if(a==='disconnect')model.disconnect();
   else if(a==='reconnect')model.reconnect();
   else if(a==='demo-playback')model.toggleDemoPlayback();
@@ -140,7 +149,15 @@ document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
 document.querySelectorAll('[data-home-mode]').forEach(el=>el.onclick=()=>{layoutMessage='';model.setHomeMode(el.dataset.homeMode);render();});
 document.querySelectorAll('[data-media]').forEach(el=>el.onclick=()=>{model.media(el.dataset.media);render();});
 document.querySelectorAll('[data-phone]').forEach(el=>el.onclick=()=>{model.connect(el.dataset.phone);render();});
-document.querySelectorAll('button[data-wallpaper]').forEach(el=>el.onclick=()=>{model.wallpaper(el.dataset.wallpaper);render();});
+document.querySelectorAll('button[data-wallpaper]').forEach(el=>el.onclick=()=>{wallpaperImportError='';model.wallpaper(el.dataset.wallpaper);render();});
+const wallpaperFile=document.querySelector?.('[data-wallpaper-file]');
+if(wallpaperFile)wallpaperFile.onchange=async()=>{
+  const file=wallpaperFile.files?.[0];if(!file)return;
+  try{const image=await readWallpaperFile(file);model.setCustomWallpaper(image);wallpaperImportError='';}
+  catch(error){wallpaperImportError=error instanceof Error?error.message:'Unable to open image';}
+  render();
+};
+document.querySelector?.('[data-reset-wallpaper]')?.addEventListener('click',()=>{wallpaperImportError='';model.resetCustomWallpaper();render();});
 document.querySelectorAll('[data-move]').forEach(el=>el.onclick=()=>{
   const [kind,id,step]=el.dataset.move.split(':');
   if(model.moveLayoutItem(kind,id,Number(step))){
@@ -152,6 +169,8 @@ document.querySelectorAll('[data-move]').forEach(el=>el.onclick=()=>{
 document.querySelectorAll('button[data-appearance]').forEach(el=>el.onclick=()=>{model.setAppearancePreference(el.dataset.appearance);render(el.dataset.focusKey);});
 document.querySelectorAll('button[data-dock-side]').forEach(el=>el.onclick=()=>{model.setDockSide(el.dataset.dockSide);render(el.dataset.focusKey);});
 document.querySelectorAll('button[data-debug-overlay]').forEach(el=>el.onclick=()=>{model.setDebugOverlay(el.dataset.debugOverlay==='true');render();});
+document.querySelector?.('[data-ui-scale]')?.addEventListener('input',event=>{model.setUiScale(Number(event.target.value));applyAppearance();document.getElementById('ui-scale-value').textContent=`${s.uiScale}%`;document.getElementById('save-status').textContent=saveNotice();});
+document.querySelector?.('[data-reset-ui-scale]')?.addEventListener('click',()=>{model.setUiScale(100);render();});
 document.querySelectorAll('[data-glass-strength]').forEach(el=>el.oninput=()=>{
   model.setGlassStrength(Number(el.value));
   applyAppearance();

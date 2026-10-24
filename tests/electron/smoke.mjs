@@ -49,7 +49,7 @@ try {
     api:Object.keys(window.headunit).sort(),frozen:Object.isFrozen(window.headunit),
     listeners:typeof listeners,ipc:typeof window.ipcRenderer})`);
   assert.deepEqual(isolation,{require:'undefined',process:'undefined',Buffer:'undefined',
-    api:['cancelTouch','getMetrics','getView','media','navigate','onView','selectPhone','setVolume','touch'],
+    api:['cancelTouch','exitToDesktop','getMetrics','getView','media','navigate','onView','selectPhone','setVolume','stopMetrics','touch'],
     frozen:true,listeners:'undefined',ipc:'undefined'});
   const prefs=window.webContents.getLastWebPreferences();
   assert.equal(prefs.sandbox,true);assert.equal(prefs.contextIsolation,true);

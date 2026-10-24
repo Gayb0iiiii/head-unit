@@ -350,8 +350,12 @@ test('production Settings groups local controls and keeps sensors secondary',asy
  assert.match(app.root.innerHTML,/<details class="settings-advanced">/);
  assert.match(app.root.innerHTML,/data-appearance="day"/);
  assert.match(app.root.innerHTML,/data-wallpaper="coast"/);
+ assert.match(app.root.innerHTML,/data-wallpaper-file/);
+ assert.match(app.root.innerHTML,/data-ui-scale/);
  assert.match(app.root.innerHTML,/data-dock-side="right"/);
  assert.match(app.root.innerHTML,/data-debug-overlay="true"/);
+ assert.match(app.root.innerHTML,/Exit to Desktop/);
+ assert.match(app.root.innerHTML,/data-action="exit-to-desktop"[^>]*disabled/);
 });
 test('Debug overlay is off by default and can be enabled from offline Settings',async()=>{
  const data=new Map();let reads=0;

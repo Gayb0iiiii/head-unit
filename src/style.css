@@ -284,6 +284,26 @@ body[data-native-front=projection] .native-projection-region{position:fixed;inse
 .native-picture-notice{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:12px 18px;background:#091827e8;border-radius:14px;color:#e8eef5}
 /* No browser camera is attached: never reveal an old native plane as camera imagery. */
 body[data-native-front=camera],body[data-appearance=day][data-native-front=camera]{background:#091827}
+html[data-mode=production] #app{zoom:var(--ui-scale,1)}
+html[data-mode=production] body[data-native-front=projection] #app,html[data-mode=production] body[data-native-front=camera] #app,html[data-mode=production] body[data-native-front=cluster] #app{zoom:1}
+html[data-mode=production] #app>aside{height:calc((100dvh - 2 * clamp(12px,1.3vw,24px)) * var(--ui-scale-inverse,1))}
+html[data-mode=production] #app>main{min-height:calc((100dvh - 2 * clamp(12px,1.3vw,24px)) * var(--ui-scale-inverse,1))}
+body[data-wallpaper=custom]:before{background-image:linear-gradient(rgb(12 29 44 / .36),rgb(12 29 44 / .36)),var(--custom-wallpaper);background-position:center;background-size:cover}
+html[data-mode=production] .settings-wallpaper .wallpaper-import{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+html[data-mode=production] .settings-wallpaper .file-button{position:relative;display:flex;align-items:center;justify-content:center;min-height:48px;padding:10px 18px;border-radius:14px;background:rgb(220 239 249 / .17);border:1px solid rgb(232 247 255 / .34);cursor:pointer;overflow:hidden}
+html[data-mode=production] .settings-wallpaper .file-button input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+html[data-mode=production] .settings-wallpaper .file-button:focus-within{outline:3px solid #a9dfff;outline-offset:3px}
+html[data-mode=production] .settings-wallpaper .swatch.custom{background-image:var(--custom-wallpaper);background-position:center;background-size:cover}
+html[data-mode=production] .settings-scale output{font-size:24px;font-weight:600}
+html[data-mode=production] .settings-scale label{font-size:16px}
+html[data-mode=production] .settings-scale input{width:100%;margin:0}
+body[data-appearance=day] .settings-wallpaper .file-button{background:#d4e6ed;color:#142b41;border-color:#7895a8}
+@media(max-width:649px){html[data-mode=production] #app>aside{height:calc(76px * var(--ui-scale-inverse,1))}html[data-mode=production] #app>main{min-height:calc((100dvh - 112px) * var(--ui-scale-inverse,1))}}
+@media(max-width:649px){html[data-mode=production] #app>aside{padding-block:calc(5px * var(--ui-scale-inverse,1))}html[data-mode=production] .dock-button,html[data-mode=production] .home-button{min-height:calc(60px * var(--ui-scale-inverse,1))}}
+html[data-mode=production]{--production-panel-dark:rgb(9 24 39 / .94);--production-panel-day:rgb(237 245 248 / .96)}
+html[data-mode=production] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:var(--production-panel-dark)}
+html[data-mode=production] body[data-appearance=day] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:var(--production-panel-day)}
+@media(prefers-reduced-transparency:reduce){html[data-mode=production] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:#091827;-webkit-backdrop-filter:none;backdrop-filter:none}html[data-mode=production] body[data-appearance=day] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:#edf5f8}}
 
 /* Production destinations use the available display rather than a small status box. */
 html[data-mode=production] main[data-screen=apps] .apps{max-width:none;margin:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(150px,1fr));gap:16px;align-content:stretch}

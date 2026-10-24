@@ -1,4 +1,5 @@
 import {resolveAppearance} from './appearance.mjs';
+import {validateWallpaperDataUrl} from './wallpaper-image.mjs';
 /** UI simulation only. Never sends projection, audio, or vehicle commands. */
 const restorableScreens = new Set(['home', 'phones', 'projection', 'settings', 'diagnostics', 'vehicle', 'audio']);
 const homeModes = new Set(['apps', 'dashboard']);
@@ -13,6 +14,7 @@ const sanitizeOrder = (value, defaults) => [...new Set([
   ...(Array.isArray(value) ? value.filter(id => defaults.includes(id)) : []), ...defaults
 ])];
 const validGlassStrength = value => Number.isInteger(value) && value >= 0 && value <= 100;
+const validUiScale = value => Number.isInteger(value) && value >= 90 && value <= 115 && value % 5 === 0;
 
 export class Headunit {
   constructor(storage, {simulation = true} = {}) {
@@ -23,7 +25,7 @@ export class Headunit {
       screen: 'home', homeMode: 'apps', activePhone: null,
       appearancePreference: 'auto', appearance: resolveAppearance(),
       vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
-      glassStrength: 55, debugOverlay:false, appOrder: [...this.orders.apps], dashboardOrder: [...defaultOrders.dashboard],
+      glassStrength: 55, uiScale:100, customWallpaper:null, debugOverlay:false, appOrder: [...this.orders.apps], dashboardOrder: [...defaultOrders.dashboard],
       editingLayout: false, motionState: 'unknown', persistenceError: false,
       phones: simulation ? [
         { id: 'phone-a', name: 'Driver’s iPhone', active: false },
@@ -36,7 +38,11 @@ export class Headunit {
       this.state.appearance = resolveAppearance(this.state.appearancePreference, undefined, saved?.lastAppearance);
       if (['left','right'].includes(saved?.dockSide)) this.state.dockSide = saved.dockSide;
       if (wallpapers.has(saved?.wallpaper)) this.state.wallpaper = saved.wallpaper;
+      if(saved?.wallpaper==='custom'){
+        try{this.state.customWallpaper=validateWallpaperDataUrl(storage?.getItem('headunit.wallpaper.image'));this.state.wallpaper='custom';}catch{}
+      }
       if (validGlassStrength(saved?.glassStrength)) this.state.glassStrength = saved.glassStrength;
+      if (validUiScale(saved?.uiScale)) this.state.uiScale=saved.uiScale;
       if (typeof saved?.debugOverlay==='boolean') this.state.debugOverlay=saved.debugOverlay;
     } catch {}
     try {
@@ -99,10 +105,35 @@ export class Headunit {
   toggleDemoPlayback() { this.state.demoPlaying = !this.state.demoPlaying; }
 
   wallpaper(value) {
-    if (!wallpapers.has(value)) throw Error('Unknown wallpaper');
+    if (!wallpapers.has(value) && !(value==='custom'&&this.state.customWallpaper)) throw Error('Unknown wallpaper');
     if (this.state.motionState === 'moving') return false;
     this.state.wallpaper = value;
     this.saveAppearance();
+  }
+
+  setCustomWallpaper(dataUrl){
+    const image=validateWallpaperDataUrl(dataUrl);
+    if(this.state.motionState==='moving')return false;
+    this.state.customWallpaper=image;this.state.wallpaper='custom';
+    let saved=true;
+    try{this.storage?.setItem('headunit.wallpaper.image',image);if(!this.storage?.setItem)saved=false;}catch{saved=false;}
+    this.saveAppearance();if(!saved)this.state.persistenceError=true;
+    return true;
+  }
+
+  resetCustomWallpaper(){
+    if(this.state.motionState==='moving')return false;
+    this.state.customWallpaper=null;this.state.wallpaper='coast';
+    let removed=true;
+    try{this.storage?.removeItem('headunit.wallpaper.image');if(!this.storage?.removeItem)removed=false;}catch{removed=false;}
+    this.saveAppearance();if(!removed)this.state.persistenceError=true;
+    return true;
+  }
+
+  setUiScale(value){
+    if(!validUiScale(value))throw Error('UI scale must be 90% to 115% in 5% steps');
+    if(this.state.motionState==='moving')return false;
+    this.state.uiScale=value;this.saveAppearance();return true;
   }
 
   savePreference(key, value) {
@@ -116,7 +147,7 @@ export class Headunit {
   saveAppearance() {
     this.savePreference('headunit.appearance', {
       appearancePreference: this.state.appearancePreference, lastAppearance: this.state.appearance.mode,
-      wallpaper: this.state.wallpaper, glassStrength: this.state.glassStrength, dockSide: this.state.dockSide,
+      wallpaper: this.state.wallpaper, glassStrength: this.state.glassStrength, uiScale:this.state.uiScale, dockSide: this.state.dockSide,
       debugOverlay:this.state.debugOverlay
     });
   }
