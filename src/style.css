@@ -305,6 +305,20 @@ html[data-mode=production] :is(.home-media,.home-time,.home-weather,.home-shortc
 html[data-mode=production] body[data-appearance=day] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:var(--production-panel-day)}
 @media(prefers-reduced-transparency:reduce){html[data-mode=production] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:#091827;-webkit-backdrop-filter:none;backdrop-filter:none}html[data-mode=production] body[data-appearance=day] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:#edf5f8}}
 
+/* Unavailable sources carry short, useful states; they do not expand into picture-sized cards. */
+html[data-mode=production] .home-dashboard[data-media-status=unavailable]{flex:0 0 auto;grid-template-rows:minmax(240px,min(30vh,300px)) minmax(124px,min(18vh,175px)) auto;align-content:start}
+html[data-mode=production] .home-dashboard[data-media-status=unavailable] .home-summary{grid-template-rows:minmax(0,1fr) auto}
+html[data-mode=production] .home-dashboard[data-media-status=unavailable] .home-media-symbol{width:clamp(76px,7vw,104px)}
+html[data-mode=production] .home-dashboard[data-media-status=unavailable] .home-media-copy h3{font-size:clamp(22px,1.6vw,30px)}
+html[data-mode=production] .home-weather[data-weather-status=unavailable]{min-height:100px;gap:12px}
+html[data-mode=production] .home-weather .weather-status{font-size:clamp(15px,1vw,19px);line-height:1.25}
+html[data-mode=production] .media-browse{display:flex;align-items:center;gap:10px;align-self:flex-start;min-height:52px;padding:10px 20px;border:1px solid rgb(232 247 255 / .34);border-radius:16px;background:rgb(220 239 249 / .17);color:inherit;font-size:18px;font-weight:600}
+html[data-mode=production] .media-browse svg{width:25px;height:25px}
+html[data-mode=production] body[data-appearance=day] .media-browse{background:#d4e6ed;border-color:#7895a8;color:#142b41}
+@media(max-height:700px) and (min-width:650px){html[data-mode=production] .home-dashboard[data-media-status=unavailable]{grid-template-rows:minmax(220px,30vh) minmax(72px,13vh) auto}html[data-mode=production] .home-dashboard[data-media-status=unavailable] .home-media-symbol{width:64px}html[data-mode=production] .home-weather[data-weather-status=unavailable]{min-height:76px;gap:6px}html[data-mode=production] .media-browse{min-height:46px;padding:7px 14px;font-size:15px}}
+@media(max-height:540px) and (min-width:650px){html[data-mode=production] .home-dashboard[data-media-status=unavailable]{grid-template-rows:minmax(220px,48vh) auto}}
+@media(max-width:649px){html[data-mode=production] .home-dashboard[data-media-status=unavailable]{grid-template-rows:220px auto auto}html[data-mode=production] .home-weather[data-weather-status=unavailable]{min-height:0}html[data-mode=production] .media-browse{min-height:48px;padding:8px 14px;font-size:15px}}
+
 /* Production destinations use the available display rather than a small status box. */
 html[data-mode=production] main[data-screen=apps] .apps{max-width:none;margin:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(150px,1fr));gap:16px;align-content:stretch}
 html[data-mode=production] main[data-screen=apps] .app-entry{min-width:0;min-height:0}

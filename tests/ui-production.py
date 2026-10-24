@@ -26,6 +26,12 @@ with sync_playwright() as p:
         page.goto(url)
         page.wait_for_timeout(100)
         assert page.locator('h1').inner_text() == 'Home'
+        if width == 1920:
+            media = page.locator('.home-media').bounding_box()
+            weather = page.locator('.home-weather').bounding_box()
+            assert media and media['height'] <= 320, ('offline media card is too tall', media)
+            assert weather and weather['height'] <= 140, ('unavailable weather card is too tall', weather)
+            assert page.locator('.media-browse').is_visible()
         for route, title in [('radio','Radio'),('bluetooth','Bluetooth'),('projection','CarPlay'),('settings','Settings'),('apps','Apps'),('home','Home')]*2:
             page.locator(f'aside [data-action="{route}"]').click()
             assert page.locator('h1').inner_text() == title, (width,height,route)

@@ -82,7 +82,7 @@ test('production bridge stays empty until an authoritative view arrives',async()
  assert.doesNotMatch(ui.root.innerHTML,/CarPlay, phone and media features are unavailable while/);
  assert.match(ui.root.innerHTML,/Now playing/);
  assert.match(ui.root.innerHTML,/Weather/);
- assert.match(ui.root.innerHTML,/outdoor temperature unavailable/i);
+ assert.match(ui.root.innerHTML,/Weather unavailable/);
  assert.match(ui.root.innerHTML,/data-action="settings"/);
  assert.doesNotMatch(ui.root.innerHTML,/Choose a phone|data-phone=|data-media=/);
  publish({connected:true,route:'home',front:'livi',phones:[]});
@@ -100,6 +100,18 @@ test('production Home keeps one clock and aligned information surfaces after a l
  assert.match(ui.root.innerHTML,/class="home-dashboard"/);
  assert.match(ui.root.innerHTML,/Now playing/);
  assert.match(ui.root.innerHTML,/Weather/);
+});
+
+test('offline Home keeps missing media and weather compact and offers a real local destination',async()=>{
+ const ui=await launch(new Map(),{onView:()=>()=>{},getView:async()=>({connected:false,connectionPhase:'backoff',phones:[]})},'production');
+ assert.match(ui.root.innerHTML,/data-media-status="unavailable"/);
+ assert.match(ui.root.innerHTML,/data-weather-status="unavailable"/);
+ assert.match(ui.root.innerHTML,/No source connected/);
+ assert.match(ui.root.innerHTML,/Weather unavailable/);
+ assert.doesNotMatch(ui.root.innerHTML,/Outdoor temperature unavailable|class="weather-empty"/);
+ assert.match(ui.root.innerHTML,/<button class="media-browse" data-action="apps"[^>]*>[\s\S]*?<span>Browse apps<\/span>/);
+ ui.click('action','apps');
+ assert.match(ui.root.innerHTML,/<h1>Apps<\/h1>/);
 });
 
 test('glass interface uses native phone state and waits for the selected phone', async () => {
