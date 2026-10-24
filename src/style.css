@@ -420,6 +420,8 @@ body[data-appearance=day] .feature-copy p{color:#38556b}
   html[data-mode=production] main[data-screen=home] .home-link-status{grid-column:1/-1;grid-row:3}
   html[data-mode=production] body[data-appearance=day] main[data-screen=home] :is(.home-media,.home-weather){background:rgb(237 245 248 / .96)}
   html[data-mode=production] body[data-appearance=day] main[data-screen=home] .home-shortcut{background:rgb(237 245 248 / .84)}
-  html[data-mode=production] body[data-appearance=day] main[data-screen=home] .home-time{color:#f3f7fc}
-  html[data-mode=production] body[data-appearance=day] main[data-screen=home] .home-time :is(h2,span){color:#dfecf2}
+  html[data-mode=production] body[data-appearance=day] main[data-screen=home] .home-summary .home-time{
+    background:#edf5f8;color:#142b41;box-shadow:inset 0 1px 0 #fff,0 12px 32px rgb(35 72 85 / .1)
+  }
+  html[data-mode=production] body[data-appearance=day] main[data-screen=home] .home-time :is(h2,span){color:#355668}
 }

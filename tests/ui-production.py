@@ -1,6 +1,7 @@
 import http.server
 import os
 import pathlib
+import re
 import threading
 from playwright.sync_api import sync_playwright
 
@@ -54,6 +55,29 @@ with sync_playwright() as p:
                 assert time_bounds['date']['top'] >= time_bounds['card']['top'] and time_bounds['date']['bottom'] <= time_bounds['card']['bottom'], (scale,time_bounds)
                 if scale == 100:
                     assert time_bounds['sources']['bottom'] >= 780, ('Home ends too high above the wallpaper', time_bounds)
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-appearance="day"]').click()
+            page.locator('aside [data-action="home"]').click()
+            day_hero = page.evaluate('''() => {
+              const css = selector => getComputedStyle(document.querySelector(selector));
+              return {background:css('.home-time').backgroundColor,clock:css('#headunit-home-clock').color,date:css('#headunit-home-date').color};
+            }''')
+            def rgb(value):
+                parts = [float(part) for part in re.findall(r'[\d.]+', value)]
+                return parts[:3], parts[3] if len(parts) > 3 else 1
+            def luminance(values):
+                linear = [channel / 255 / 12.92 if channel / 255 <= .04045 else ((channel / 255 + .055) / 1.055) ** 2.4 for channel in values]
+                return .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2]
+            background, alpha = rgb(day_hero['background'])
+            assert alpha >= .95, day_hero
+            background = [alpha * channel + (1-alpha) * 255 for channel in background]
+            for key in ('clock','date'):
+                foreground, _ = rgb(day_hero[key])
+                lights = sorted((luminance(background),luminance(foreground)))
+                assert (lights[1]+.05)/(lights[0]+.05) >= 4.5, (key,day_hero)
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-appearance="night"]').click()
+            page.locator('aside [data-action="home"]').click()
         for route, title in [('radio','Radio'),('bluetooth','Bluetooth'),('projection','CarPlay'),('settings','Settings'),('apps','Apps'),('home','Home')]*2:
             page.locator(f'aside [data-action="{route}"]').click()
             assert page.locator('h1').inner_text() == title, (width,height,route)
