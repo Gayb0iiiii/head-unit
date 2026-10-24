@@ -9,7 +9,7 @@ On the Orange Pi, attached to a real display and keyboard or with working SSH:
 ```sh
 uname -m                         # must be aarch64
 cat /etc/os-release               # inspect actual Armbian/Ubuntu release
-node --version                    # target has Node 22.22.2; see repository's Node 24 check requirement
+node --version                    # informational; launcher uses Electron, not this Node binary
 ls -l /dev/dri /dev/tty1
 loginctl seat-status seat0
 apt-cache policy cage electron
@@ -17,18 +17,16 @@ command -v cage
 command -v electron
 ```
 
-Do not assume the Ubuntu `electron` package exists on this release, or that an x86_64 Electron binary works on ARM64. Select a trusted **ARM64** Electron binary and set `HEADUNIT_ELECTRON` in `/etc/default/headunit-preview` if its path differs from `/usr/bin/electron`. Check `file "$HEADUNIT_ELECTRON"`, `electron --version`, and secure sandbox startup before enabling the service. Do not use `--no-sandbox`, `--disable-setuid-sandbox`, or `--disable-web-security`. If Chromium reports a misconfigured SUID sandbox helper, stop and repair it through the package's documented installation method or an administrator-reviewed user-namespace setup; do not bypass the sandbox. Cage must be built with a working logind/libseat DRM backend. The service's PAM session is intended to provide the seat and `XDG_RUNTIME_DIR`; verify it on this image. Graphics, touch, and sandbox support cannot be certified from this x86_64 cloud workspace.
+Do not assume the Ubuntu `electron` package exists on this release, or that an x86_64 Electron binary works on ARM64. Select a trusted **ARM64** Electron binary and set `HEADUNIT_ELECTRON` in `/etc/default/headunit-preview` if its path differs from `/usr/bin/electron`. Resolve any wrapper/symlink and check its underlying executable architecture with `file`, plus `electron --version` and secure sandbox startup before enabling the service. Do not use `--no-sandbox`, `--disable-setuid-sandbox`, or `--disable-web-security`. If Chromium reports a misconfigured SUID sandbox helper, stop and repair it through the package's documented installation method or an administrator-reviewed user-namespace setup; do not bypass the sandbox. Cage must be built with a working logind/libseat DRM backend. The service's PAM session is intended to provide the seat and `XDG_RUNTIME_DIR`; verify it on this image. Graphics, touch, and sandbox support cannot be certified from this x86_64 cloud workspace.
 
 ## Stage and try from a console
 
-Keep SSH available as the maintenance path. Review `deployment/orangepi-ui-launch.sh` and `deployment/headunit-preview.service.example` before running. Copy this checkout to `/home/cruiser/head-unit` and ensure `cruiser` owns it. On the Pi use Node 24 for the repository checks (Node 22 on the target is not the tested requirement); the static output can also be built on a Node 24 development host and copied with the source. No native-check script is needed for this UI-only milestone.
+Keep SSH available as the maintenance path. Review `deployment/orangepi-ui-launch.sh` and `deployment/headunit-preview.service.example` before running. Copy this checkout **including its generated `dist` directory** to `/home/cruiser/head-unit` and ensure `cruiser` owns it. The launcher does not invoke system Node. Node 24 is the repository's tested build/check baseline; the Pi's Node 22.22.2 has not been verified for those commands and is not a prerequisite when `dist` is already built. No native-check script is needed for this UI-only milestone.
 
 ```sh
 cd /home/cruiser/head-unit
-npm test
-npm run build
 test -f dist/index.html
-chmod +x deployment/orangepi-ui-launch.sh
+test -x deployment/orangepi-ui-launch.sh
 ```
 
 From a **local tty1 login as cruiser**, stop any other graphical session and run `deployment/orangepi-ui-launch.sh`. This starts Cage and Electron only for that login. Cage's `-s` permits switching to another tty for maintenance; SSH is also available. Stop the process from that tty or SSH. The script verifies user, architecture, build, Electron path, Cage, DRM and runtime directory before launch. It removes inherited LIVI variables. Confirm the fullscreen Home UI is visible, check the demo labels, keyboard/touch response, display rotation and the sandbox. These observations remain pending.
