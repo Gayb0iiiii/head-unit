@@ -65,6 +65,17 @@ The launcher checks user, ARM64 architecture, files, Cage, connected DRM output 
 
 During the trial, confirm the disconnected screen is visible, no sample phone/music/sensor state appears, keyboard/VT switching works, the Electron sandbox is active, and exiting the process returns tty1. When a real reviewed backend is available, separately verify socket protocol/version, authoritative state, disconnect/reconnect, window geometry, touch and peripherals. A cloud test cannot verify those.
 
+If Cage briefly opens a black display and returns to tty1, make one diagnostic retry. This enables Cage debug messages and Electron startup milestones without changing sandbox or seat settings:
+
+```sh
+cd /home/cruiser/head-unit
+HEADUNIT_DEBUG=1 ./deployment/orangepi-ui-launch.sh >"$HOME/headunit-launch-debug.log" 2>&1
+printf 'launcher exit=%s\n' "$?" >>"$HOME/headunit-launch-debug.log"
+grep -Ei 'Headunit:|Headunit .*failed|Child process|Child exited|Cage .*running|Seat opened|FATAL|ERROR|sandbox|exit=' "$HOME/headunit-launch-debug.log" | tail -n 60
+```
+
+`Cage ... running` and `Child process created` distinguish compositor startup from an Electron child launch. `Headunit: Electron entry loaded` confirms that Electron reached this application's main module. Stop and inspect the first specific error before installing more software.
+
 ## Optional boot setup only after the manual trial succeeds
 
 The following changes persistent boot behavior on the Pi. Keep SSH open. The service runs as `cruiser` through PAM/logind on tty1, uses bounded restart attempts, and requests getty on start-limit failure. It does not enable autologin, LIVI power ownership or a desktop environment.

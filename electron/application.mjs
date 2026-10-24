@@ -15,6 +15,7 @@ export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=proc
   }
   // A zero exit from a supervised duplicate means "stop core" at the pinned supervisor.
   if(!app.requestSingleInstanceLock()) {
+    console.error('Headunit startup rejected: another instance holds the profile lock.');
     app.exit(env.LIVI_LIFELINE==='1'?1:0);
     return {ready:Promise.resolve(),shutdown:()=>{}};
   }
@@ -42,9 +43,10 @@ export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=proc
   if(compositor)app.commandLine.appendSwitch('ozone-platform','wayland');
   const ready=app.whenReady().then(async()=>{
     if(stopping)return;
+    if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: Electron ready; creating window');
     window=new BrowserWindow({...headunitWindowOptions({compositor}),show:false});
-    on(window,'closed',()=>shutdown());
-    on(window.webContents,'render-process-gone',()=>shutdown(1));
+    on(window,'closed',()=>{if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: window closed');shutdown();});
+    on(window.webContents,'render-process-gone',(_event,details)=>{console.error('Headunit renderer exited:',details);shutdown(1);});
     runtime=createRuntime({ipcMain,trustedWindow:window,trustedUrl:pageURL,socketPath,
       ...(compositor&&env.HEADUNIT_SECONDARY_WINDOWS==='1'?{secondary:{BrowserWindow,screen}}:{}),
       preferencePath:path.join(app.getPath('userData'),'headunit-preferences.json'),
@@ -52,8 +54,10 @@ export function startHeadunitApplication({app,BrowserWindow,ipcMain,signals=proc
     if(compositor)detachWindow=attachCompositorWindow({window,screen,kiosk:env.LIVI_KIOSK==='1',subscribeConfig:runtime.subscribeWindowConfig});
     runtime.start();
     if(stopping)return;
+    if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: loading trusted local page');
     await window.loadURL(pageURL);
+    if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: page loaded');
     if(!stopping)window.show();
-  }).catch(()=>shutdown(1));
+  }).catch(error=>{console.error('Headunit window startup failed:',error);shutdown(1);});
   return {ready,shutdown};
 }

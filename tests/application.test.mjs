@@ -46,9 +46,11 @@ for(const reason of ['SIGTERM','parent','before-quit','crash'])test(`${reason} d
  assert.equal(f.signals.listenerCount('SIGTERM'),0);assert.equal(f.app.listenerCount('second-instance'),0);
  if(reason==='crash')assert.deepEqual(f.events.at(-1),['exit',1]);
 });
-test('page load failure cleans up and reports unsuccessful startup',async()=>{
+test('page load failure cleans up and reports the actual startup error',async t=>{
+ const errors=[];t.mock.method(console,'error',(...args)=>errors.push(args));
  const f=fixture(),owner=f.start();f.ready.resolve();await Promise.resolve();f.load.reject(Error('failed'));
  await owner.ready;assert.deepEqual(f.events.slice(-2),['dispose',['exit',1]]);assert.ok(!f.events.includes('show'));
+ assert.match(errors.at(-1)[0],/window startup failed/);assert.equal(errors.at(-1)[1].message,'failed');
 });
 
 test('unsafe launch flags and untrusted connection/page configuration fail before window ownership',()=>{

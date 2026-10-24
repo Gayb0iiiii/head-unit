@@ -18,4 +18,8 @@ if [ -z "${XDG_RUNTIME_DIR:-}" ] || [ ! -d "$XDG_RUNTIME_DIR" ]; then
   echo 'A PAM/logind runtime directory is required' >&2; exit 1
 fi
 unset LIVI_KIOSK LIVI_COMPOSITOR LIVI_UI_CMD LIVI_LIFELINE HEADUNIT_SECONDARY_WINDOWS
+if [ "${HEADUNIT_DEBUG:-}" = 1 ]; then
+  printf 'Headunit: starting Cage on %s with Electron %s\n' "$card" "$electron" >&2
+  exec cage -D -s -- "$electron" "$repo/electron/kiosk"
+fi
 exec cage -s -- "$electron" "$repo/electron/kiosk"
