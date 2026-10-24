@@ -9,7 +9,7 @@ const navigableRoutes = new Set(['home','dashboard','phones','settings','audio',
 /** Browser-side projection of the privileged, authoritative host view. */
 export class NativeHeadunit extends Headunit {
   constructor(storage, bridge, onChange = () => {}, clock = {now:()=>performance.now(),setTimeout,clearTimeout}) {
-    super(storage);
+    super(storage,{simulation:false});
     this.clock = clock;
     this.mediaGeneration = 0;
     this.state.homeStatus = emptyHomeStatus('disconnected');

@@ -23,11 +23,11 @@ async function collect(name){
 }
 await collect('app');
 await rm('dist',{recursive:true,force:true});await mkdir('dist/src',{recursive:true});
-for(const file of ['index.html','src/style.css',...[...modules.keys()].map(name=>`src/${name}.mjs`)])await copyFile(file,`dist/${file}`);
+for(const file of ['index.html','production.html','src/style.css',...[...modules.keys()].map(name=>`src/${name}.mjs`)])await copyFile(file,`dist/${file}`);
 await writeFile('dist/BUILD.txt','Browser preview only. Native adapter source remains in src and is not exposed to browser clients.\n');
 const html=await readFile('index.html','utf8'),css=await readFile('src/style.css','utf8');
 const bundle='const __browserModules=Object.create(null);\n'+[...modules.values()].join('\n');
 const checkedBundle=spawnSync(process.execPath,['--input-type=module','--check'],{input:bundle,encoding:'utf8'});
 if(checkedBundle.status)throw new Error(checkedBundle.stderr);
 await writeFile('dist/preview.html',html.replace('<link rel="stylesheet" href="src/style.css">',`<style>${css}</style>`).replace('<script type="module" src="src/app.mjs"></script>',`<script type="module">${bundle.replace(/<\/script/gi,'<\\/script')}</script>`));
-console.log('Built static and self-contained previews; syntax checked all adapter modules. No dependency install required.');
+console.log('Built production renderer and separate offline development preview; syntax checked adapter modules. No dependency install required.');

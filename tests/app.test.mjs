@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // A small DOM boundary for event wiring and rendered markup, not browser/layout QA.
 // All navigation, storage, and playback-preview state use the real application.
 let instance = 0;
-async function launch(data = new Map(), host = null) {
+async function launch(data = new Map(), host = null, mode = null) {
   const root = { innerHTML: '' };
   let buttons = [];
   let elements = [];
@@ -32,6 +32,7 @@ async function launch(data = new Map(), host = null) {
   globalThis.localStorage = { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value) };
   globalThis.window = host ? {headunit:host} : {};
   doc = globalThis.document = {
+    documentElement: {dataset:{mode}},
     body: { dataset: {}, style: { setProperty: (key, value) => style.set(key, value) } },
     activeElement: null,
     getElementById: id => id === 'app' ? root : elements.find(element => element.id === id),
@@ -63,6 +64,23 @@ async function launch(data = new Map(), host = null) {
     }
   };
 }
+
+test('production page without preload never creates demo state or controls',async()=>{
+ const ui=await launch(new Map(),null,'production');
+ assert.match(ui.root.innerHTML,/System unavailable/);
+ assert.doesNotMatch(ui.root.innerHTML,/Driver.s iPhone|Passenger.s iPhone|Coastal drive|Demo|data-action/);
+});
+test('production bridge stays empty until an authoritative view arrives',async()=>{
+ let publish;
+ const ui=await launch(new Map(),{onView:fn=>{publish=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',phones:[]})},'production');
+ assert.doesNotMatch(ui.root.innerHTML,/Driver.s iPhone|Passenger.s iPhone|Coastal drive|Simulated/);
+ publish({connected:true,route:'home',front:'livi',phones:[]});
+ assert.match(ui.root.innerHTML,/<h1>Home<\/h1>/);
+ assert.doesNotMatch(ui.root.innerHTML,/Driver.s iPhone|Passenger.s iPhone|Coastal drive|Simulated|data-media=/);
+ publish({connected:true,route:'phones',front:'livi',phones:[]});
+ assert.match(ui.root.innerHTML,/No saved phones/);
+ assert.doesNotMatch(ui.root.innerHTML,/Add phone|Contacts are unavailable|Demo/);
+});
 
 test('glass interface uses native phone state and waits for the selected phone', async () => {
   const calls = [];
@@ -272,13 +290,12 @@ test('native Home renders verified media/battery safely and explicit controls pr
  const host={onView(fn){publish=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',phones:[]}),media:async(...args)=>{calls.push(args);return {accepted:true};}};
  const ui=await launch(new Map(),host);
  publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{phone:{status:'available',phoneId:'a',batteryPercent:73,charging:true,freshForMs:30000},media:{status:'available',phoneId:'a',title:'<img src=x onerror=bad()>',artist:'Artist',playing:true,freshForMs:30000}}});
- assert.match(ui.root.innerHTML,/73%/);assert.match(ui.root.innerHTML,/Signal.*Unavailable/s);
+ assert.match(ui.root.innerHTML,/73%/);assert.doesNotMatch(ui.root.innerHTML,/Signal.*Unavailable/s);
  assert.match(ui.root.innerHTML,/&lt;img/);assert.doesNotMatch(ui.root.innerHTML,/<img src=x/);
- ui.click('media','pause');assert.deepEqual(calls,[['pause','a']]);assert.match(ui.root.innerHTML,/Good to go/);
+ ui.click('media','pause');assert.deepEqual(calls,[['pause','a']]);assert.match(ui.root.innerHTML,/<h1>Home<\/h1>/);
  ui.click('action','edit-layout');assert.doesNotMatch(ui.root.innerHTML,/data-move="dashboard:/);
  publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{media:{status:'stale',phoneId:'a'}}});
- assert.match(ui.root.innerHTML,/Media information is out of date/);assert.doesNotMatch(ui.root.innerHTML,/&lt;img/);
- assert.match(ui.root.innerHTML,/data-media="play"[^>]*disabled/);
+ assert.doesNotMatch(ui.root.innerHTML,/Media information is out of date|&lt;img|data-media="play"/);
 });
 
 test('Settings exposes persistent day/night controls, unavailable Auto status and focus retention',async()=>{

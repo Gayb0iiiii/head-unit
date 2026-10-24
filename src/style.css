@@ -156,6 +156,9 @@ select:focus-visible{outline:3px solid #a9dfff;outline-offset:5px}
 /* Coastal day palette: ink #142b41, slate #38556b, pearl #edf5f8,
    tide #d4e6ed, deep teal #155c70. No panel-brightness or sensor simulation. */
 body{color-scheme:dark}
+#app:has(.system-unavailable){grid-template-columns:1fr;place-items:center}
+.system-unavailable{width:min(520px,100%);padding:36px;border:1px solid #ffffff29;border-radius:30px;background:#1d324bea;text-align:center}
+.system-unavailable p{color:#d9e4ef}
 .appearance-modes{display:flex;flex-wrap:wrap;gap:12px}
 .appearance-modes button{min-width:96px;min-height:56px;padding:12px 24px;border-radius:16px;background:#233f55;border:1px solid #7c9caf}
 .appearance-modes button[aria-pressed=true]{background:#d4ecf7;color:#142b41;border-color:#d4ecf7;font-weight:650}

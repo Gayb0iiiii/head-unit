@@ -1,6 +1,6 @@
 # Deployment examples — NOT INSTALLED
 
-For the separate **UI-only Orange Pi display milestone**, see [orangepi-preview.md](orangepi-preview.md). Its launcher and disabled service template run a local preview without LIVI. They are not installed here and do not satisfy the native appliance gates below.
+For the separate **Orange Pi production UI display milestone**, see [orangepi-system-ui.md](orangepi-system-ui.md). Its launcher and disabled service template run the sandboxed native-state renderer and reconnect to an explicitly configured local core socket when present. They are not installed here and do not satisfy the native appliance gates below.
 
 These are disabled design examples for a future explicitly approved lab deployment. They do not register services, enable autologin, launch LIVI, change security or permissions, or alter power behavior. No current code consumes these files.
 
@@ -14,4 +14,4 @@ Do not rename these to active config or create services from them until:
 4. The independent recovery presenter is available and its actual display is verified.
 5. Service-level restart cannot reset the finite budget or recovery latch.
 
-Automatic startup is not configured. The separate `headunit-preview.service.example` is a reviewable template, not an installed unit. There are no autologin files, credentials, GPIO assignments, suspend/shutdown commands or sandbox-disabling flags here. Ignition/display/audio standby remains a requirement only; Orange Pi sleep/wake is unverified.
+Automatic startup is not configured. The separate `headunit-ui.service.example` is a reviewable template, not an installed unit. There are no autologin files, credentials, GPIO assignments, suspend/shutdown commands or sandbox-disabling flags here. Ignition/display/audio standby remains a requirement only; Orange Pi sleep/wake is unverified.

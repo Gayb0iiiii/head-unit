@@ -1,5 +1,5 @@
 [Unit]
-Description=Headunit UI-only Wayland session (demo data)
+Description=Headunit Wayland system interface
 After=systemd-user-sessions.service
 Conflicts=getty@tty1.service
 ConditionPathExists=/dev/dri/card0
@@ -12,7 +12,7 @@ Type=simple
 User=cruiser
 PAMName=login
 Environment=XDG_SESSION_TYPE=wayland
-EnvironmentFile=-/etc/default/headunit-preview
+EnvironmentFile=-/etc/default/headunit-ui
 WorkingDirectory=/home/cruiser/head-unit
 ExecStart=/home/cruiser/head-unit/deployment/orangepi-ui-launch.sh
 TTYPath=/dev/tty1

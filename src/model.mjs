@@ -14,7 +14,7 @@ const sanitizeOrder = (value, defaults) => [...new Set([
 const validGlassStrength = value => Number.isInteger(value) && value >= 0 && value <= 100;
 
 export class Headunit {
-  constructor(storage) {
+  constructor(storage, {simulation = true} = {}) {
     this.storage = storage;
     this.lastPhone = null;
     this.state = {
@@ -23,10 +23,10 @@ export class Headunit {
       vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
       glassStrength: 55, appOrder: [...defaultOrders.apps], dashboardOrder: [...defaultOrders.dashboard],
       editingLayout: false, motionState: 'unknown', persistenceError: false,
-      phones: [
+      phones: simulation ? [
         { id: 'phone-a', name: 'Driver’s iPhone', active: false },
         { id: 'phone-b', name: 'Passenger’s iPhone', active: false }
-      ]
+      ] : []
     };
     try {
       const saved = JSON.parse(storage?.getItem('headunit.appearance') || '{}');
