@@ -11,7 +11,7 @@ export function startDebugOverlay(api,getNode,clock={}){
   const speed=value=>Number.isFinite(value)&&value>=0?value>=1048576?`${(value/1048576).toFixed(1)} MiB/s`:`${(value/1024).toFixed(1)} KiB/s`:'unavailable';
   function draw(fps=null){
     const node=getNode();
-    if(node)node.textContent=`UI FPS ${fps===null?'unavailable':fps.toFixed(1)} · CPU ${percent(cpu)} · GPU use ${percent(gpu)} · RAM ${gib(ramUsed)}/${gib(ramTotal)} · NET ↓ ${speed(down)} ↑ ${speed(up)} · Ping ${Number.isFinite(ping)&&ping>=0?`${Math.round(ping)} ms`:'unavailable'}`;
+    if(node)node.textContent=`UI FPS ${fps===null?'unavailable':fps.toFixed(1)} · CPU ${percent(cpu)} · GPU use ${percent(gpu)} · RAM ${gib(ramUsed)}/${gib(ramTotal)} · NET ↓ ${speed(down)} ↑ ${speed(up)} · Google TCP latency ${Number.isFinite(ping)&&ping>=0?`${Math.round(ping)} ms`:'unavailable'}`;
   }
   function onFrame(){if(stopped)return;frames++;frameId=requestFrame(onFrame);}
   if(requestFrame)frameId=requestFrame(onFrame);

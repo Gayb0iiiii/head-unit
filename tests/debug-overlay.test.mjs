@@ -11,7 +11,7 @@ test('overlay samples only while enabled, labels unavailable GPU and stops all w
  assert.equal(reads,0);
  now=1000;frame();now=2000;frame();interval();await Promise.resolve();await Promise.resolve();
  assert.match(text.textContent,/UI FPS/);assert.match(text.textContent,/CPU 37\.5%/);assert.match(text.textContent,/GPU use unavailable/);
- assert.match(text.textContent,/RAM 1\.0 GiB\/4\.0 GiB/);assert.match(text.textContent,/↓ 2\.0 KiB\/s ↑ 1\.0 KiB\/s/);assert.match(text.textContent,/Ping 31 ms/);
+ assert.match(text.textContent,/RAM 1\.0 GiB\/4\.0 GiB/);assert.match(text.textContent,/↓ 2\.0 KiB\/s ↑ 1\.0 KiB\/s/);assert.match(text.textContent,/Google TCP latency 31 ms/);
  const before=reads;stop();assert.equal(cancelled,1);assert.equal(cleared,1);assert.equal(stopCalls,1);
  interval();await Promise.resolve();assert.equal(reads,before);
 });
