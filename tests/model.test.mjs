@@ -255,6 +255,36 @@ test('custom wallpaper accepts only a validated local data image and reset clear
  h.resetCustomWallpaper();assert.equal(h.state.wallpaper,'coast');assert.equal(data.has('headunit.wallpaper.image'),false);
 });
 
+test('curated landscape, pastel, solid and gradient wallpapers persist without accepting arbitrary URLs',()=>{
+ const storage=memoryStorage(),h=new Headunit(storage,{simulation:false});
+ for(const id of ['meadow','blue-forms','pastel-mint','pastel-lilac','solid-slate','gradient-lagoon']){
+  h.wallpaper(id);
+  assert.equal(new Headunit(storage,{simulation:false}).state.wallpaper,id);
+ }
+ assert.throws(()=>h.wallpaper('https://example.com/image.jpg'));
+ assert.throws(()=>h.wallpaper('__proto__'));
+ storage.setItem('headunit.appearance',JSON.stringify({wallpaper:'../../secret'}));
+ assert.equal(new Headunit(storage,{simulation:false}).state.wallpaper,'coast');
+});
+
+test('wallpaper tuning and accent are bounded, persistent and reset without deleting the selected wallpaper',()=>{
+ const storage=memoryStorage(),h=new Headunit(storage,{simulation:false});
+ assert.deepEqual([h.state.accent,h.state.wallpaperBrightness,h.state.wallpaperDim,h.state.wallpaperBlur],['sea',100,0,0]);
+ h.wallpaper('pastel-mint');h.setAccent('coral');h.setWallpaperBrightness(125);h.setWallpaperDim(35);h.setWallpaperBlur(4);
+ const saved=new Headunit(storage,{simulation:false});
+ assert.deepEqual([saved.state.wallpaper,saved.state.accent,saved.state.wallpaperBrightness,saved.state.wallpaperDim,saved.state.wallpaperBlur],['pastel-mint','coral',125,35,4]);
+ for(const [method,value] of [['setAccent','url(x)'],['setWallpaperBrightness',145],['setWallpaperBrightness',61],['setWallpaperDim',65],['setWallpaperDim',3],['setWallpaperBlur',9],['setWallpaperBlur',.5]])assert.throws(()=>h[method](value));
+ h.setMotionState('moving');
+ assert.equal(h.setAccent('cobalt'),false);assert.equal(h.setWallpaperDim(20),false);
+ assert.equal(h.state.accent,'coral');assert.equal(h.state.wallpaperDim,35);
+ h.setMotionState('stationary');h.resetWallpaperTuning();
+ assert.deepEqual([h.state.wallpaper,h.state.accent,h.state.wallpaperBrightness,h.state.wallpaperDim,h.state.wallpaperBlur],['pastel-mint','sea',100,0,0]);
+ assert.equal(new Headunit(storage,{simulation:false}).state.wallpaper,'pastel-mint');
+ storage.setItem('headunit.appearance',JSON.stringify({accent:'invalid',wallpaperBrightness:-50,wallpaperDim:900,wallpaperBlur:99}));
+ const invalid=new Headunit(storage,{simulation:false});
+ assert.deepEqual([invalid.state.accent,invalid.state.wallpaperBrightness,invalid.state.wallpaperDim,invalid.state.wallpaperBlur],['sea',100,0,0]);
+});
+
 test('dock side defaults left and persists either explicit side without losing appearance',()=>{
  const storage=memoryStorage(),h=new Headunit(storage);assert.equal(h.state.dockSide,'left');
  h.wallpaper('dusk');h.setGlassStrength(80);h.setDockSide('right');

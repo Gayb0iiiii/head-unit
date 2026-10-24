@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="base" x2="1" y2="1"><stop stop-color="#114477"/><stop offset=".45" stop-color="#255ea1"/><stop offset="1" stop-color="#081f5d"/></linearGradient>
+    <linearGradient id="form" x2="1" y2=".5"><stop stop-color="#9bd5eb"/><stop offset=".42" stop-color="#4099d3"/><stop offset="1" stop-color="#155498"/></linearGradient>
+    <linearGradient id="fold" x2=".2" y2="1"><stop stop-color="#c9edf4" stop-opacity=".8"/><stop offset="1" stop-color="#2563a5" stop-opacity=".22"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#bdeef6" stop-opacity=".45"/><stop offset="1" stop-color="#bdeef6" stop-opacity="0"/></radialGradient>
+  </defs>
+  <path fill="url(#base)" d="M0 0h1920v1080H0z"/>
+  <ellipse fill="url(#glow)" cx="1320" cy="170" rx="950" ry="580"/>
+  <path fill="#0c316d" opacity=".64" d="M0 717C277 380 535 404 806 542c264 134 461 197 655-4 193-198 308-267 459-205v747H0z"/>
+  <path fill="url(#form)" d="M-75 1080c155-420 475-641 771-588 240 42 310 250 599 223 223-21 357-235 700-278v643z"/>
+  <path fill="url(#fold)" opacity=".85" d="M-18 1004c235-401 476-545 701-503 177 33 275 210 455 266 241 77 393-123 697-207-286 207-507 371-808 259-226-84-365-157-561-91C281 789 139 925-18 1004z"/>
+  <path fill="#0b3e85" opacity=".68" d="M103 1080c333-286 655-262 969-158 260 86 534 39 848-121v279z"/>
+  <path fill="none" stroke="#d2f4fb" stroke-opacity=".36" stroke-width="15" d="M-12 983c266-388 491-538 708-493 200 42 331 284 603 210 213-59 380-262 649-267"/>
+</svg>

@@ -4,7 +4,7 @@ const checked=[];for(const directory of ['src','electron'])for(const name of awa
 for(const file of checked){const r=spawnSync(process.execPath,['--check',file],{stdio:'inherit'});if(r.status)process.exit(r.status);}
 // This small offline packer supports only our named, relative browser modules.
 // Explicit allowlist prevents accidentally shipping host/IPC/native code.
-const allowed=new Set(['app','picture','connection-status','appearance','wallpaper-image','model','native-model','home-status','clock','debug-overlay','layout','sensor-settings','sensor-alerts','units']);
+const allowed=new Set(['app','picture','connection-status','appearance','wallpaper-image','wallpaper-catalog','model','native-model','home-status','clock','debug-overlay','layout','sensor-settings','sensor-alerts','units']);
 const modules=new Map(), visiting=new Set();
 async function collect(name){
  if(!allowed.has(name))throw new Error(`Non-browser dependency: ${name}`);
@@ -24,6 +24,8 @@ async function collect(name){
 await collect('app');
 await rm('dist',{recursive:true,force:true});await mkdir('dist/src',{recursive:true});
 for(const file of ['index.html','production.html','src/style.css',...[...modules.keys()].map(name=>`src/${name}.mjs`)])await copyFile(file,`dist/${file}`);
+await mkdir('dist/src/wallpapers',{recursive:true});await mkdir('dist/wallpapers',{recursive:true});
+for(const name of ['meadow.svg','blue-forms.svg'])for(const directory of ['dist/src/wallpapers','dist/wallpapers'])await copyFile(`src/wallpapers/${name}`,`${directory}/${name}`);
 await writeFile('dist/BUILD.txt','Browser preview only. Native adapter source remains in src and is not exposed to browser clients.\n');
 const html=await readFile('index.html','utf8'),css=await readFile('src/style.css','utf8');
 const bundle='const __browserModules=Object.create(null);\n'+[...modules.values()].join('\n');

@@ -385,6 +385,27 @@ test('production Settings groups local controls and keeps sensors secondary',asy
  assert.match(app.root.innerHTML,/Exit to Desktop/);
  assert.match(app.root.innerHTML,/data-action="exit-to-desktop"[^>]*disabled/);
 });
+
+test('production wallpaper gallery groups offline artwork and persists its selected palette and tuning',async()=>{
+ const data=new Map(),host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected',phones:[]})};
+ const ui=await launch(data,host,'production');
+ ui.click('action','settings');ui.click('action','wallpaper-gallery');
+ assert.match(ui.root.innerHTML,/<h1>Wallpapers<\/h1>/);
+ for(const group of ['Landscapes','Pastels','Solid colours','Gradients'])assert.match(ui.root.innerHTML,new RegExp(group));
+ for(const id of ['meadow','blue-forms','pastel-mint','pastel-lilac','solid-slate','gradient-lagoon'])assert.match(ui.root.innerHTML,new RegExp(`data-wallpaper="${id}"`));
+ assert.match(ui.root.innerHTML,/data-wallpaper-file/);
+ ui.click('wallpaper','pastel-mint');assert.equal(ui.doc.body.dataset.wallpaper,'pastel-mint');
+ ui.click('accent','coral');assert.equal(ui.doc.body.dataset.accent,'coral');
+ ui.input('wallpaperDim','35');assert.equal(ui.style.get('--wallpaper-dim'),'0.35');
+ ui.input('wallpaperBlur','4');assert.equal(ui.style.get('--wallpaper-blur'),'4px');
+ ui.input('wallpaperBrightness','125');assert.equal(ui.style.get('--wallpaper-brightness'),'1.25');
+ assert.equal(ui.key('Escape'),true);assert.match(ui.root.innerHTML,/<h1>Settings<\/h1>/);
+ const restored=await launch(data,host,'production');
+ assert.equal(restored.doc.body.dataset.wallpaper,'pastel-mint');assert.equal(restored.doc.body.dataset.accent,'coral');
+ restored.click('action','settings');restored.click('action','wallpaper-gallery');restored.click('action','reset-wallpaper-tuning');
+ assert.equal(restored.doc.body.dataset.wallpaper,'pastel-mint');assert.equal(restored.doc.body.dataset.accent,'sea');
+ assert.equal(restored.style.get('--wallpaper-dim'),'0');
+});
 test('Debug overlay is off by default and can be enabled from offline Settings',async()=>{
  const data=new Map();let reads=0;
  const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),getMetrics:async()=>{reads++;return {cpuPercent:null,gpuPercent:null};}};

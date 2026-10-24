@@ -2,10 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {readFileSync,existsSync} from 'node:fs';
+import {wallpaperIds} from '../src/wallpaper-catalog.mjs';
+test('every curated wallpaper has a local CSS background',()=>{
+ const css=readFileSync('src/style.css','utf8');
+ for(const id of wallpaperIds)assert.ok(css.includes(`[data-wallpaper=${id}]`),`${id} lacks a background`);
+});
 test('static build includes settings dependencies and self-contained offline preview without native modules',()=>{
  const result=spawnSync(process.execPath,['scripts/build.mjs'],{encoding:'utf8'});
  assert.equal(result.status,0,result.stderr);
  for(const name of ['app','model','sensor-settings','sensor-alerts','units'])assert.ok(existsSync(`dist/src/${name}.mjs`),`${name} copied`);
+ for(const name of ['meadow.svg','blue-forms.svg']){
+  assert.ok(existsSync(`dist/src/wallpapers/${name}`),`${name} bundled for production`);
+  assert.ok(existsSync(`dist/wallpapers/${name}`),`${name} bundled for preview`);
+ }
+ assert.ok(existsSync('dist/src/wallpaper-catalog.mjs'));
  const production=readFileSync('dist/production.html','utf8');
  assert.match(production,/data-mode="production"/);
  assert.match(production,/Content-Security-Policy/);

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#4b9ed4"/><stop offset=".63" stop-color="#bbdeea"/><stop offset="1" stop-color="#e8efc4"/></linearGradient>
+    <radialGradient id="light"><stop stop-color="#fffde0" stop-opacity=".78"/><stop offset="1" stop-color="#fffde0" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hill" x2="0" y2="1"><stop stop-color="#9ec44b"/><stop offset=".55" stop-color="#5f9d37"/><stop offset="1" stop-color="#316a31"/></linearGradient>
+    <linearGradient id="near" x2="0" y2="1"><stop stop-color="#88bb44"/><stop offset="1" stop-color="#3d8230"/></linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h1920v1080H0z"/>
+  <ellipse fill="url(#light)" cx="1480" cy="170" rx="680" ry="440"/>
+  <g fill="#fff" opacity=".32"><ellipse cx="275" cy="170" rx="210" ry="34"/><ellipse cx="365" cy="146" rx="145" ry="27"/><ellipse cx="1390" cy="290" rx="240" ry="27"/><ellipse cx="1525" cy="269" rx="130" ry="25"/></g>
+  <path fill="#8ab662" d="M0 670C320 600 550 705 820 626c343-101 733-120 1100-28v482H0z"/>
+  <path fill="url(#hill)" d="M0 772C350 621 617 610 901 725c354 143 706-107 1019-120v475H0z"/>
+  <path fill="url(#near)" d="M0 915c291-154 670-125 981-69 314 57 639-34 939-111v345H0z"/>
+  <path fill="none" stroke="#d2df7e" stroke-opacity=".27" stroke-width="24" d="M-50 1015c356-152 749-149 1134-63 321 72 592 11 926-115"/>
+</svg>

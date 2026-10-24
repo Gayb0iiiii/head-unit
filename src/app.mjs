@@ -3,6 +3,7 @@ import {connectionPresentation} from './connection-status.mjs';
 import {startClock} from './clock.mjs';
 import {startDebugOverlay} from './debug-overlay.mjs';
 import {readWallpaperFile} from './wallpaper-image.mjs';
+import {wallpaperGroups,accents} from './wallpaper-catalog.mjs';
 import {Headunit} from './model.mjs';
 import {NativeHeadunit} from './native-model.mjs';
 import {renderSensorSettings, bindSensorSettings} from './sensor-settings.mjs';
@@ -14,6 +15,7 @@ const production=document.documentElement?.dataset?.mode==='production';
 const native=typeof window !== 'undefined' && window.headunit && typeof window.headunit.getView === 'function';
 const model=native?new NativeHeadunit(storage,window.headunit,()=>render()):production?null:new Headunit(storage);
 let diagnosticsOpen=false;
+let wallpaperGalleryOpen=false;
 let stopDebugOverlay;
 let settingsAdvancedOpen=false;
 let wallpaperImportError='';
@@ -35,6 +37,7 @@ function applyAppearance(){
   const strength=model.state.glassStrength;
   document.body.dataset.appearance=model.state.appearance.mode;
   document.body.dataset.wallpaper=model.state.wallpaper;
+  document.body.dataset.accent=model.state.accent;
   document.body.dataset.dockSide=model.state.dockSide;
   document.documentElement.style?.setProperty('--ui-scale',String(model.state.uiScale/100));
   document.documentElement.style?.setProperty('--ui-scale-inverse',String(100/model.state.uiScale));
@@ -43,6 +46,9 @@ function applyAppearance(){
   document.body.style.setProperty('--glass-blur',`${strength*28/100}px`);
   document.body.style.setProperty('--glass-tint',`${0.18+strength*0.0044}`);
   document.body.style.setProperty('--glass-highlight',`${0.05+strength*0.0011}`);
+  document.body.style.setProperty('--wallpaper-brightness',String(model.state.wallpaperBrightness/100));
+  document.body.style.setProperty('--wallpaper-dim',String(model.state.wallpaperDim/100));
+  document.body.style.setProperty('--wallpaper-blur',`${model.state.wallpaperBlur}px`);
 }
 function reorderControls(kind,id,s){
   const order=kind==='apps'?s.appOrder:s.dashboardOrder;
@@ -84,10 +90,16 @@ function renderSettings(s){return `<header><h1>Settings</h1></header>
 <p id="save-status" class="save-status" role="status">${saveNotice()}</p>
 <div class="rows compact">${native&&!s.connected?'':`<button class="row" data-action="audio">${icon('audio')}<span><strong>Audio & microphone</strong><small>Sound & input</small></span><b>›</b></button>`}<button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Diagnostics</strong><small>Connection status</small></span><b>›</b></button></div>${native?`<section class="debug-settings"><h2>Debug overlay</h2><p class="help">UI frame cadence and total system CPU use. Projected video FPS is separate; GPU use appears only with a verified counter.</p><div role="group" aria-label="Debug overlay">${[false,true].map(value=>`<button data-debug-overlay="${value}" aria-pressed="${s.debugOverlay===value}">${value?'On':'Off'}</button>`).join('')}</div></section>`:''}<section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section>`;}
 
+function renderWallpaperGallery(s){
+  const locked=s.motionState==='moving'?'disabled':'';
+  const group=({id,title,items})=>`<section class="wallpaper-group" aria-labelledby="wallpaper-${id}"><h2 id="wallpaper-${id}">${title}</h2><div class="wallpaper-options">${items.map(([value,label])=>`<button class="wallpaper-option" data-wallpaper="${value}" data-focus-key="wallpaper-${value}" aria-pressed="${s.wallpaper===value}" ${locked}><span class="wallpaper-option-art" aria-hidden="true"></span><strong>${label}</strong></button>`).join('')}</div></section>`;
+  const slider=(title,key,value,min,max,step,suffix)=>`<label class="wallpaper-tuning"><span>${title}<output id="${key}-value">${value}${suffix}</output></span><input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-${key}="true" ${locked}></label>`;
+  return `<header class="gallery-header"><button class="back" data-action="back" aria-label="Back to Settings">${icon('back')}</button><div><h1>Wallpapers</h1><p>Choose a look for your screen</p></div></header><div class="wallpaper-gallery-layout"><div class="wallpaper-gallery-content"><section class="wallpaper-live-preview" aria-label="Current wallpaper preview"><div class="wallpaper-preview-content"><span>Preview</span><div class="wallpaper-preview-panel"><strong>Home</strong><span>Selected wallpaper</span></div></div></section>${wallpaperGroups.map(group).join('')}<section class="wallpaper-group"><h2>My image</h2><div class="wallpaper-import"><label class="file-button">Choose image<input type="file" data-wallpaper-file accept="image/png,image/jpeg,image/webp" ${locked}></label>${s.customWallpaper?`<button class="wallpaper-option custom" data-wallpaper="custom" aria-pressed="${s.wallpaper==='custom'}" ${locked}><span class="wallpaper-option-art" aria-hidden="true"></span><strong>My image</strong></button><button class="text-button" data-reset-wallpaper ${locked}>Remove image</button>`:''}</div><p class="settings-note" role="status">${wallpaperImportError||'Local PNG, JPEG or WebP · up to 1 MB'}</p></section></div><section class="wallpaper-controls" aria-label="Wallpaper controls"><h2>Make it yours</h2><p class="settings-note">Changes appear on your screen as you adjust them.</p><h3>Accent colour</h3><div class="accent-options" role="group" aria-label="Accent colour">${accents.map(([value,label])=>`<button class="accent-option" data-accent="${value}" aria-pressed="${s.accent===value}" aria-label="${label}" ${locked}><span aria-hidden="true"></span><small>${label}</small></button>`).join('')}</div>${slider('Brightness','wallpaper-brightness',s.wallpaperBrightness,60,140,5,'%')}${slider('Dim wallpaper','wallpaper-dim',s.wallpaperDim,0,60,5,'%')}${slider('Blur wallpaper','wallpaper-blur',s.wallpaperBlur,0,8,1,' px')}<button class="text-button" data-action="reset-wallpaper-tuning" ${locked}>Reset adjustments</button><p id="save-status" class="save-status" role="status">${saveNotice()}</p></section></div>`;
+}
 function renderNativeSettings(s){return `<header class="settings-header"><h1>Settings</h1><span>${s.motionState==='moving'?'Editing locked while moving':'Edit while parked'}</span></header>
 <div class="settings-grid">
 <section class="settings-card settings-appearance"><h2>Day & night</h2><div class="appearance-modes" role="group" aria-label="Day and night appearance">${['auto','day','night'].map(mode=>`<button data-appearance="${mode}" data-focus-key="appearance-${mode}" aria-pressed="${s.appearancePreference===mode}" ${s.motionState==='moving'?'disabled':''}>${mode[0].toUpperCase()+mode.slice(1)}</button>`).join('')}</div><p class="settings-note" role="status">${s.appearance.source==='fallback'?`Headlight signal unavailable. Keeping ${s.appearance.mode} appearance.`:s.appearance.source==='manual'?`${s.appearance.mode==='day'?'Day':'Night'} mode selected.`:'Appearance follows the headlights.'}</p><p class="settings-note">Panel brightness unavailable; appearance changes colors only.</p></section>
-<section class="settings-card settings-wallpaper"><h2>Wallpaper</h2><div class="swatches">${['coast','dusk','graphite',...(s.customWallpaper?['custom']:[])].map(w=>`<button class="swatch ${w}" data-wallpaper="${w}" data-focus-key="wallpaper-${w}" aria-pressed="${s.wallpaper===w}" ${s.motionState==='moving'?'disabled':''}><span>${w[0].toUpperCase()+w.slice(1)}</span></button>`).join('')}</div><div class="wallpaper-import"><label class="file-button">Choose image<input type="file" data-wallpaper-file accept="image/png,image/jpeg,image/webp" ${s.motionState==='moving'?'disabled':''}></label>${s.customWallpaper?`<button class="text-button" data-reset-wallpaper ${s.motionState==='moving'?'disabled':''}>Reset image</button>`:''}</div><p class="settings-note" role="status">${wallpaperImportError||'Local PNG, JPEG or WebP · up to 1 MB'}</p></section>
+<section class="settings-card settings-wallpaper"><h2>Wallpaper</h2><div class="swatches">${['coast','dusk','graphite',...(s.customWallpaper?['custom']:[])].map(w=>`<button class="swatch ${w}" data-wallpaper="${w}" data-focus-key="wallpaper-${w}" aria-pressed="${s.wallpaper===w}" ${s.motionState==='moving'?'disabled':''}><span>${w[0].toUpperCase()+w.slice(1)}</span></button>`).join('')}</div><button class="text-button" data-action="wallpaper-gallery">Browse wallpapers</button><div class="wallpaper-import"><label class="file-button">Choose image<input type="file" data-wallpaper-file accept="image/png,image/jpeg,image/webp" ${s.motionState==='moving'?'disabled':''}></label>${s.customWallpaper?`<button class="text-button" data-reset-wallpaper ${s.motionState==='moving'?'disabled':''}>Reset image</button>`:''}</div><p class="settings-note" role="status">${wallpaperImportError||'Local PNG, JPEG or WebP · up to 1 MB'}</p></section>
 <section class="settings-card settings-glass"><div class="glass-heading"><h2>Glass strength</h2><output id="glass-value" for="glass-strength">${s.glassStrength}%</output></div><input id="glass-strength" type="range" min="0" max="100" step="1" value="${s.glassStrength}" data-glass-strength="true" data-focus-key="glass-strength" ${s.motionState==='moving'?'disabled':''} aria-label="Glass strength"><div class="range-endpoints"><span>Clear</span><span>Frosted</span></div><button class="text-button" data-action="reset-glass" ${s.motionState==='moving'?'disabled':''}>Reset glass strength</button></section>
 <section class="settings-card settings-dock"><h2>Dock position</h2><div class="dock-position" role="group" aria-label="Dock position">${['left','right'].map(side=>`<button data-dock-side="${side}" data-focus-key="dock-${side}" aria-pressed="${s.dockSide===side}" ${s.motionState==='moving'?'disabled':''}>${side==='left'?'Left':'Right'}</button>`).join('')}</div><p class="settings-note">The dock stays along the bottom on narrow displays.</p></section>
 <section class="settings-card settings-scale"><h2>UI scale</h2><label for="ui-scale">Controls and text</label><input id="ui-scale" type="range" min="90" max="115" step="5" value="${s.uiScale}" data-ui-scale aria-describedby="ui-scale-help" ${s.motionState==='moving'?'disabled':''}><output id="ui-scale-value" for="ui-scale">${s.uiScale}%</output><p id="ui-scale-help" class="settings-note">Adjust for your display and viewing distance.</p><button class="text-button" data-reset-ui-scale ${s.motionState==='moving'?'disabled':''}>Reset scale</button></section>
@@ -96,7 +108,7 @@ function renderNativeSettings(s){return `<header class="settings-header"><h1>Set
 <div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop switch not set up'}</small></span><b>›</b></button><p class="settings-note">Head-unit remains the boot interface. Return to it from the desktop session.</p></section></div>
 <details class="settings-advanced"${settingsAdvancedOpen?' open':''}><summary>Units & sensor rules</summary><section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section></details>`;}
 
-function render(focusKey=document.activeElement?.dataset?.focusKey){const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected))diagnosticsOpen=false;const screen=diagnosticsOpen?'diagnostics':s.screen==='dashboard'?'home':s.screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
+function render(focusKey=document.activeElement?.dataset?.focusKey){const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':s.screen==='dashboard'?'home':s.screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
 if(screen==='home'&&native)content=renderNativeHome(s);
 else if(screen==='home')content=`
 <header class="home-header"><div>${native?'': '<p class="eyebrow">Your drive, connected</p>'}<h1>${native?'Home':s.homeMode==='dashboard'?'Your dashboard.':'Good to go.'}</h1></div><div class="connection"><i class="${active?'on':''}"></i>${active?escapeHtml(active.name):'Choose a phone'}</div></header>
@@ -111,6 +123,7 @@ if(screen==='radio')content=`<header><h1>Radio</h1></header>${featureStage('radi
 if(screen==='bluetooth')content=`<header><h1>Bluetooth</h1></header>${featureStage('bluetooth','Bluetooth not available','Pairing and audio need a Bluetooth service.')}`;
 if(screen==='apps')content=`<header><h1>Apps</h1><div class="layout-actions">${s.editingLayout?'<button class="text-button" data-action="reset-layout">Reset order</button><button class="done-button" data-action="done-layout">Done</button>':`<button class="text-button" data-action="edit-layout" ${s.motionState==='moving'?'disabled':''}>Edit apps</button>`}</div></header>${s.editingLayout?`<p class="motion-note">${motionNotice(s)}</p>`:''}${renderApps(s)}<p class="layout-status" role="status">${layoutMessage}</p>`;
 if(screen==='settings')content=native?renderNativeSettings(s):renderSettings(s);
+if(screen==='wallpapers')content=renderWallpaperGallery(s);
 if(screen==='diagnostics')content=native?`<header>${button('Back','back','back')}<h1>Diagnostics</h1></header><div class="panel"><h2>System connection</h2><p>${s.connected?'Connected to LIVI':'Disconnected from LIVI'}</p><p>This status describes the system connection, not phone or audio availability.</p></div>`:`<header>${button('Back','back','back')}<h1>Diagnostics</h1></header><div class="panel"><h2>Demo mode</h2><p>Phone connections and playback are simulated.</p><p>No vehicle, camera, audio or microphone is connected.</p><div class="actions"><button data-action="disconnect">Simulate disconnect</button><button data-action="reconnect">Simulate reconnect</button></div></div>`;
 if(screen==='vehicle')content=`<header><h1>Vehicle</h1></header><div class="panel"><h2>Vehicle information unavailable</h2><p>No vehicle readings or controls are available.</p></div>`;
 if(screen==='audio')content=`<header><h1>Audio & microphone</h1></header><div class="panel"><h2>Audio settings unavailable</h2><p>Sound output and microphone settings cannot be changed here.</p>${native?'':'<p>Demo playback is silent. No microphone is used.</p>'}</div>`;
@@ -133,12 +146,15 @@ document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
     render();return;
   }
   if(a==='reset-glass'){model.setGlassStrength(55);render();return;}
+  if(a==='reset-wallpaper-tuning'){model.resetWallpaperTuning();render();return;}
   layoutMessage='';
   if(native&&a!=='diagnostics')diagnosticsOpen=false;
+  if(native&&a!=='wallpaper-gallery')wallpaperGalleryOpen=false;
   if(a==='home')model.home();
   else if(a==='back'&&native)diagnosticsOpen=false;
   else if(a==='back')model.navigate('settings');
   else if(a==='diagnostics'&&native)diagnosticsOpen=true;
+  else if(a==='wallpaper-gallery'&&native)wallpaperGalleryOpen=true;
   else if(a==='exit-to-desktop'&&native)model.exitToDesktop();
   else if(a==='disconnect')model.disconnect();
   else if(a==='reconnect')model.reconnect();
@@ -150,6 +166,15 @@ document.querySelectorAll('[data-home-mode]').forEach(el=>el.onclick=()=>{layout
 document.querySelectorAll('[data-media]').forEach(el=>el.onclick=()=>{model.media(el.dataset.media);render();});
 document.querySelectorAll('[data-phone]').forEach(el=>el.onclick=()=>{model.connect(el.dataset.phone);render();});
 document.querySelectorAll('button[data-wallpaper]').forEach(el=>el.onclick=()=>{wallpaperImportError='';model.wallpaper(el.dataset.wallpaper);render();});
+document.querySelectorAll('button[data-accent]').forEach(el=>el.onclick=()=>{model.setAccent(el.dataset.accent);render();});
+for(const [key,method,suffix] of [['wallpaperBrightness','setWallpaperBrightness','%'],['wallpaperDim','setWallpaperDim','%'],['wallpaperBlur','setWallpaperBlur',' px']]){
+  document.querySelectorAll(`[data-${key.replace(/[A-Z]/g,char=>'-'+char.toLowerCase())}]`).forEach(el=>el.oninput=()=>{
+    model[method](Number(el.value));applyAppearance();
+    const node=document.getElementById(`${key.replace(/[A-Z]/g,char=>'-'+char.toLowerCase())}-value`);
+    if(node)node.textContent=`${model.state[key]}${suffix}`;
+    const status=document.getElementById('save-status');if(status)status.textContent=saveNotice();
+  });
+}
 const wallpaperFile=document.querySelector?.('[data-wallpaper-file]');
 if(wallpaperFile)wallpaperFile.onchange=async()=>{
   const file=wallpaperFile.files?.[0];if(!file)return;
@@ -194,7 +219,8 @@ else document.getElementById('app').innerHTML='<main class="system-unavailable" 
 
 document.addEventListener?.('keydown',event=>{
   if(!model||event.key!=='Escape'||event.altKey||event.ctrlKey||event.metaKey)return;
-  if(diagnosticsOpen){diagnosticsOpen=false;render();}
+  if(wallpaperGalleryOpen){wallpaperGalleryOpen=false;render();}
+  else if(diagnosticsOpen){diagnosticsOpen=false;render();}
   else if(model.state.editingLayout){model.endLayoutEdit();render();}
   else if(model.state.screen!=='home'){model.home();}
   else return;

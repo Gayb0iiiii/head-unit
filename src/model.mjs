@@ -1,9 +1,10 @@
 import {resolveAppearance} from './appearance.mjs';
 import {validateWallpaperDataUrl} from './wallpaper-image.mjs';
+import {wallpaperIds,accentIds} from './wallpaper-catalog.mjs';
 /** UI simulation only. Never sends projection, audio, or vehicle commands. */
 const restorableScreens = new Set(['home', 'phones', 'projection', 'settings', 'diagnostics', 'vehicle', 'audio']);
 const homeModes = new Set(['apps', 'dashboard']);
-const wallpapers = new Set(['coast', 'dusk', 'graphite']);
+const wallpapers = wallpaperIds;
 const defaultOrders = Object.freeze({
   apps: Object.freeze(['projection', 'phones', 'vehicle', 'audio', 'settings']),
   dashboard: Object.freeze(['music', 'temperature'])
@@ -15,6 +16,7 @@ const sanitizeOrder = (value, defaults) => [...new Set([
 ])];
 const validGlassStrength = value => Number.isInteger(value) && value >= 0 && value <= 100;
 const validUiScale = value => Number.isInteger(value) && value >= 90 && value <= 115 && value % 5 === 0;
+const validTuning=(value,min,max,step)=>Number.isInteger(value)&&value>=min&&value<=max&&(value-min)%step===0;
 
 export class Headunit {
   constructor(storage, {simulation = true} = {}) {
@@ -25,7 +27,7 @@ export class Headunit {
       screen: 'home', homeMode: 'apps', activePhone: null,
       appearancePreference: 'auto', appearance: resolveAppearance(),
       vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
-      glassStrength: 55, uiScale:100, customWallpaper:null, debugOverlay:false, appOrder: [...this.orders.apps], dashboardOrder: [...defaultOrders.dashboard],
+      glassStrength: 55, uiScale:100, customWallpaper:null, accent:'sea',wallpaperBrightness:100,wallpaperDim:0,wallpaperBlur:0,debugOverlay:false, appOrder: [...this.orders.apps], dashboardOrder: [...defaultOrders.dashboard],
       editingLayout: false, motionState: 'unknown', persistenceError: false,
       phones: simulation ? [
         { id: 'phone-a', name: 'Driver’s iPhone', active: false },
@@ -43,6 +45,10 @@ export class Headunit {
       }
       if (validGlassStrength(saved?.glassStrength)) this.state.glassStrength = saved.glassStrength;
       if (validUiScale(saved?.uiScale)) this.state.uiScale=saved.uiScale;
+      if (accentIds.has(saved?.accent))this.state.accent=saved.accent;
+      if (validTuning(saved?.wallpaperBrightness,60,140,5))this.state.wallpaperBrightness=saved.wallpaperBrightness;
+      if (validTuning(saved?.wallpaperDim,0,60,5))this.state.wallpaperDim=saved.wallpaperDim;
+      if (validTuning(saved?.wallpaperBlur,0,8,1))this.state.wallpaperBlur=saved.wallpaperBlur;
       if (typeof saved?.debugOverlay==='boolean') this.state.debugOverlay=saved.debugOverlay;
     } catch {}
     try {
@@ -136,6 +142,36 @@ export class Headunit {
     this.state.uiScale=value;this.saveAppearance();return true;
   }
 
+  setAccent(value){
+    if(!accentIds.has(value))throw Error('Unknown accent');
+    if(this.state.motionState==='moving')return false;
+    this.state.accent=value;this.saveAppearance();return true;
+  }
+
+  setWallpaperBrightness(value){
+    if(!validTuning(value,60,140,5))throw Error('Wallpaper brightness must be 60% to 140% in 5% steps');
+    if(this.state.motionState==='moving')return false;
+    this.state.wallpaperBrightness=value;this.saveAppearance();return true;
+  }
+
+  setWallpaperDim(value){
+    if(!validTuning(value,0,60,5))throw Error('Wallpaper dimming must be 0% to 60% in 5% steps');
+    if(this.state.motionState==='moving')return false;
+    this.state.wallpaperDim=value;this.saveAppearance();return true;
+  }
+
+  setWallpaperBlur(value){
+    if(!validTuning(value,0,8,1))throw Error('Wallpaper blur must be 0px to 8px');
+    if(this.state.motionState==='moving')return false;
+    this.state.wallpaperBlur=value;this.saveAppearance();return true;
+  }
+
+  resetWallpaperTuning(){
+    if(this.state.motionState==='moving')return false;
+    Object.assign(this.state,{accent:'sea',wallpaperBrightness:100,wallpaperDim:0,wallpaperBlur:0});
+    this.saveAppearance();return true;
+  }
+
   savePreference(key, value) {
     try {
       if (!this.storage?.setItem) throw Error('Preference storage unavailable');
@@ -148,6 +184,7 @@ export class Headunit {
     this.savePreference('headunit.appearance', {
       appearancePreference: this.state.appearancePreference, lastAppearance: this.state.appearance.mode,
       wallpaper: this.state.wallpaper, glassStrength: this.state.glassStrength, uiScale:this.state.uiScale, dockSide: this.state.dockSide,
+      accent:this.state.accent,wallpaperBrightness:this.state.wallpaperBrightness,wallpaperDim:this.state.wallpaperDim,wallpaperBlur:this.state.wallpaperBlur,
       debugOverlay:this.state.debugOverlay
     });
   }

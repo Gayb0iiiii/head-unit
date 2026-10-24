@@ -78,6 +78,52 @@ with sync_playwright() as p:
             page.locator('aside [data-action="settings"]').click()
             page.locator('[data-appearance="night"]').click()
             page.locator('aside [data-action="home"]').click()
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-action="wallpaper-gallery"]').click()
+            assert page.locator('h1').inner_text() == 'Wallpapers'
+            assert page.locator('.wallpaper-option').count() >= 19
+            for title in ('Landscapes','Pastels','Solid colours','Gradients'):
+                assert page.get_by_role('heading',name=title).is_visible()
+            page.locator('.wallpaper-option[data-wallpaper="meadow"]').click()
+            assert page.locator('body').get_attribute('data-wallpaper') == 'meadow'
+            assert 'meadow.svg' in page.locator('.wallpaper-live-preview').evaluate("el => getComputedStyle(el,'::before').backgroundImage")
+            page.locator('.accent-option[data-accent="coral"]').click()
+            page.locator('[data-wallpaper-brightness]').evaluate("el => {el.value='125';el.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('[data-wallpaper-dim]').evaluate("el => {el.value='35';el.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('[data-wallpaper-blur]').evaluate("el => {el.value='4';el.dispatchEvent(new Event('input',{bubbles:true}));}")
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            page.reload()
+            assert page.locator('body').get_attribute('data-wallpaper') == 'meadow'
+            assert page.locator('body').get_attribute('data-accent') == 'coral'
+            assert page.evaluate("getComputedStyle(document.body).getPropertyValue('--wallpaper-dim').trim()") == '0.35'
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-action="wallpaper-gallery"]').click()
+            page.locator('[data-action="reset-wallpaper-tuning"]').click()
+            assert page.locator('body').get_attribute('data-wallpaper') == 'meadow'
+            assert page.locator('body').get_attribute('data-accent') == 'sea'
+            page.locator('.wallpaper-option[data-wallpaper="solid-ink"]').click()
+            page.keyboard.press('Escape')
+            assert page.locator('h1').inner_text() == 'Settings'
+            page.locator('[data-appearance="day"]').click()
+            page.locator('aside [data-action="home"]').click()
+            safe_text = page.evaluate('''() => [document.querySelector('main>header h1'),document.querySelector('.home-link-status')].map(el => {
+              const style = getComputedStyle(el);return {background:style.backgroundColor,color:style.color};
+            })''')
+            assert all(rgb(item['background'])[1] >= .9 for item in safe_text), safe_text
+            def contrast(item):
+                bg, alpha = rgb(item['background'])
+                fg, _ = rgb(item['color'])
+                bg = [alpha * channel + (1 - alpha) * 24 for channel in bg]
+                low, high = sorted((luminance(bg), luminance(fg)))
+                return (high + .05) / (low + .05)
+            assert all(contrast(item) >= 4.5 for item in safe_text), safe_text
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-action="wallpaper-gallery"]').click()
+            gallery_labels = page.evaluate('''() => ['.wallpaper-group h2','.gallery-header p'].map(selector => {
+              const style = getComputedStyle(document.querySelector(selector));return {background:style.backgroundColor,color:style.color};
+            })''')
+            assert all(rgb(item['background'])[1] >= .9 for item in gallery_labels), gallery_labels
+            assert all(contrast(item) >= 4.5 for item in gallery_labels), gallery_labels
         for route, title in [('radio','Radio'),('bluetooth','Bluetooth'),('projection','CarPlay'),('settings','Settings'),('apps','Apps'),('home','Home')]*2:
             page.locator(f'aside [data-action="{route}"]').click()
             assert page.locator('h1').inner_text() == title, (width,height,route)
