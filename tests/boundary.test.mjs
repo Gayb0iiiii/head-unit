@@ -38,7 +38,7 @@ function fixture(url = 'file:///opt/headunit/index.html') {
   const handlers = new Map();
   const ipcMain = {handle:(channel, fn) => {assert.ok(!handlers.has(channel)); handlers.set(channel, fn);}, removeHandler:channel => handlers.delete(channel)};
   const wc = new EventEmitter();
-  Object.assign(wc, {mainFrame:{url}, currentUrl:url, dead:false, sent:[], getURL(){return this.currentUrl;}, isDestroyed(){return this.dead;}, send(...args){this.sent.push(args);}, setWindowOpenHandler(fn){this.openHandler=fn;}, getLastWebPreferences(){return {preload:preloadPath.pathname, contextIsolation:true, nodeIntegration:false, sandbox:true, webSecurity:true, webviewTag:false};}});
+  Object.assign(wc, {mainFrame:{url}, currentUrl:url, dead:false, sent:[], getURL(){return this.currentUrl;}, isDestroyed(){return this.dead;}, send(...args){this.sent.push(args);}, setWindowOpenHandler(fn){this.openHandler=fn;}, _getPreloadScript(){return {filePath:preloadPath.pathname,type:'frame'};}, getLastWebPreferences(){return {contextIsolation:true, nodeIntegration:false, nodeIntegrationInSubFrames:false, sandbox:true, webSecurity:true, webviewTag:false};}});
   const window = Object.assign(new EventEmitter(),{webContents:wc,isFocused:()=>true});
   const controller = {
     calls:[], listeners:new Set(),
@@ -178,10 +178,15 @@ test('host blocks navigation and popups; in-flight navigation revokes the bridge
 
 test('host rejects unsafe existing windows before registering IPC or subscribing', async () => {
   const {attachHeadunitHost} = await moduleAt(hostPath);
-  for (const unsafe of [{contextIsolation:false},{nodeIntegration:true},{sandbox:false},{webSecurity:false},{webviewTag:true},{preload:'/tmp/untrusted.cjs'}]) {
+  for (const unsafe of [{contextIsolation:false},{nodeIntegration:true},{nodeIntegrationInSubFrames:true},{sandbox:false},{webSecurity:false},{webviewTag:true}]) {
     const f=fixture(); const safe=f.wc.getLastWebPreferences(); f.wc.getLastWebPreferences=()=>({...safe,...unsafe});
     assert.throws(() => attachHeadunitHost({...f,trustedWindow:f.window,trustedUrl:f.url}), /preferences/i);
     assert.equal(f.handlers.size,0); assert.equal(f.controller.calls.length,0);
+  }
+  for(const preloadInfo of [null,{filePath:'/tmp/untrusted.cjs',type:'frame'},{filePath:preloadPath.pathname,type:'service-worker'}]){
+    const f=fixture();f.wc._getPreloadScript=()=>preloadInfo;
+    assert.throws(()=>attachHeadunitHost({...f,trustedWindow:f.window,trustedUrl:f.url}),/preferences/i);
+    assert.equal(f.handlers.size,0);assert.equal(f.controller.calls.length,0);
   }
 });
 

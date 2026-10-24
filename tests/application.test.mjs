@@ -67,7 +67,7 @@ test('real runtime is disposed before application quit without a native engine l
  const f=fixture(),handlers=new Map();let socketDestroyed=0,created=0;
  const socket=new EventEmitter();socket.write=()=>true;socket.destroy=()=>socketDestroyed++;
  class Window extends EventEmitter {
-  constructor(){super();this.webContents=Object.assign(new EventEmitter(),{mainFrame:{url:'file:///tmp/headunit/index.html'},getURL:()=> 'file:///tmp/headunit/index.html',getLastWebPreferences:()=>headunitWindowOptions().webPreferences,isDestroyed:()=>false,setWindowOpenHandler:()=>{},send:()=>{}});}
+  constructor(){super();this.webContents=Object.assign(new EventEmitter(),{mainFrame:{url:'file:///tmp/headunit/index.html'},getURL:()=> 'file:///tmp/headunit/index.html',getLastWebPreferences:()=>({contextIsolation:true,nodeIntegration:false,nodeIntegrationInSubFrames:false,sandbox:true,webSecurity:true,webviewTag:false}),_getPreloadScript:()=>({filePath:headunitWindowOptions().webPreferences.preload,type:'frame'}),isDestroyed:()=>false,setWindowOpenHandler:()=>{},send:()=>{}});}
   isFocused(){return true;}loadURL(){return Promise.resolve();}show(){}
  }
  f.app.quit=()=>{assert.equal(handlers.size,0);assert.equal(socketDestroyed,1);f.events.push('quit');};

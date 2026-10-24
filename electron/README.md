@@ -5,6 +5,7 @@ This directory contains attachment modules plus an explicit Electron application
 ## Main-process use
 
 - `headunitWindowOptions()` from `host.mjs` supplies an absolute path to `preload.cjs`, context isolation, a sandbox, disabled Node integration and webviews, and enabled web security.
+- Electron 44's `getLastWebPreferences()` omits the preload path. The host checks the effective flags there and verifies the exact main-window preload through pinned Electron 44's `_getPreloadScript()` before registering IPC. A different Electron version must revalidate this private API; missing or mismatched preload evidence fails closed.
 - A privileged owner constructs its UI `BrowserWindow` with those options, then calls `attachHeadunitHost({ipcMain, trustedWindow, trustedUrl, controller})` before loading the UI.
 - `trustedUrl` must be one exact canonical `file:///...` or `app://...` document URL. Remote hosts, credentials, queries, fragments, and noncanonical URLs are rejected. A custom `app:` scheme must already have a trusted local resource handler in the embedding host. No remote development-server exception is provided.
 - `attachHeadunitHost` verifies the existing window preferences and denies new windows, renderer navigation, redirects, and webview attachment. It returns an idempotent detach function.

@@ -16,7 +16,10 @@ export function headunitWindowOptions({compositor=false} = {}) {
 export function attachHeadunitHost(options) {
   const contents = options.trustedWindow?.webContents;
   const preferences = contents?.getLastWebPreferences?.();
-  if (!preferences || preferences.preload !== preload || preferences.contextIsolation !== true || preferences.nodeIntegration !== false || preferences.nodeIntegrationInSubFrames === true || preferences.sandbox !== true || preferences.webSecurity !== true || preferences.webviewTag === true) throw new Error('Unsafe headunit window preferences');
+  // Electron 44 omits preload from getLastWebPreferences(). Read the effective
+  // per-WebContents preload from its pinned internal API instead.
+  const configuredPreload = contents?._getPreloadScript?.();
+  if (!preferences || configuredPreload?.filePath !== preload || configuredPreload?.type !== 'frame' || preferences.contextIsolation !== true || preferences.nodeIntegration !== false || preferences.nodeIntegrationInSubFrames === true || preferences.sandbox !== true || preferences.webSecurity !== true || preferences.webviewTag === true) throw new Error('Unsafe headunit window preferences');
   const detachBoundary = attachHeadunitBoundary(options);
   const prevent = event => event.preventDefault();
   const navigationEvents = ['will-navigate','will-frame-navigate','will-redirect','will-attach-webview','page-title-updated'];
