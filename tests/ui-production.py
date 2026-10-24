@@ -29,8 +29,8 @@ with sync_playwright() as p:
         if width == 1920:
             media = page.locator('.home-media').bounding_box()
             weather = page.locator('.home-weather').bounding_box()
-            assert media and media['height'] <= 320, ('offline media card is too tall', media)
-            assert weather and weather['height'] <= 140, ('unavailable weather card is too tall', weather)
+            assert media and media['height'] <= height * .46, ('offline media card dominates Home', media)
+            assert weather and weather['height'] <= height * .18, ('unavailable weather card is too tall', weather)
             assert page.locator('.media-browse').is_visible()
             page.keyboard.press('Tab')
             assert page.evaluate('document.activeElement?.tagName') == 'BUTTON'
@@ -39,6 +39,18 @@ with sync_playwright() as p:
             assert page.locator('h1').inner_text() == 'Radio'
             page.keyboard.press('Escape')
             assert page.locator('h1').inner_text() == 'Home'
+            for scale in (90,100,115):
+                page.locator('aside [data-action="settings"]').click()
+                page.locator('[data-ui-scale]').evaluate("(el, value) => { el.value = String(value); el.dispatchEvent(new Event('input', {bubbles:true})); }", scale)
+                page.locator('aside [data-action="home"]').click()
+                time_bounds = page.evaluate('''() => {
+                  const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return {top:r.top,bottom:r.bottom}; };
+                  return {card:box('.home-time'),clock:box('#headunit-home-clock'),date:box('#headunit-home-date'),sources:box('.home-shortcuts')};
+                }''')
+                assert time_bounds['clock']['top'] >= time_bounds['card']['top'] and time_bounds['clock']['bottom'] <= time_bounds['card']['bottom'], (scale,time_bounds)
+                assert time_bounds['date']['top'] >= time_bounds['card']['top'] and time_bounds['date']['bottom'] <= time_bounds['card']['bottom'], (scale,time_bounds)
+                if scale == 100:
+                    assert time_bounds['sources']['bottom'] >= 780, ('Home ends too high above the wallpaper', time_bounds)
         for route, title in [('radio','Radio'),('bluetooth','Bluetooth'),('projection','CarPlay'),('settings','Settings'),('apps','Apps'),('home','Home')]*2:
             page.locator(f'aside [data-action="{route}"]').click()
             assert page.locator('h1').inner_text() == title, (width,height,route)
