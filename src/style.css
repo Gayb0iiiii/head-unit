@@ -365,3 +365,61 @@ body[data-appearance=day] .feature-copy p{color:#38556b}
 @media(max-height:700px) and (min-width:650px){html[data-mode=production] .home-media-copy h3{font-size:21px}}
 @media(max-width:649px){html[data-mode=production] main[data-screen=apps] .apps{gap:12px;grid-template-rows:repeat(2,minmax(130px,1fr))}html[data-mode=production] main[data-screen=apps] .tile{min-height:130px;flex-direction:column;justify-content:center;gap:10px;padding:14px;font-size:17px;text-align:center}html[data-mode=production] main[data-screen=apps] .app-symbol{width:68px;height:68px}html[data-mode=production] .feature-stage{min-height:420px;flex-direction:column;gap:28px;padding:24px;text-align:center}html[data-mode=production] .feature-symbol{width:144px}html[data-mode=production] .feature-copy p{font-size:18px}html[data-mode=production] .feature-copy .radio-formats{justify-content:center}}
 @media(max-width:649px){html[data-mode=production] .home-dashboard[data-media-status=unavailable]{grid-template-columns:1fr;grid-template-rows:220px auto auto;flex:none}html[data-mode=production] .home-dashboard[data-media-status=unavailable] .home-media{min-height:0}}
+
+/* The landscape Home uses the wallpaper as a quiet canvas. Time is the hero;
+   observed media stays on a stable surface, and weather stays a small status. */
+@media(min-width:1001px) and (min-height:701px){
+  html[data-mode=production] main[data-screen=home] .home-dashboard,
+  html[data-mode=production] main[data-screen=home] .home-dashboard[data-media-status=unavailable]{
+    flex:1;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);
+    grid-template-rows:auto auto auto;align-content:center;gap:clamp(18px,2vh,26px)
+  }
+  html[data-mode=production] main[data-screen=home] .home-summary{
+    grid-column:1;grid-row:1;display:flex;flex-direction:column;
+    justify-content:space-between;align-self:center;gap:22px;
+    min-height:clamp(320px,39vh,440px)
+  }
+  html[data-mode=production] main[data-screen=home] .home-summary .home-time{
+    flex:1;min-height:0;justify-content:center;gap:16px;
+    padding:clamp(24px,2.5vw,46px);border:0;border-radius:32px;
+    background:linear-gradient(90deg,rgb(9 24 39 / .88),rgb(9 24 39 / .46) 70%,transparent);
+    color:#f3f7fc;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none
+  }
+  html[data-mode=production] main[data-screen=home] .home-time h2{font-size:20px;color:#dfecf2}
+  html[data-mode=production] main[data-screen=home] .home-time time{
+    font-size:clamp(72px,6.2vw,110px);line-height:1;letter-spacing:-.055em
+  }
+  html[data-mode=production] main[data-screen=home] .home-time>span{
+    font-size:clamp(21px,1.5vw,27px);line-height:1.25;color:#dfecf2
+  }
+  html[data-mode=production] main[data-screen=home] .home-summary .home-weather{
+    flex:none;align-self:flex-start;display:flex;flex-direction:row;align-items:center;
+    justify-content:flex-start;gap:20px;min-height:76px;width:max-content;max-width:100%;
+    padding:16px 24px;border-radius:24px;background:rgb(9 24 39 / .94)
+  }
+  html[data-mode=production] main[data-screen=home] .home-weather h2{font-size:18px;white-space:nowrap}
+  html[data-mode=production] main[data-screen=home] .home-weather .weather-status{font-size:17px;white-space:nowrap}
+  html[data-mode=production] main[data-screen=home] .home-media{
+    grid-column:2;grid-row:1;align-self:center;min-height:0;
+    padding:clamp(24px,2vw,34px);background:rgb(9 24 39 / .94)
+  }
+  html[data-mode=production] main[data-screen=home] .home-media-content{
+    flex:0 0 auto;min-height:0;margin:26px 0;gap:24px
+  }
+  html[data-mode=production] main[data-screen=home] .home-media-symbol{width:clamp(86px,7vw,112px)}
+  html[data-mode=production] main[data-screen=home] .home-media-copy h3{font-size:clamp(23px,1.7vw,31px)}
+  html[data-mode=production] main[data-screen=home] .home-shortcuts{
+    grid-column:1/-1;grid-row:2;width:min(100%,1020px);grid-template-columns:repeat(3,minmax(0,1fr));gap:18px
+  }
+  html[data-mode=production] main[data-screen=home] .home-shortcut{
+    min-height:clamp(130px,15vh,175px);padding:24px 28px;flex-direction:column;
+    align-items:flex-start;justify-content:center;gap:12px;
+    background:rgb(9 24 39 / .78);font-size:clamp(19px,1.3vw,24px)
+  }
+  html[data-mode=production] main[data-screen=home] .home-shortcut svg{width:clamp(46px,3.4vw,62px);height:clamp(46px,3.4vw,62px)}
+  html[data-mode=production] main[data-screen=home] .home-link-status{grid-column:1/-1;grid-row:3}
+  html[data-mode=production] body[data-appearance=day] main[data-screen=home] :is(.home-media,.home-weather){background:rgb(237 245 248 / .96)}
+  html[data-mode=production] body[data-appearance=day] main[data-screen=home] .home-shortcut{background:rgb(237 245 248 / .84)}
+  html[data-mode=production] body[data-appearance=day] main[data-screen=home] .home-time{color:#f3f7fc}
+  html[data-mode=production] body[data-appearance=day] main[data-screen=home] .home-time :is(h2,span){color:#dfecf2}
+}

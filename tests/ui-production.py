@@ -31,6 +31,9 @@ with sync_playwright() as p:
             weather = page.locator('.home-weather').bounding_box()
             assert media and media['height'] <= height * .46, ('offline media card dominates Home', media)
             assert weather and weather['height'] <= height * .18, ('unavailable weather card is too tall', weather)
+            assert weather['width'] <= 450, ('weather status should be a compact chip', weather)
+            tiles = page.locator('.home-shortcut').evaluate_all('els => els.map(el => ({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,icon:el.querySelector("svg").getBoundingClientRect().width}))')
+            assert len(tiles) == 3 and all(150 <= t['width'] <= 380 and 120 <= t['height'] <= 220 and t['icon'] >= 44 for t in tiles), tiles
             assert page.locator('.media-browse').is_visible()
             page.keyboard.press('Tab')
             assert page.evaluate('document.activeElement?.tagName') == 'BUTTON'
