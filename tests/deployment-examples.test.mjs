@@ -9,9 +9,11 @@ test('deployment contracts remain disabled examples with no installed services o
  const unit=await readFile(new URL('../deployment/headunit-ui.service.example',import.meta.url),'utf8');
  assert.match(unit,/User=cruiser/);assert.match(unit,/PAMName=login/);
  assert.match(unit,/OnFailure=getty@tty1\.service/);
+ assert.match(unit,/ConditionPathExistsGlob=\/dev\/dri\/card\*/);
  const launch=await readFile(new URL('../deployment/orangepi-ui-launch.sh',import.meta.url),'utf8');
  assert.match(launch,/uname -m/);assert.match(launch,/exec cage -s --/);
  assert.match(launch,/electron\/kiosk/);assert.doesNotMatch(launch,/electron\/preview/);
+ assert.match(launch,/select-drm-card\.sh/);
  assert.doesNotMatch(launch,/no-sandbox|LIVI_KIOSK=1|livi-core/);
  const kiosk=await readFile(new URL('../electron/kiosk-main.mjs',import.meta.url),'utf8');
  assert.match(kiosk,/dist\/production\.html/);

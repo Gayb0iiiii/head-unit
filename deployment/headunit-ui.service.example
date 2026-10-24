@@ -2,7 +2,7 @@
 Description=Headunit Wayland system interface
 After=systemd-user-sessions.service
 Conflicts=getty@tty1.service
-ConditionPathExists=/dev/dri/card0
+ConditionPathExistsGlob=/dev/dri/card*
 StartLimitIntervalSec=60
 StartLimitBurst=3
 OnFailure=getty@tty1.service
