@@ -284,10 +284,10 @@ body[data-native-front=projection] .native-projection-region{position:fixed;inse
 .native-picture-notice{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:12px 18px;background:#091827e8;border-radius:14px;color:#e8eef5}
 /* No browser camera is attached: never reveal an old native plane as camera imagery. */
 body[data-native-front=camera],body[data-appearance=day][data-native-front=camera]{background:#091827}
-html[data-mode=production] #app{zoom:var(--ui-scale,1)}
+html[data-mode=production] #app{zoom:var(--ui-scale,1);min-height:calc(100dvh * var(--ui-scale-inverse,1))}
 html[data-mode=production] body[data-native-front=projection] #app,html[data-mode=production] body[data-native-front=camera] #app,html[data-mode=production] body[data-native-front=cluster] #app{zoom:1}
-html[data-mode=production] #app>aside{height:calc((100dvh - 2 * clamp(12px,1.3vw,24px)) * var(--ui-scale-inverse,1))}
-html[data-mode=production] #app>main{min-height:calc((100dvh - 2 * clamp(12px,1.3vw,24px)) * var(--ui-scale-inverse,1))}
+html[data-mode=production] #app>aside{height:calc(100dvh * var(--ui-scale-inverse,1) - 2 * clamp(12px,1.3vw,24px))}
+html[data-mode=production] #app>main{min-height:calc(100dvh * var(--ui-scale-inverse,1) - 2 * clamp(12px,1.3vw,24px))}
 body[data-wallpaper=custom]:before{background-image:linear-gradient(rgb(12 29 44 / .36),rgb(12 29 44 / .36)),var(--custom-wallpaper);background-position:center;background-size:cover}
 html[data-mode=production] .settings-wallpaper .wallpaper-import{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 html[data-mode=production] .settings-wallpaper .file-button{position:relative;display:flex;align-items:center;justify-content:center;min-height:48px;padding:10px 18px;border-radius:14px;background:rgb(220 239 249 / .17);border:1px solid rgb(232 247 255 / .34);cursor:pointer;overflow:hidden}
@@ -318,6 +318,23 @@ html[data-mode=production] body[data-appearance=day] .media-browse{background:#d
 @media(max-height:700px) and (min-width:650px){html[data-mode=production] .home-dashboard[data-media-status=unavailable]{grid-template-rows:minmax(220px,30vh) minmax(72px,13vh) auto}html[data-mode=production] .home-dashboard[data-media-status=unavailable] .home-media-symbol{width:64px}html[data-mode=production] .home-weather[data-weather-status=unavailable]{min-height:76px;gap:6px}html[data-mode=production] .media-browse{min-height:46px;padding:7px 14px;font-size:15px}}
 @media(max-height:540px) and (min-width:650px){html[data-mode=production] .home-dashboard[data-media-status=unavailable]{grid-template-rows:minmax(220px,48vh) auto}}
 @media(max-width:649px){html[data-mode=production] .home-dashboard[data-media-status=unavailable]{grid-template-rows:220px auto auto}html[data-mode=production] .home-weather[data-weather-status=unavailable]{min-height:0}html[data-mode=production] .media-browse{min-height:48px;padding:8px 14px;font-size:15px}}
+
+/* The performance readout occupies its own space and cannot obscure controls. */
+html[data-mode=production] .debug-overlay{position:static;align-self:flex-end;z-index:auto;width:fit-content;max-width:100%;margin-top:8px;white-space:normal}
+@media(max-height:700px){html[data-mode=production] .debug-overlay{padding:5px 8px;font-size:11px;line-height:1.3;margin-top:4px}}
+
+/* Full-HD touch profile: controls read as navigation, rather than tiny glyphs in a tall rail. */
+@media(min-width:1450px) and (min-height:800px){
+  html[data-mode=production] .dock-apps{margin:24px 0 0;gap:12px}
+  html[data-mode=production] .dock-button{min-height:96px;font-size:18px;gap:7px}
+  html[data-mode=production] .dock-button svg{width:40px;height:40px}
+  html[data-mode=production] .home-button{min-height:88px;margin-top:auto}
+}
+html[data-mode=production] .settings-grid .debug-settings{margin:0}
+html[data-mode=production] .settings-grid .debug-settings [role=group]{margin-top:auto}
+html[data-mode=production] .settings-system .settings-desktop .row{width:100%}
+html[data-mode=production] .settings-system .settings-desktop .settings-note{font-size:14px;line-height:1.35;margin:10px 0 0;color:#d5e6ee}
+html[data-mode=production] body[data-appearance=day] .settings-system .settings-desktop .settings-note{color:#355668}
 
 /* Production destinations use the available display rather than a small status box. */
 html[data-mode=production] main[data-screen=apps] .apps{max-width:none;margin:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(150px,1fr));gap:16px;align-content:stretch}

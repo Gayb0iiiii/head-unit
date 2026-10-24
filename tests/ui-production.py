@@ -32,6 +32,13 @@ with sync_playwright() as p:
             assert media and media['height'] <= 320, ('offline media card is too tall', media)
             assert weather and weather['height'] <= 140, ('unavailable weather card is too tall', weather)
             assert page.locator('.media-browse').is_visible()
+            page.keyboard.press('Tab')
+            assert page.evaluate('document.activeElement?.tagName') == 'BUTTON'
+            assert page.evaluate("getComputedStyle(document.activeElement).outlineStyle") != 'none'
+            page.keyboard.press('Enter')
+            assert page.locator('h1').inner_text() == 'Radio'
+            page.keyboard.press('Escape')
+            assert page.locator('h1').inner_text() == 'Home'
         for route, title in [('radio','Radio'),('bluetooth','Bluetooth'),('projection','CarPlay'),('settings','Settings'),('apps','Apps'),('home','Home')]*2:
             page.locator(f'aside [data-action="{route}"]').click()
             assert page.locator('h1').inner_text() == title, (width,height,route)
@@ -52,6 +59,22 @@ with sync_playwright() as p:
             assert page.locator('body').get_attribute('data-wallpaper')=='dusk'
             assert page.locator('#debug-overlay').count()==1
             page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-ui-scale]').evaluate("el => { el.value = '115'; el.dispatchEvent(new Event('input', {bubbles:true})); }")
+            page.locator('aside [data-action="home"]').click()
+            bounds = page.evaluate('''() => {
+              const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; };
+              return {scrollHeight:document.documentElement.scrollHeight,viewport:innerHeight,
+                dock:box('aside'),title:box('h1'),media:box('.home-media'),clock:box('.home-time'),
+                overlay:box('#debug-overlay')};
+            }''')
+            assert bounds['scrollHeight'] <= bounds['viewport'] + 2, ('Home unexpectedly scrolls at 115%', bounds)
+            assert bounds['media']['bottom'] <= bounds['viewport'] and bounds['clock']['bottom'] <= bounds['viewport'], bounds
+            assert bounds['overlay']['bottom'] <= bounds['viewport'], ('Debug readout is outside the Home viewport', bounds)
+            def intersects(a,b):
+                return a['left'] < b['right'] and a['right'] > b['left'] and a['top'] < b['bottom'] and a['bottom'] > b['top']
+            assert not intersects(bounds['overlay'],bounds['title']) and not intersects(bounds['overlay'],bounds['dock']), bounds
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-ui-scale]').evaluate("el => { el.value = '100'; el.dispatchEvent(new Event('input', {bubbles:true})); }")
             page.locator('[data-debug-overlay="false"]').click()
             assert page.locator('#debug-overlay').count()==0
             page.locator('aside [data-action="apps"]').click()

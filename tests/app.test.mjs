@@ -8,6 +8,7 @@ async function launch(data = new Map(), host = null, mode = null) {
   const root = { innerHTML: '' };
   let buttons = [];
   let elements = [];
+  const listeners = new Map();
   const style = new Map();
   let doc;
   Object.defineProperty(root, 'innerHTML', {
@@ -35,6 +36,7 @@ async function launch(data = new Map(), host = null, mode = null) {
     documentElement: {dataset:{mode}},
     body: { dataset: {}, style: { setProperty: (key, value) => style.set(key, value) } },
     activeElement: null,
+    addEventListener(type,listener) { listeners.set(type,listener); },
     getElementById: id => id === 'app' ? root : elements.find(element => element.id === id),
     querySelectorAll(selector) {
       const [,tag,keyName] = selector.match(/^(button)?\[data-([\w-]+)\]$/);
@@ -45,6 +47,7 @@ async function launch(data = new Map(), host = null, mode = null) {
   const application = await import(`../src/app.mjs?unit=${++instance}`);
   return {
     root, data, style, doc,
+    key(key) { let prevented=false;listeners.get('keydown')?.({key,altKey:false,ctrlKey:false,metaKey:false,preventDefault(){prevented=true;}});return prevented; },
     updateMotion: value => application.updateVehicleMotion(value),
     focus(key) { elements.find(element => element.dataset.focusKey === key)?.focus(); },
     input(key, value) {
@@ -112,6 +115,15 @@ test('offline Home keeps missing media and weather compact and offers a real loc
  assert.match(ui.root.innerHTML,/<button class="media-browse" data-action="apps"[^>]*>[\s\S]*?<span>Browse apps<\/span>/);
  ui.click('action','apps');
  assert.match(ui.root.innerHTML,/<h1>Apps<\/h1>/);
+});
+
+test('Escape backs out of a local destination while keyboard activation remains native',async()=>{
+ const ui=await launch(new Map(),{onView:()=>()=>{},getView:async()=>({connected:false,connectionPhase:'backoff',phones:[]})},'production');
+ ui.click('action','settings');
+ assert.match(ui.root.innerHTML,/<h1>Settings<\/h1>/);
+ assert.equal(ui.key('Escape'),true);
+ assert.match(ui.root.innerHTML,/<h1>Home<\/h1>/);
+ assert.equal(ui.key('Enter'),false);
 });
 
 test('glass interface uses native phone state and waits for the selected phone', async () => {
@@ -359,6 +371,10 @@ test('production Settings groups local controls and keeps sensors secondary',asy
  const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'})};
  const app=await launch(new Map(),host,'production');app.click('action','settings');
  assert.match(app.root.innerHTML,/class="settings-grid"/);
+ const gridStart=app.root.innerHTML.indexOf('class="settings-grid"');
+ const gridEnd=app.root.innerHTML.indexOf('class="settings-system"');
+ const debug=app.root.innerHTML.indexOf('class="settings-card debug-settings"');
+ assert.ok(gridStart<debug&&debug<gridEnd,'Debug overlay belongs alongside UI scale in the balanced settings grid');
  assert.match(app.root.innerHTML,/<details class="settings-advanced">/);
  assert.match(app.root.innerHTML,/data-appearance="day"/);
  assert.match(app.root.innerHTML,/data-wallpaper="coast"/);
