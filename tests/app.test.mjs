@@ -73,6 +73,19 @@ test('production page without preload never creates demo state or controls',asyn
  assert.match(ui.root.innerHTML,/System unavailable/);
  assert.doesNotMatch(ui.root.innerHTML,/Driver.s iPhone|Passenger.s iPhone|Coastal drive|Demo|data-action/);
 });
+test('Settings update requires a second parked action and stays disabled in motion',async()=>{
+ let requests=0,publish;
+ const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),getUpdateStatus:async()=>({phase:'idle',sha:null}),
+   onUpdateStatus:fn=>{publish=fn;return()=>{};},requestUpdate:async parked=>{assert.equal(parked,true);requests++;return {accepted:true};}};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);
+ ui.click('action','settings');
+ assert.match(ui.root.innerHTML,/Check for update/);
+ ui.click('action','arm-update');assert.equal(requests,0);
+ assert.match(ui.root.innerHTML,/I am parked · Update/);
+ ui.click('action','confirm-update');await new Promise(setImmediate);assert.equal(requests,1);
+ publish({phase:'checking'});assert.match(ui.root.innerHTML,/Cancel check/);
+ ui.updateMotion('moving');assert.match(ui.root.innerHTML,/data-action="arm-update"[^>]*disabled/);
+});
 test('production bridge stays empty until an authoritative view arrives',async()=>{
  let publish;
  const ui=await launch(new Map(),{onView:fn=>{publish=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',phones:[]})},'production');

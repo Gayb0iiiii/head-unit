@@ -33,6 +33,14 @@ test('entrypoint waits for Electron, attaches before load, and never activates o
  const before=f.events.length;f.app.emit('second-instance',{},['touch','projection']);assert.equal(f.events.length,before);
  owner.shutdown();assert.deepEqual(f.events.slice(-2),['dispose','quit']);
 });
+test('supervisor health signal waits for trusted renderer readiness and a shown window',async()=>{
+ const sha='a'.repeat(40),f=fixture({env:{HEADUNIT_SUPERVISED:'1',HEADUNIT_ACTIVE_SHA:sha,HEADUNIT_SOURCE_ROOT:'/tmp/source',HEADUNIT_RELEASES_ROOT:'/tmp/releases',HEADUNIT_ACTIVE_ROOT:'/tmp/source'}});
+ const sent=[];f.signals.send=value=>sent.push(value);
+ const owner=f.start();f.ready.resolve();await Promise.resolve();
+ f.runtimeConfig.onRendererReady();assert.deepEqual(sent,[]);
+ f.load.resolve();await owner.ready;assert.deepEqual(sent,[{kind:'ready',sha}]);
+ f.runtimeConfig.onRendererReady();assert.equal(sent.length,1);owner.shutdown();
+});
 test('duplicate supervised UI fails without socket, window or foreground action',async()=>{
  const f=fixture({lock:false}),owner=f.start();f.ready.resolve();await owner.ready;
  assert.deepEqual(f.events,[['exit',1]]);assert.equal(f.windows.length,0);assert.equal(f.signals.listenerCount('SIGTERM'),0);

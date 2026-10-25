@@ -19,6 +19,7 @@ const channels = {
   timeStatus:'headunit:get-time-status',setNtp:'headunit:set-ntp',setTimezone:'headunit:set-timezone',setManualTime:'headunit:set-manual-time',
   weatherSource:'headunit:open-weather-source',
   locationSource:'headunit:open-location-source',
+  rendererReady:'headunit:renderer-ready',updateStatus:'headunit:update-status',getUpdateStatus:'headunit:get-update-status',requestUpdate:'headunit:request-update',cancelUpdate:'headunit:cancel-update',
 };
 const expectedView = {connectionPhase:'ready',homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null,desktopAvailable:false};
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -62,7 +63,7 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
   const calls=[];
   const {api, exposed} = await preload(async (...args) => {calls.push(copy(args)); return copy(expectedView);});
   assert.deepEqual([...exposed.keys()], ['headunit']);
-  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','exitToDesktop','getMetrics','getTimeStatus','getView','getWeather','media','navigate','onView','onWeather','openLocationAttribution','openWeatherAttribution','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','stopMetrics','touch']);
+  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','cancelUpdate','exitToDesktop','getMetrics','getTimeStatus','getUpdateStatus','getView','getWeather','media','navigate','onUpdateStatus','onView','onWeather','openLocationAttribution','openWeatherAttribution','requestUpdate','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','signalReady','stopMetrics','touch']);
   assert.equal(Object.isFrozen(api), true);
   assert.deepEqual(await api.getView(), expectedView);
   await api.getMetrics();await api.stopMetrics();await api.exitToDesktop();await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
@@ -78,6 +79,22 @@ test('weather and clock preload uses only fixed IPC channels and strips event me
   let received;const stop=api.onWeather(value=>{received=value;});
   ipc.emit(channels.weather,{sender:'private'},{status:'unavailable'});
   assert.deepEqual(received,{status:'unavailable'});stop();
+});
+test('update IPC accepts only parked acknowledgement and sends sanitized status to the trusted page',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
+ const f=fixture();let starts=0,ready=0,listener;
+ const service={snapshot:()=>({phase:'idle',sha:null}),start:confirmed=>{assert.equal(confirmed,true);starts++;return true;},cancel:()=>true,
+   subscribe:fn=>{listener=fn;return()=>{listener=null;};}};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,updateService:service,onRendererReady:()=>ready++});
+ assert.deepEqual(await f.call(channels.getUpdateStatus),{phase:'idle',sha:null});
+ await assert.rejects(()=>f.call(channels.requestUpdate,[false]),/arguments/i);
+ await assert.rejects(()=>f.call(channels.requestUpdate,['https://evil.test']),/arguments/i);
+ assert.equal(starts,0);
+ assert.deepEqual(await f.call(channels.requestUpdate,[true]),{accepted:true});assert.equal(starts,1);
+ assert.deepEqual(await f.call(channels.rendererReady),{accepted:true});await f.call(channels.rendererReady);assert.equal(ready,1);
+ listener({phase:'checking',sha:null});assert.deepEqual(f.wc.sent.at(-1),[channels.updateStatus,{phase:'checking',sha:null}]);
+ f.wc.currentUrl='https://evil.test/';listener({phase:'failed',sha:null});assert.deepEqual(f.wc.sent.at(-1),[channels.updateStatus,{phase:'checking',sha:null}]);
+ dispose();assert.equal(listener,null);
 });
 test('metrics IPC returns only bounded counters and rejects extra arguments',async()=>{
  const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
@@ -156,7 +173,7 @@ test('preload strips privileged events and removes exactly its listener on unsub
 test('main bridge converts fixed calls to validated intents and exposes only sanitized views', async () => {
   const {attachHeadunitBoundary} = await moduleAt(boundaryPath);
   const f=fixture(); const dispose=attachHeadunitBoundary({...f, trustedWindow:f.window, trustedUrl:f.url});
-  assert.deepEqual([...f.handlers.keys()].sort(), Object.values(channels).filter(c=>c!==channels.view&&c!==channels.weather).sort());
+  assert.deepEqual([...f.handlers.keys()].sort(), Object.values(channels).filter(c=>![channels.view,channels.weather,channels.updateStatus].includes(c)).sort());
   assert.deepEqual(await f.call(channels.getView), expectedView);
   const values=[[channels.navigate,['settings'],{type:'navigate',route:'settings'}],[channels.selectPhone,['phone-1'],{type:'selectPhone',id:'phone-1'}],[channels.setVolume,[0.4],{type:'volume',value:0.4}],[channels.touch,[[{id:0,x:0.2,y:0.8,phase:'down'}]],{type:'touch',points:[{id:0,x:0.2,y:0.8,phase:'down'}]}],[channels.cancelTouch,[],{type:'cancelTouch'}],[channels.media,['play','phone-1'],{type:'media',control:'play',phoneId:'phone-1'}],[channels.navigate,['dashboard'],{type:'navigate',route:'dashboard'}]];
   for (const [channel,args,intent] of values) {assert.deepEqual(await f.call(channel,args), {accepted:true}); assert.deepEqual(f.controller.calls.at(-1), ['intent',intent]);}

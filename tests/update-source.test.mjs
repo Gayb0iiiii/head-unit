@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,rm,rename} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {prepareHeadunitUpdate} from '../electron/update-source.mjs';
@@ -19,10 +19,11 @@ async function fixture({origin='https://github.com/Gayb0iiiii/head-unit.git',bra
       if(command.includes('config --get remote.origin.url'))return {stdout:`${origin}\n`};
       if(command.includes('symbolic-ref --short HEAD'))return {stdout:`${branch}\n`};
       if(command.includes('status --porcelain=v1 --untracked-files=all'))return {stdout:dirty};
-      if(command.includes('rev-parse HEAD'))return {stdout:`${activeHead}\n`};
+      if(command.includes('rev-parse HEAD'))return {stdout:`${args.includes(path.join(releasesRoot,next))?target:activeHead}\n`};
       if(command.includes('rev-parse FETCH_HEAD'))return {stdout:`${target}\n`};
       if(command.includes('merge-base --is-ancestor')){if(diverged)throw Error('not ancestor');return {stdout:''};}
       if(command.includes('worktree add --detach')){await mkdir(args.at(-2));return {stdout:''};}
+      if(command.includes('worktree move')){await rename(args.at(-2),args.at(-1));return {stdout:''};}
       if(command.includes('worktree remove --force')){await rm(args.at(-1),{recursive:true,force:true});return {stdout:''};}
       return {stdout:''};
     }
@@ -56,8 +57,27 @@ test('wrong origin, branch, dirty checkout, and divergence never stage',async()=
 test('failed staged build removes only its disposable worktree',async()=>{
   const f=await fixture({buildFails:true});try{
     await assert.rejects(()=>prepareHeadunitUpdate({sourceRoot:f.sourceRoot,releasesRoot:f.releasesRoot,activeSha:old,run:f.run}),/build failed/);
-    assert.equal(f.calls.some(c=>c.args.includes('worktree')&&c.args.includes('remove')&&c.args.at(-1)===path.join(f.releasesRoot,next)),true);
+    assert.equal(f.calls.some(c=>c.args.includes('worktree')&&c.args.includes('remove')&&c.args.at(-1).startsWith(path.join(f.releasesRoot,'.pending-'))),true);
   }finally{await f.close();}
+});
+test('completed staged release can be retested after interruption without mutating the active app',async()=>{
+ const f=await fixture();try{
+   await prepareHeadunitUpdate({sourceRoot:f.sourceRoot,releasesRoot:f.releasesRoot,activeSha:old,run:f.run});
+   const callsBefore=f.calls.length;
+   const result=await prepareHeadunitUpdate({sourceRoot:f.sourceRoot,releasesRoot:f.releasesRoot,activeSha:old,run:f.run});
+   assert.equal(result.status,'ready');
+   assert.equal(f.calls.slice(callsBefore).some(c=>c.args.includes('worktree')&&c.args.includes('add')),false);
+   assert.equal(f.calls.slice(callsBefore).filter(c=>c.file==='npm').length,2);
+ }finally{await f.close();}
+});
+test('cancelled staging never activates or builds and removes only the disposable worktree',async()=>{
+ const f=await fixture(),controller=new AbortController();try{
+   const run=async(file,args,options)=>{const result=await f.run(file,args,options);if(file==='npm'&&args[0]==='test')controller.abort();return result;};
+   await assert.rejects(()=>prepareHeadunitUpdate({sourceRoot:f.sourceRoot,releasesRoot:f.releasesRoot,activeSha:old,run,signal:controller.signal}));
+   assert.equal(f.calls.some(c=>c.file==='npm'&&c.args[1]==='build'),false);
+   assert.equal(f.calls.some(c=>c.args.includes('worktree')&&c.args.includes('remove')),true);
+   assert.equal(f.calls.some(c=>c.args.includes('worktree')&&c.args.includes('move')),false);
+ }finally{await f.close();}
 });
 
 test('up-to-date branch avoids a worktree and build',async()=>{

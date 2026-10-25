@@ -1,0 +1,72 @@
+import {execFile as callback} from 'node:child_process';
+import {promisify} from 'node:util';
+import {lstat,mkdir,readFile,realpath,rename,rm,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+
+const execFile=promisify(callback);
+const shaPattern=/^[0-9a-f]{40}$/;
+const validSha=value=>typeof value==='string'&&shaPattern.test(value);
+async function gitHead(root){
+  const {stdout}=await execFile('git',['-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','-C',root,'rev-parse','HEAD'],{timeout:10000,maxBuffer:4096});
+  return stdout.trim();
+}
+
+/** Persistent, user-owned release record. An interrupted activation always boots the previous release. */
+export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}){
+  if(![sourceRoot,stateRoot].every(value=>typeof value==='string'&&path.isAbsolute(value))||typeof readHead!=='function')throw TypeError('Invalid release store');
+  const sourcePath=await realpath(sourceRoot);
+  const sourceStat=await lstat(sourceRoot);
+  if(sourceStat.isSymbolicLink())throw Error('Source path must not be a symlink');
+  await mkdir(stateRoot,{recursive:true,mode:0o700});
+  if((await lstat(stateRoot)).isSymbolicLink())throw Error('State path must not be a symlink');
+  const statePath=await realpath(stateRoot);
+  if(statePath===sourcePath||statePath.startsWith(`${sourcePath}${path.sep}`))throw Error('Release state must be outside the checkout');
+  const releasesRoot=path.join(statePath,'releases');
+  await mkdir(releasesRoot,{recursive:true,mode:0o700});
+  if((await lstat(releasesRoot)).isSymbolicLink())throw Error('Releases path must not be a symlink');
+  const manifestPath=path.join(statePath,'release.json');
+  async function verifyRelease(sha){
+    if(!validSha(sha))return null;
+    const releasePath=path.join(releasesRoot,sha);
+    try{
+      const stat=await lstat(releasePath);
+      if(!stat.isDirectory()||stat.isSymbolicLink())return null;
+      const build=await lstat(path.join(releasePath,'dist','production.html'));
+      if(!build.isFile()||build.isSymbolicLink()||await readHead(releasePath)!==sha)return null;
+      return {sha,path:releasePath};
+    }catch{return null;}
+  }
+  async function sourceRelease(){
+    const sha=await readHead(sourcePath);
+    if(!validSha(sha))throw Error('Invalid source commit');
+    const build=await lstat(path.join(sourcePath,'dist','production.html'));
+    if(!build.isFile()||build.isSymbolicLink())throw Error('Source build unavailable');
+    return {sha,path:sourcePath};
+  }
+  async function resolve(sha){
+    const source=await sourceRelease();
+    return sha===source.sha?source:await verifyRelease(sha);
+  }
+  async function saveState({active,pending=null,previous=null}){
+    if(!validSha(active)||pending!==null&&!validSha(pending)||previous!==null&&!validSha(previous))throw TypeError('Invalid release manifest');
+    const value=JSON.stringify({version:1,active,pending,previous});
+    const temporary=path.join(statePath,`release-${process.pid}-${Math.random().toString(16).slice(2)}.tmp`);
+    try{await writeFile(temporary,value,{mode:0o600,flag:'wx'});await rename(temporary,manifestPath);}
+    finally{await rm(temporary,{force:true});}
+  }
+  let initial,recovered=false;
+  try{
+    const stat=await lstat(manifestPath);
+    if(!stat.isFile()||stat.isSymbolicLink())throw Error('Invalid release manifest');
+    const manifest=JSON.parse(await readFile(manifestPath,'utf8'));
+    if(manifest.version!==1||!validSha(manifest.active)||manifest.pending!==null&&!validSha(manifest.pending)||manifest.previous!==null&&!validSha(manifest.previous)||Object.keys(manifest).sort().join(',')!=='active,pending,previous,version')throw Error('Invalid release manifest');
+    initial=await resolve(manifest.active);
+    if(!initial)throw Error('Recorded release unavailable');
+    if(manifest.pending!==null){recovered=true;await saveState({active:initial.sha,pending:null,previous:manifest.previous});}
+  }catch(error){
+    if(error?.code!=='ENOENT')throw error;
+    initial=await sourceRelease();
+    await saveState({active:initial.sha});
+  }
+  return {initial,recovered,releasesRoot,sourceRoot:sourcePath,verifyRelease,saveState};
+}

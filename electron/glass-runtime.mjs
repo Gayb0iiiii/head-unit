@@ -13,7 +13,7 @@ import {createTimeService} from './time-service.mjs';
 import path from 'node:path';
 
 /** Attach the glass shell to a host-owned window. Only start() opens core.sock. */
-export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary,desktopHandoff,weather,timeService,localServices=false,openWeatherAttribution,openLocationAttribution}) {
+export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary,desktopHandoff,weather,timeService,updateService,onRendererReady,localServices=false,openWeatherAttribution,openLocationAttribution}) {
   const transport = new CoreTransport(socketPath,connectSocket);
   const preferences = new FilePreferences(preferencePath);
   const controller = new HeadunitController(transport,preferences);
@@ -23,7 +23,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
   const clockSource=timeService??(localServices?createTimeService():null);
   let detach;
   try {
-    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics(),desktopHandoff:handoff,weather:weatherSource,timeService:clockSource,openWeatherAttribution,openLocationAttribution});
+    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics(),desktopHandoff:handoff,weather:weatherSource,timeService:clockSource,updateService,onRendererReady,openWeatherAttribution,openLocationAttribution});
   } catch (error) {
     handoff?.dispose?.();
     weatherSource?.dispose?.();

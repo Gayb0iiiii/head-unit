@@ -4,6 +4,10 @@ const {contextBridge, ipcRenderer} = require('electron');
 const listeners = new Set();
 const api = Object.freeze({
   getView: () => ipcRenderer.invoke('headunit:get-view'),
+  signalReady: () => ipcRenderer.invoke('headunit:renderer-ready'),
+  getUpdateStatus: () => ipcRenderer.invoke('headunit:get-update-status'),
+  requestUpdate: parkedConfirmed => ipcRenderer.invoke('headunit:request-update', parkedConfirmed),
+  cancelUpdate: () => ipcRenderer.invoke('headunit:cancel-update'),
   getMetrics: () => ipcRenderer.invoke('headunit:get-metrics'),
   getWeather: () => ipcRenderer.invoke('headunit:get-weather'),
   openWeatherAttribution: () => ipcRenderer.invoke('headunit:open-weather-source'),
@@ -21,21 +25,28 @@ const api = Object.freeze({
     // The privileged IpcRendererEvent must never reach the page's callback.
     const listener = (_event, view) => callback(view);
     ipcRenderer.on('headunit:view', listener);
-    listeners.add(listener);
+    const entry={channel:'headunit:view',listener};listeners.add(entry);
     return () => {
       ipcRenderer.removeListener('headunit:view', listener);
-      listeners.delete(listener);
+      listeners.delete(entry);
     };
   },
   onWeather(callback) {
     if (typeof callback !== 'function') throw new TypeError('A weather callback is required');
     const listener = (_event, view) => callback(view);
     ipcRenderer.on('headunit:weather', listener);
-    listeners.add(listener);
+    const entry={channel:'headunit:weather',listener};listeners.add(entry);
     return () => {
       ipcRenderer.removeListener('headunit:weather', listener);
-      listeners.delete(listener);
+      listeners.delete(entry);
     };
+  },
+  onUpdateStatus(callback) {
+    if (typeof callback !== 'function') throw new TypeError('An update callback is required');
+    const listener = (_event, status) => callback(status);
+    ipcRenderer.on('headunit:update-status', listener);
+    const entry={channel:'headunit:update-status',listener};listeners.add(entry);
+    return () => {ipcRenderer.removeListener('headunit:update-status',listener);listeners.delete(entry);};
   },
   navigate: route => ipcRenderer.invoke('headunit:navigate', route),
   selectPhone: id => ipcRenderer.invoke('headunit:select-phone', id),
@@ -45,7 +56,7 @@ const api = Object.freeze({
   media: (control,phoneId) => ipcRenderer.invoke('headunit:media', control,phoneId),
 });
 window.addEventListener('unload', () => {
-  for (const listener of listeners) ipcRenderer.removeListener('headunit:view', listener);
+  for(const {channel,listener} of listeners)ipcRenderer.removeListener(channel,listener);
   listeners.clear();
 });
 contextBridge.exposeInMainWorld('headunit', api);

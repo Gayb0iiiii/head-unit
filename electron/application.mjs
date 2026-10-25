@@ -2,8 +2,9 @@ import path from 'node:path';
 import {attachCompositorWindow} from './compositor-window.mjs';
 import {headunitWindowOptions} from './host.mjs';
 import {createGlassRuntime} from './glass-runtime.mjs';
+import {createHostUpdateService} from './update-host.mjs';
 
-/** Main-process owner. Does not spawn LIVI, alter services, or expose process controls to IPC. */
+/** Main-process owner. Does not spawn LIVI or alter services; updates use a fixed, supervised request. */
 export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,signals=process,env=process.env,screen,platform=process.platform,
   pageURL=new URL('../dist/index.html',import.meta.url).href,createRuntime=createGlassRuntime}) {
   const socketPath=env.LIVI_CORE_SOCKET;
@@ -21,12 +22,19 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
   }
   if(platform==='linux')app.setDesktopName('dev.f-io.livi.desktop');
   let stopping=false,runtime,window,detachWindow;
+  const updateService=createHostUpdateService({env,channel:signals});
+  let sentReady=false,rendererReady=false,windowShown=false;
+  function maybeSignalReady(){
+    if(sentReady||!rendererReady||!windowShown||stopping||env.HEADUNIT_SUPERVISED!=='1'||typeof signals.send!=='function')return;
+    sentReady=true;signals.send({kind:'ready',sha:env.HEADUNIT_ACTIVE_SHA});
+  }
   const listeners=[];
   const on=(target,event,fn)=>{target.on(event,fn);listeners.push([target,event,fn]);};
   function cleanup() {
     for(const [target,event,fn] of listeners.splice(0))target.removeListener(event,fn);
     detachWindow?.();
     runtime?.dispose();
+    updateService?.dispose();
   }
   function shutdown(code=0) {
     if(stopping)return;
@@ -52,6 +60,8 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
       ...(compositor&&env.HEADUNIT_SECONDARY_WINDOWS==='1'?{secondary:{BrowserWindow,screen}}:{}),
       preferencePath:path.join(app.getPath('userData'),'headunit-preferences.json'),
       localServices:env.HEADUNIT_SESSION==='1',
+      updateService,
+      onRendererReady:()=>{rendererReady=true;maybeSignalReady();},
       openWeatherAttribution:shell?()=>shell.openExternal('https://open-meteo.com/'):undefined,
       openLocationAttribution:shell?()=>shell.openExternal('https://www.geonames.org/'):undefined,
       lifeline:{env,onLost:()=>shutdown()}});
@@ -61,7 +71,7 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
     if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: loading trusted local page');
     await window.loadURL(pageURL);
     if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: page loaded');
-    if(!stopping)window.show();
+    if(!stopping){window.show();windowShown=true;maybeSignalReady();}
   }).catch(error=>{console.error('Headunit window startup failed:',error);shutdown(1);});
   return {ready,shutdown};
 }

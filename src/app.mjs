@@ -28,6 +28,8 @@ let weatherMessage='';
 let manualTimeValue='';
 let clockMessage='';
 let clockBusy=false;
+let updateStatus={phase:'unavailable',sha:null};
+let updateArmed=false;
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const glyphs={home:'<rect x="4" y="4" width="6" height="6" rx="2"/><rect x="14" y="4" width="6" height="6" rx="2"/><rect x="4" y="14" width="6" height="6" rx="2"/><rect x="14" y="14" width="6" height="6" rx="2"/>',phones:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>',projection:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>',settings:'<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',vehicle:'<path d="m4 10 2-5h12l2 5M3 16h18V10H3zM6 16v3m12-3v3M6 13h2m8 0h2"/>',audio:'<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/>',back:'<path d="m14 5-7 7 7 7"/>',dashboard:'<rect x="3" y="4" width="11" height="16" rx="2"/><rect x="17" y="4" width="4" height="7" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>',play:'<path d="m9 5 11 7-11 7z"/>',pause:'<path d="M8 5v14M16 5v14"/>'};
 glyphs.radio='<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M7 5l10-3M7 11h10M8 16h2m3 0h3"/>';
@@ -137,6 +139,13 @@ function renderClockSettings(s){
   const automatic=timeStatus?.ntpEnabled===true;
   return `<section class="settings-card settings-clock"><h2>Date & time</h2><p class="settings-note" role="status">${clockStatusLabel()}${timeStatus?` · ${escapeHtml(timeStatus.timezone)}`:''}</p><div class="clock-setting-row"><span>Automatic time</span><button data-clock-ntp="true" data-focus-key="clock-ntp-on" aria-pressed="${automatic}" ${locked||!timeStatus?.canNtp?'disabled':''}>On</button><button data-clock-ntp="false" data-focus-key="clock-ntp-off" aria-pressed="${!automatic&&!!timeStatus}" ${locked||!timeStatus?.canNtp?'disabled':''}>Off</button></div><div class="clock-setting-row"><span>Time zone</span><button data-clock-zone="Australia/Perth" data-focus-key="clock-zone-perth" aria-pressed="${timeStatus?.timezone==='Australia/Perth'}" ${locked}>Perth</button><button data-clock-zone="Etc/UTC" data-focus-key="clock-zone-utc" aria-pressed="${timeStatus?.timezone==='Etc/UTC'}" ${locked}>UTC</button></div><label class="manual-time-label">Set local date and time<input type="datetime-local" data-manual-time value="${escapeHtml(manualTimeValue)}" ${locked}></label><button class="time-apply" data-action="apply-manual-time" data-focus-key="clock-apply" ${locked||!manualTimeValue?'disabled':''}>Apply manual time</button><p class="settings-note">Applying manual time turns automatic time off. System authorization may be required.</p><p class="settings-note" role="status">${escapeHtml(clockMessage)}</p></section>`;
 }
+function renderUpdateSettings(s){
+  const phase=updateStatus.phase;
+  const message={unavailable:'Available after the supervised head-unit session is installed.',idle:'Check the approved head-unit branch for an update.',checking:'Checking and testing the new version…',activating:'Switching to the tested version…',restarting:'Restarting the interface…',current:'Already up to date.',failed:'Update failed. The current interface is still running.',cancelled:'Update cancelled.'}[phase]||'Update status unavailable.';
+  const busy=['checking','activating','restarting'].includes(phase);
+  const allowed=phase!=='unavailable'&&s.motionState!=='moving'&&!busy;
+  return `<section class="settings-card settings-update"><h2>Software update</h2><p class="settings-note" role="status">${message}</p><p class="settings-note">Downloads from the approved head-unit branch, then tests the new build before restarting. Use only while parked.</p><div class="update-actions">${updateArmed&&allowed?`<button data-action="confirm-update" data-focus-key="confirm-update">I am parked · Update</button><button data-action="dismiss-update" data-focus-key="dismiss-update">Cancel</button>`:`<button data-action="arm-update" data-focus-key="arm-update" ${allowed?'':'disabled'}>Check for update</button>`}${phase==='checking'?'<button data-action="cancel-update" data-focus-key="cancel-update">Cancel check</button>':''}</div></section>`;
+}
 function renderNativeSettings(s){return `<header class="settings-header"><h1>Settings</h1><span>${s.motionState==='moving'?'Editing locked while moving':'Edit while parked'}</span></header>
 <div class="settings-grid">
 <section class="settings-card settings-appearance"><h2>Day & night</h2><div class="appearance-modes" role="group" aria-label="Day and night appearance">${['auto','day','night'].map(mode=>`<button data-appearance="${mode}" data-focus-key="appearance-${mode}" aria-pressed="${s.appearancePreference===mode}" ${s.motionState==='moving'?'disabled':''}>${mode[0].toUpperCase()+mode.slice(1)}</button>`).join('')}</div><p class="settings-note" role="status">${s.appearance.source==='fallback'?`Headlight signal unavailable. Keeping ${s.appearance.mode} appearance.`:s.appearance.source==='manual'?`${s.appearance.mode==='day'?'Day':'Night'} mode selected.`:'Appearance follows the headlights.'}</p><p class="settings-note">Panel brightness unavailable; appearance changes colors only.</p></section>
@@ -145,7 +154,7 @@ function renderNativeSettings(s){return `<header class="settings-header"><h1>Set
 <section class="settings-card settings-dock"><h2>Dock position</h2><div class="dock-position" role="group" aria-label="Dock position">${['left','right'].map(side=>`<button data-dock-side="${side}" data-focus-key="dock-${side}" aria-pressed="${s.dockSide===side}" ${s.motionState==='moving'?'disabled':''}>${side==='left'?'Left':'Right'}</button>`).join('')}</div><p class="settings-note">The dock stays along the bottom on narrow displays.</p></section>
 <section class="settings-card settings-scale"><h2>UI scale</h2><label for="ui-scale">Controls and text</label><input id="ui-scale" type="range" min="90" max="115" step="5" value="${s.uiScale}" data-ui-scale aria-describedby="ui-scale-help" ${s.motionState==='moving'?'disabled':''}><output id="ui-scale-value" for="ui-scale">${s.uiScale}%</output><p id="ui-scale-help" class="settings-note">Adjust for your display and viewing distance.</p><button class="text-button" data-reset-ui-scale ${s.motionState==='moving'?'disabled':''}>Reset scale</button></section>
 <section class="settings-card debug-settings"><h2>Debug overlay</h2><p class="settings-note">UI frames, system CPU and RAM, active-network rates, and TCP connect latency to google.com. GPU use needs a supported counter.</p><div role="group" aria-label="Debug overlay">${[false,true].map(value=>`<button data-debug-overlay="${value}" aria-pressed="${s.debugOverlay===value}">${value?'On':'Off'}</button>`).join('')}</div></section>
-${renderWeatherSettings(s)}${renderClockSettings(s)}
+${renderWeatherSettings(s)}${renderClockSettings(s)}${renderUpdateSettings(s)}
 </div><p id="save-status" class="save-status" role="status">${saveNotice()}</p>
 <div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop session unavailable'}</small></span><b>›</b></button><p class="settings-note">Head-unit remains the boot interface. Return to it from the desktop session.</p></section></div>
 <details class="settings-advanced"${settingsAdvancedOpen?' open':''}><summary>Units & sensor rules</summary><section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section></details>`;}
@@ -180,6 +189,17 @@ if(native&&s.debugOverlay){
 if((!native||!s.debugOverlay)&&stopDebugOverlay){stopDebugOverlay();stopDebugOverlay=null;}
 document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
   const a=el.dataset.action;
+  if(native&&a==='arm-update'){updateArmed=true;render('confirm-update');return;}
+  if(native&&a==='dismiss-update'){updateArmed=false;render('arm-update');return;}
+  if(native&&a==='confirm-update'){
+    if(s.motionState==='moving'||!updateArmed)return;
+    updateArmed=false;
+    Promise.resolve(window.headunit.requestUpdate?.(true)).then(result=>{
+      if(result?.accepted!==true){updateStatus={phase:'failed',sha:null};render('arm-update');}
+    }).catch(()=>{updateStatus={phase:'failed',sha:null};render('arm-update');});
+    return;
+  }
+  if(native&&a==='cancel-update'){void Promise.resolve(window.headunit.cancelUpdate?.()).catch(()=>{});return;}
   if(a==='search-weather'&&native){
     weatherMessage='Searching…';weatherResults=[];render();
     Promise.resolve(window.headunit.searchWeather?.(weatherQuery)).then(results=>{weatherResults=Array.isArray(results)?results:[];weatherMessage=weatherResults.length?'Choose a city':'No matching city found';render();}).catch(()=>{weatherMessage='City search unavailable';render();});return;
@@ -282,6 +302,7 @@ if(focusKey){[...document.querySelectorAll('[data-focus-key]')].find(el=>el.data
 export function updateVehicleMotion(value){
   if(value===model.state.motionState)return;
   const wasEditing=model.state.editingLayout;
+  if(value==='moving')updateArmed=false;
   model.setMotionState(value);
   if(value==='moving'&&wasEditing) layoutMessage='Layout editing ended because the vehicle is moving.';
   render(value==='moving'&&wasEditing?'dock-button-home':undefined);
@@ -292,6 +313,8 @@ else document.getElementById('app').innerHTML='<main class="system-unavailable" 
 let stopWeather=()=>{};
 let timeStatusTimer;
 if(native){
+  if(typeof window.headunit.onUpdateStatus==='function')window.headunit.onUpdateStatus(value=>{if(value&&typeof value.phase==='string'){updateStatus={phase:value.phase,sha:null};if(model.state.screen==='settings')render();}});
+  if(typeof window.headunit.getUpdateStatus==='function')Promise.resolve(window.headunit.getUpdateStatus()).then(value=>{if(value&&typeof value.phase==='string'){updateStatus={phase:value.phase,sha:null};if(model.state.screen==='settings')render();}}).catch(()=>{});
   if(typeof window.headunit.onWeather==='function')stopWeather=window.headunit.onWeather(value=>{weatherSnapshot=value;if(model.state.screen==='home')render();});
   if(typeof window.headunit.getWeather==='function')Promise.resolve(window.headunit.getWeather()).then(value=>{if(value){weatherSnapshot=value;if(model.state.screen==='home')render();}}).catch(()=>{});
   if(typeof window.headunit.getTimeStatus==='function'){
@@ -312,3 +335,4 @@ document.addEventListener?.('keydown',event=>{
 
 const stopClock=startClock(date=>{const formatted=formatClock(date,timeStatus?.timezone);for(const id of ['headunit-clock','headunit-home-clock']){const node=document.getElementById(id);if(node)node.textContent=formatted.time;}const dateNode=document.getElementById('headunit-home-date');if(dateNode)dateNode.textContent=formatted.date;});
 window.addEventListener?.('unload',()=>{stopClock();stopWeather();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});
+if(native&&production&&model)void Promise.resolve(window.headunit.signalReady?.()).catch(()=>{});

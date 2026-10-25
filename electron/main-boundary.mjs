@@ -71,7 +71,7 @@ function pointsValid(points) {
 }
 
 /** One host window owns these channels. Call the returned function when detaching. */
-export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff, weather, timeService, openWeatherAttribution, openLocationAttribution}) {
+export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff, weather, timeService, updateService, onRendererReady, openWeatherAttribution, openLocationAttribution}) {
   const url = trustedURL(trustedUrl);
   const contents = trustedWindow?.webContents;
   if (!contents || !controller || !['view','subscribe','intent'].every(key => typeof controller[key] === 'function')) throw new TypeError('Trusted window and controller required');
@@ -83,6 +83,8 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
   let unsubscribe;
   let unsubscribeDesktop;
   let unsubscribeWeather;
+  let unsubscribeUpdate;
+  let readySignalled=false;
   const registered = [];
   const lifecycle = [];
   function on(name, listener) { contents.on(name,listener); lifecycle.push([name,listener]); }
@@ -129,8 +131,13 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     unsubscribe?.();
     unsubscribeDesktop?.();
     unsubscribeWeather?.();
+    unsubscribeUpdate?.();
   }
   try {
+    register('headunit:renderer-ready',0,()=>true,()=>{if(!readySignalled){readySignalled=true;onRendererReady?.();}return {accepted:true};});
+    register('headunit:get-update-status',0,()=>true,()=>updateService?.snapshot?.()??{phase:'unavailable',sha:null});
+    register('headunit:request-update',1,value=>value===true,()=>({accepted:updateService?.start(true)===true}));
+    register('headunit:cancel-update',0,()=>true,()=>({cancelled:updateService?.cancel()===true}));
     register('headunit:get-view',0,() => true,async () => {await desktopHandoff?.refresh?.();return rendererView(controller.view(),desktopHandoff?.available);});
     register('headunit:exit-to-desktop',0,() => true,async()=>{
       if(desktopHandoff?.available!==true||typeof desktopHandoff.request!=='function')throw Error('Desktop session unavailable');
@@ -199,6 +206,9 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     });
     unsubscribeWeather=weather?.subscribe?.(snapshot=>{
       if(pageTrusted())try{contents.send('headunit:weather',cleanWeather(snapshot));}catch{}
+    });
+    unsubscribeUpdate=updateService?.subscribe?.(status=>{
+      if(pageTrusted())try{contents.send('headunit:update-status',status);}catch{}
     });
     return dispose;
   } catch (error) {
