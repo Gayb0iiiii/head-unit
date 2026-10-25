@@ -70,16 +70,26 @@ export function createTimeService({run=defaultRun,now=Date.now}={}){
     localComponents(value);
     const before=await status();if(!before)throw Error('Clock status unavailable');
     const target=parseLocalTime(value,before.timezone);
-    let disabled=false;
+    const clockBefore=now();
+    let phase='disable';
     try{
-      if(before.ntpEnabled){await call('SetNTP','bb','false','true');disabled=true;}
+      if(before.ntpEnabled)await call('SetNTP','bb','false','true');
+      phase='set';
       await call('SetTime','xbb',String(target*1000),'false','true');
       const after=await status();
       return {changed:after?after.ntpEnabled===false&&Math.abs(now()-target)<=120000:null,status:after};
     }catch{
-      let restored=!disabled;
-      if(disabled){try{await call('SetNTP','bb','true','true');restored=(await status())?.ntpEnabled===true;}catch{restored=false;}}
-      return {changed:false,ntpRestored:restored,status:await status()};
+      let after=await status();
+      // A timed-out SetTime may have applied. A confirmed manual clock and disabled
+      // NTP are the intended final state, so leave them intact.
+      if(phase==='set'&&after?.ntpEnabled===false&&Math.abs(clockBefore-target)>120000&&Math.abs(now()-target)<=120000)return {changed:true,status:after};
+      // Likewise, SetNTP(false) may have applied before throwing. Restore the
+      // initial automatic setting unless readback proves it is already restored.
+      if(before.ntpEnabled&&after?.ntpEnabled!==true){
+        try{await call('SetNTP','bb','true','true');}catch{}
+        after=await status();
+      }
+      return {changed:phase==='disable'?false:null,...(before.ntpEnabled?{ntpRestored:after?.ntpEnabled===true}:{}),status:after};
     }
   }
   return {status,setNtp,setTimezone,setManualTime};

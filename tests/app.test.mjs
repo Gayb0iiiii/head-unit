@@ -127,6 +127,7 @@ test('production Home shows only observed weather with provider age and host clo
  assert.match(ui.root.innerHTML,/18°C/);
  assert.match(ui.root.innerHTML,/Partly cloudy/);
  assert.match(ui.root.innerHTML,/Weather data by Open-Meteo.com/);
+ assert.match(ui.root.innerHTML,/Observed 15 min ago/);
  assert.match(ui.root.innerHTML,/Australia\/Perth/);
  assert.doesNotMatch(ui.root.innerHTML,/Weather unavailable/);
 });
@@ -155,6 +156,16 @@ test('denied manual clock authorization retains the entered time and keyboard fo
  assert.match(ui.root.innerHTML,/System authorization unavailable/);
  assert.match(ui.root.innerHTML,/value="2026-10-25T12:30"/);
  assert.equal(ui.doc.activeElement?.dataset?.focusKey,'clock-apply');
+});
+
+test('uncertain manual clock outcome warns when automatic time was not confirmed restored',async()=>{
+ const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),
+   getTimeStatus:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:false,synchronized:false}),
+   setManualTime:async()=>({changed:null,ntpRestored:false})};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);
+ ui.click('action','settings');ui.input('manualTime','2026-10-25T12:30');ui.click('action','apply-manual-time');
+ await new Promise(setImmediate);await new Promise(setImmediate);
+ assert.match(ui.root.innerHTML,/Automatic time may be off/);
 });
 
 test('late host clock status enables Settings without navigating away',async()=>{

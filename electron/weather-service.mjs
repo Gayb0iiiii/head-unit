@@ -2,6 +2,8 @@ const geocodeHost='https://geocoding-api.open-meteo.com/v1/search';
 const forecastHost='https://api.open-meteo.com/v1/forecast';
 const refreshMs=15*60*1000;
 const currentMs=30*60*1000;
+const observationCurrentMs=90*60*1000;
+const futureToleranceMs=5*60*1000;
 const text=(value,max=80)=>typeof value==='string'&&value.length>0&&value.length<=max;
 const finite=(value,min,max)=>Number.isFinite(value)&&value>=min&&value<=max;
 
@@ -39,7 +41,8 @@ export function createWeatherService({fetchJSON,readCache=async()=>null,writeCac
   }
   function snapshot(){
     const age=lastSuccessTick===null?Infinity:steadyNow()-lastSuccessTick;
-    return {status:data?(failed||age<0||age>currentMs?'stale':'current'):city||failed?'unavailable':'loading',
+    const observationAge=data?now()-data.observedAt:Infinity;
+    return {status:data?(failed||age<0||age>currentMs||observationAge < -futureToleranceMs||observationAge>observationCurrentMs?'stale':'current'):city||failed?'unavailable':'loading',
       location:city?{id:city.id,label:city.label}:null,
       persistenceError,
       temperatureC:data?.temperatureC??null,apparentC:data?.apparentC??null,windKmh:data?.windKmh??null,weatherCode:data?.weatherCode??null,isDay:data?.isDay??null,

@@ -30,7 +30,7 @@ for headunit_pid in $(pgrep -u cruiser -x cage) $(pgrep -u cruiser -x kwin_wayla
 done
 ```
 
-The host also requires the Plasma `WAYLAND_DISPLAY` to resolve to a socket owned by `cruiser` under `/run/user/1000/`. If any field is missing, keep the button disabled and review the actual session setup. Do not add a sudo, polkit, or setuid exemption to force activation.
+The host requires the *plasmashell client* `WAYLAND_DISPLAY` to resolve to a socket owned by `cruiser` under `/run/user/1000/`, plus a live KWin process in the same logind session. Native KWin may have no `WAYLAND_DISPLAY` in its initial `/proc` environment because it creates the socket after startup. The actual Pi process/session association still needs read-only verification. If evidence is missing, keep the button disabled and review the session setup. Do not add a sudo, polkit, or setuid exemption to force activation.
 
 ## Staged manual round trip
 

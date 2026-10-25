@@ -29,8 +29,54 @@ test('failed manual setting attempts NTP restoration and reports partial failure
   let state=synced;const calls=[];
   const service=createTimeService({run:async(command,args)=>{calls.push([command,...args]);if(command==='timedatectl')return state;if(args.includes('SetTime'))throw Error('not authorized');if(args.includes('SetNTP'))state=state.replace(/^NTP=(yes|no)$/m,`NTP=${args.at(-2)==='true'?'yes':'no'}`);return '';}});
   const result=await service.setManualTime('2026-10-25T12:30');
-  assert.equal(result.changed,false);assert.equal(result.ntpRestored,true);
+  assert.equal(result.changed,null);assert.equal(result.ntpRestored,true);
   assert.equal(calls.filter(call=>call.includes('SetNTP')).length,2);
+});
+test('timed-out NTP disable is read back and restored if it actually applied',async()=>{
+  let state=synced;const calls=[];
+  const service=createTimeService({run:async(command,args)=>{
+    calls.push([command,...args]);
+    if(command==='timedatectl')return state;
+    if(args.includes('SetNTP')){
+      const enabled=args.at(-2)==='true';
+      state=state.replace(/^NTP=(yes|no)$/m,`NTP=${enabled?'yes':'no'}`);
+      if(!enabled)throw Error('command timed out after applying');
+    }
+    return '';
+  }});
+  const result=await service.setManualTime('2026-10-25T12:30');
+  assert.equal(result.changed,false);
+  assert.equal(result.ntpRestored,true);
+  assert.equal(result.status.ntpEnabled,true);
+  assert.deepEqual(calls.filter(call=>call.includes('SetNTP')).map(call=>call.at(-2)),['false','true']);
+  assert.equal(calls.some(call=>call.includes('SetTime')),false);
+});
+test('timed-out time set reports observed success without restoring automatic time',async()=>{
+  let state=synced,clock=Date.UTC(2026,9,25,4);const calls=[];
+  const service=createTimeService({now:()=>clock,run:async(command,args)=>{
+    calls.push([command,...args]);
+    if(command==='timedatectl')return state;
+    if(args.includes('SetNTP'))state=state.replace(/^NTP=(yes|no)$/m,`NTP=${args.at(-2)==='true'?'yes':'no'}`);
+    if(args.includes('SetTime')){clock=Date.UTC(2026,9,25,4,30);throw Error('command timed out after applying');}
+    return '';
+  }});
+  const result=await service.setManualTime('2026-10-25T12:30');
+  assert.equal(result.changed,true);
+  assert.equal(result.status.ntpEnabled,false);
+  assert.equal(calls.filter(call=>call.includes('SetNTP')).length,1);
+});
+test('a timed-out time set cannot claim success from a clock already near the target',async()=>{
+  let state=synced;const target=Date.UTC(2026,9,25,4,30);
+  const service=createTimeService({now:()=>target,run:async(command,args)=>{
+    if(command==='timedatectl')return state;
+    if(args.includes('SetNTP'))state=state.replace(/^NTP=(yes|no)$/m,`NTP=${args.at(-2)==='true'?'yes':'no'}`);
+    if(args.includes('SetTime'))throw Error('command timed out');
+    return '';
+  }});
+  const result=await service.setManualTime('2026-10-25T12:30');
+  assert.equal(result.changed,null);
+  assert.equal(result.ntpRestored,true);
+  assert.equal(result.status.ntpEnabled,true);
 });
 
 test('successful time command with failed verification reports unknown outcome',async()=>{

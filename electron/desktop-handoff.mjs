@@ -5,11 +5,14 @@ export function selectTargetSession({sessions,processes,currentId,uid,target}) {
   if(!current||current.uid!==uid||current.remote||current.sessionClass!=='user'||current.seat!=='seat0'||!Number.isInteger(current.vt)||current.vt<1||!['online','active'].includes(current.state))return null;
   const local=processes.filter(p=>p.sessionId===currentId);
   if(target==='desktop'&&!local.some(p=>p.name==='cage'&&p.headunit===true))return null;
-  if(target==='headunit'&&!(local.some(p=>p.name==='kwin_wayland'&&p.wayland)&&local.some(p=>p.name==='plasmashell'&&p.wayland)))return null;
+  // Native KWin starts before creating its own Wayland socket. Its inherited
+  // /proc environment therefore need not contain WAYLAND_DISPLAY; require a
+  // live same-session KWin plus a Plasma client with a verified socket instead.
+  if(target==='headunit'&&!(local.some(p=>p.name==='kwin_wayland')&&local.some(p=>p.name==='plasmashell'&&p.wayland)))return null;
   const matches=sessions.filter(s=>s.id!==currentId&&s.uid===uid&&s.seat===current.seat&&!s.remote&&s.sessionClass==='user'&&Number.isInteger(s.vt)&&s.vt>=1&&s.vt!==current.vt&&['online','active'].includes(s.state)).filter(s=>{
     const linked=processes.filter(p=>p.sessionId===s.id);
     return target==='desktop'
-      ?linked.some(p=>p.name==='kwin_wayland'&&p.wayland)&&linked.some(p=>p.name==='plasmashell'&&p.wayland)
+      ?linked.some(p=>p.name==='kwin_wayland')&&linked.some(p=>p.name==='plasmashell'&&p.wayland)
       :linked.some(p=>p.name==='cage'&&p.headunit===true);
   });
   return matches.length===1?matches[0].id:null;

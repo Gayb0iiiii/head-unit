@@ -8,7 +8,7 @@ const headunit={id:'3',uid:1000,seat:'seat0',vt:1,remote:false,state:'online',se
 const plasma={id:'8',uid:1000,seat:'seat0',vt:2,remote:false,state:'online',sessionClass:'user',type:'tty'};
 const processes=[
   {name:'cage',sessionId:'3',headunit:true},
-  {name:'kwin_wayland',sessionId:'8',wayland:true},
+  {name:'kwin_wayland',sessionId:'8',wayland:false},
   {name:'plasmashell',sessionId:'8',wayland:true},
 ];
 
@@ -65,6 +65,9 @@ test('process evidence requires same-owner session and a real Wayland socket for
   const env=Buffer.from('XDG_SESSION_ID=8\0WAYLAND_DISPLAY=wayland-1\0');
   const input={name:'kwin_wayland',uid:1000,environ:env,cgroup:'0::/user.slice/user-1000.slice/session-8.scope',socket:true};
   assert.deepEqual(processEvidence(input,1000),{name:'kwin_wayland',sessionId:'8',wayland:true,headunit:false});
+  const nativeKwin={...input,environ:Buffer.from('XDG_SESSION_ID=8\0'),socket:false};
+  assert.deepEqual(processEvidence(nativeKwin,1000),{name:'kwin_wayland',sessionId:'8',wayland:false,headunit:false});
+  assert.equal(selectTargetSession({sessions:[headunit,plasma],processes,currentId:'3',uid:1000,target:'desktop'}),'8');
   assert.equal(processEvidence({...input,uid:0},1000),null);
   assert.equal(processEvidence({...input,socket:false},1000).wayland,false);
   assert.equal(processEvidence({...input,environ:Buffer.from('XDG_SESSION_ID=9\0WAYLAND_DISPLAY=wayland-1\0')},1000),null);
