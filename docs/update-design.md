@@ -1,6 +1,6 @@
-# User-requested software updates — local development branch
+# User-requested software updates
 
-This implementation is on `feat/headunit-updater` for review. It has not been published or installed on the Orange Pi. The published `feat/orangepi-system-ui` branch still contains the previous launcher. A native Cage/Electron/WayVNC trial remains required before anyone enables this at boot.
+This implementation is published on `feat/orangepi-system-ui` starting at `0655338901d933290c89be1a06889237de0914bf`. It has not been installed on the Orange Pi. A native Cage/Electron/WayVNC trial remains required before anyone enables this at boot. The local HDMI launcher and the separate headless WayVNC manual wrapper are documented in [orangepi-system-ui.md](../deployment/orangepi-system-ui.md).
 
 ## Flow
 
@@ -16,10 +16,10 @@ Settings can cancel fetch or build before activation. Once activation starts, th
 
 ## Review and device gates
 
-Cloud checks cover fixed-branch/dirty/diverged rejection, failed build cleanup, concurrent requests, cancellation, IPC sender and argument validation, startup failure, health-window failure, power interruption, rollback and a real Node child-process IPC switch fixture. They do not run native Electron, Cage, WayVNC or the Pi display stack. The feature cannot be used on the published production branch until reviewed and included there.
+Cloud checks cover fixed-branch/dirty/diverged rejection, failed build cleanup, concurrent requests, cancellation, IPC sender and argument validation, startup failure, health-window failure, power interruption, rollback and a real Node child-process IPC switch fixture. Node 24 is the development baseline. An isolated official Node 22.22.2 x86_64 binary passed 516 tests, the build, and the real-child supervisor fixture. These checks do not run native Electron, Cage, WayVNC or the Pi display stack; ARM64 Node 22.22.2 still needs a device run.
 
 Before any device rollout, review the source diff and the exact origin/branch, then run the repository tests/build on the Pi without `npm ci`. Start from a local tty using the existing manual launcher, verify the Settings action with an intentionally prepared newer test commit, verify the WayVNC session stays connected across Electron restart, and verify both successful activation and rollback. Confirm the compositor, touch, keyboard and mouse still work. Keep a second local tty or SSH path available. Do not enable or change the boot service until those checks pass.
 
-For recovery while the Pi is still on the previous published branch, return to tty, stop the optional `headunit-ui.service` if it was enabled, select the known working `feat/orangepi-system-ui` commit and run `npm run build` before a manual launch. The updater does not change the service or credentials. Treat `release.json` and releases as recovery records; do not delete them during an in-progress update. If the supervisor cannot validate the recorded release, it exits rather than selecting an unverified build.
+For recovery, return to a tty, stop the optional `headunit-ui.service` if it was separately enabled, and use a separate worktree at the last verified commit; build it before manual launch. The direct-launch revision `bc2f98fe8f7ef8449cb116b45c25ddd537fe7897` bypasses the new supervisor for an emergency manual display trial. The updater does not change the service or credentials. Treat `release.json` and releases as recovery records; do not delete them during an in-progress update. If the supervisor cannot validate the recorded release, it exits rather than selecting an unverified build.
 
 Remaining risk: the current health signal proves renderer initialization and `BrowserWindow.show()` was invoked, not that physical pixels, touch or WayVNC are working. A remote source commit can execute its own test/build scripts after the user requests an update; repository write access remains the software supply-chain trust boundary. Detached staging directories from abrupt process death may remain under the state directory and require reviewed cleanup, but do not replace the active release.

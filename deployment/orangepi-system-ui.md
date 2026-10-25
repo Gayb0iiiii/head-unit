@@ -18,7 +18,7 @@ ls -l /dev/dri/by-path 2>/dev/null || true
 df -h "$HOME" /opt
 ```
 
-Ubuntu resolute arm64 offers Cage 0.2.1-1 but does not offer an `electron` package in the Pi's current APT indexes. Use the official Electron **44.7.2 Linux ARM64** ZIP, matching the repository's optional Electron test pin. Its official SHA-256 is `f8ecb0702b6a0b10274d2c3043dddaa22da77addcab98e7e0b1e0d4f6c2d93e9`; this was checked against the release's `SHASUMS256.txt`, and its `electron` ELF header reports AArch64. The download is about 118 MiB and expands to 301,526,864 bytes (about 288 MiB). The binary has many runtime shared-library dependencies; check missing ones on the Pi before installing packages by guesswork. Cage needs a working DRM/logind/libseat backend. Its display card is selected from connected DRM connectors; if more than one card has a connected output, set `HEADUNIT_DRM_CARD=/dev/dri/cardN` based on the connector list rather than guessing `card0`. The existing Node 22.22.2 installation is not used by the launcher. Node 22.22.2 passed the repository build and 402 tests on this x86_64 host; that does not verify ARM64 graphics or Electron startup.
+Ubuntu resolute arm64 offers Cage 0.2.1-1 but does not offer an `electron` package in the Pi's current APT indexes. Use the official Electron **44.7.2 Linux ARM64** ZIP, matching the repository's optional Electron test pin. Its official SHA-256 is `f8ecb0702b6a0b10274d2c3043dddaa22da77addcab98e7e0b1e0d4f6c2d93e9`; this was checked against the release's `SHASUMS256.txt`, and its `electron` ELF header reports AArch64. The download is about 118 MiB and expands to 301,526,864 bytes (about 288 MiB). The binary has many runtime shared-library dependencies; check missing ones on the Pi before installing packages by guesswork. Cage needs a working DRM/logind/libseat backend. Its display card is selected from connected DRM connectors; if more than one card has a connected output, set `HEADUNIT_DRM_CARD=/dev/dri/cardN` based on the connector list rather than guessing `card0`. The new launcher **does use Node** to keep Cage alive across Electron updates. Node 24 is the development baseline; the isolated official Node 22.22.2 x86_64 release passed all 516 tests, build and the real-child supervisor fixture. That is compatibility evidence, not ARM64/Pi verification. Run the same tests and a manual session on the Pi before relying on its existing Node 22.22.2.
 
 ## Stage the official ARM64 Electron binary
 
@@ -49,19 +49,79 @@ If `ldd` lists missing libraries, stop and identify the owning resolute arm64 pa
 
 ## Manual display trial before any boot change
 
-Stage this branch at `/home/cruiser/head-unit`, owned by `cruiser`. The generated `dist` directory is gitignored; build it after checkout. Review the launcher and service template, then log in as `cruiser` on tty1:
+Stage this branch at `/home/cruiser/head-unit`, owned by `cruiser`. The generated `dist` directory is gitignored; build it after checkout. Keep the existing SSH or second-tty recovery path and stop the old direct-Electron session before starting the supervised one. As `cruiser`, verify the exact origin, branch and clean checkout before a fast-forward update:
 
 ```sh
 cd /home/cruiser/head-unit
+test "$(git branch --show-current)" = feat/orangepi-system-ui
+test "$(git remote get-url origin)" = https://github.com/Gayb0iiiii/head-unit.git
+test -z "$(git status --porcelain)"
+git fetch --no-tags origin refs/heads/feat/orangepi-system-ui
+git merge --ff-only FETCH_HEAD
+node --version
 npm test
 npm run build
+```
+
+The current Pi has Node 22.22.2. The x86_64 compatibility run above does not replace the Pi's own `npm test`, build, and process trial. Run the following from the local `cruiser` tty after those pass:
+
+```sh
+cd /home/cruiser/head-unit
 test -f dist/production.html
 test -x deployment/orangepi-ui-launch.sh
 file /opt/headunit-electron-44.7.2/electron
 ./deployment/orangepi-ui-launch.sh
 ```
 
-The launcher checks user, ARM64 architecture, files, Cage, connected DRM output and `XDG_RUNTIME_DIR`, clears inherited LIVI startup/power variables, then starts Cage with VT switching permitted. It sets `WLR_DRM_DEVICES` to the unique connected card, or accepts a validated `HEADUNIT_DRM_CARD` when selection is ambiguous. The production entrypoint uses `LIVI_CORE_SOCKET` if supplied, otherwise `HEADUNIT_CORE_SOCKET`, otherwise `$XDG_RUNTIME_DIR/headunit/core.sock`. The fallback path is only a connection target: it does not start a core or create the socket. A future compatible backend must actually listen there, or supply its real absolute `core.sock` path. Reconnection is managed by the existing transport; no cached phone, media or action is replayed after loss. Do not run an independently owned second UI beside the native core's UI supervisor.
+The launcher checks user, ARM64 architecture, files, Cage, connected DRM output, an absolute Node executable and `XDG_RUNTIME_DIR`, clears inherited LIVI startup/power variables, then starts Cage with VT switching permitted. Cage owns a persistent Node supervisor; the supervisor launches the sandboxed Electron child and keeps the Wayland session alive across an update. It sets `WLR_DRM_DEVICES` to the unique connected card, or accepts a validated `HEADUNIT_DRM_CARD` when selection is ambiguous. The production entrypoint uses `LIVI_CORE_SOCKET` if supplied, otherwise `HEADUNIT_CORE_SOCKET`, otherwise `$XDG_RUNTIME_DIR/headunit/core.sock`. The fallback path is only a connection target: it does not start a core or create the socket. A future compatible backend must actually listen there, or supply its real absolute `core.sock` path. Reconnection is managed by the existing transport; no cached phone, media or action is replayed after loss. Do not run an independently owned second UI beside the native core's UI supervisor.
+
+## Manual headless WayVNC trial
+
+This is an **alternative** to the local HDMI session, for the previously working headless Cage/WayVNC setup. It does not install a service or change boot behavior. Unlike the HDMI launcher, it uses wlroots' headless backend and has no DRM-connected-output requirement. Cage launches one Bash child; that child starts WayVNC and the **persistent Node supervisor** as siblings. Cage supplies its newly created `WAYLAND_DISPLAY` to both; do not hard-code `wayland-1` or launch WayVNC outside this child. If Electron is replaced during an update, the Node supervisor and Cage remain alive. If WayVNC or the supervisor exits, the Bash child stops its sibling and Cage exits.
+
+After the checkout and build above, from the existing `cruiser` session with a valid `XDG_RUNTIME_DIR`, create a user-owned manual trial wrapper:
+
+```sh
+mkdir -p "$HOME/.local/bin"
+cat > "$HOME/.local/bin/headunit-headless-trial" <<'HEADUNIT_HEADLESS'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+test "$(id -un)" = cruiser
+test "$(uname -m)" = aarch64
+test -d "${XDG_RUNTIME_DIR:?A logind runtime directory is required}"
+test -f /home/cruiser/head-unit/dist/production.html
+test -x /opt/headunit-electron-44.7.2/electron
+command -v cage >/dev/null
+command -v wayvnc >/dev/null
+export HEADUNIT_NODE="$(command -v node)"
+case "$HEADUNIT_NODE" in /*) ;; *) echo 'An absolute Node path is required' >&2; exit 1;; esac
+export HEADUNIT_ROOT=/home/cruiser/head-unit
+export HEADUNIT_ELECTRON=/opt/headunit-electron-44.7.2/electron
+export HEADUNIT_SESSION=1
+export WLR_BACKENDS=headless WLR_HEADLESS_OUTPUTS=1 WLR_LIBINPUT_NO_DEVICES=1
+unset LIVI_KIOSK LIVI_COMPOSITOR LIVI_UI_CMD LIVI_LIFELINE HEADUNIT_SECONDARY_WINDOWS
+exec cage -s -- bash -c '
+  set -Eeuo pipefail
+  wayvnc 127.0.0.1 5900 &
+  vnc_pid=$!
+  "$HEADUNIT_NODE" "$HEADUNIT_ROOT/deployment/electron-supervisor.mjs" &
+  supervisor_pid=$!
+  cleanup() {
+    kill "$vnc_pid" "$supervisor_pid" 2>/dev/null || true
+    wait "$vnc_pid" "$supervisor_pid" 2>/dev/null || true
+  }
+  trap cleanup EXIT
+  trap "exit 130" INT
+  trap "exit 143" TERM
+  wait -n "$vnc_pid" "$supervisor_pid"
+'
+HEADUNIT_HEADLESS
+chmod 700 "$HOME/.local/bin/headunit-headless-trial"
+bash -n "$HOME/.local/bin/headunit-headless-trial"
+"$HOME/.local/bin/headunit-headless-trial"
+```
+
+Keep the existing SSH tunnel from the viewing computer to Pi localhost port 5900. WayVNC binds only to `127.0.0.1`; do not expose the VNC port on a public interface. The headless WayVNC process and VNC viewer should remain connected when a future reviewed release replaces only Electron. The wrapper has not been run on the Pi, so confirm the actual headless output, input and cleanup before treating it as a recovery path. It does not validate physical TK1560 HDMI/touch. Stop it with Ctrl+C from its launching terminal; keep SSH/tty maintenance access. Do not run this headless instance alongside the local HDMI UI unless display and source ownership have been reviewed.
 
 During the trial, confirm Home and local Settings are visible, the sidebar reads Radio, Bluetooth, CarPlay, Settings, Apps in that order, and Home remains reachable. Check that the clock shows the Pi's local time; this branch does not change its timezone. Check that no sample phone/music/sensor/weather state appears, the File/Edit/View/Window menu is absent, keyboard/VT switching works, the Electron sandbox is active, and exiting the process returns tty1. In Settings, try Day/Night, wallpaper, glass strength, dock position and the Debug overlay toggle, then exit and relaunch to check persistence. With the overlay enabled, CPU may show after two samples; GPU must read unavailable until a verified counter is integrated. Verify that Home remains usable while no core socket exists and no generic failed-action alert appears. When a real reviewed backend is available, separately verify socket protocol/version, authoritative state, disconnect/reconnect, window geometry, touch and peripherals. A cloud test cannot verify those.
 

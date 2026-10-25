@@ -1,12 +1,12 @@
 # LIVI headunit integration checkpoint
 
-For the prepared Orange Pi 5 Plus system UI boot path, see [deployment/orangepi-system-ui.md](deployment/orangepi-system-ui.md). It starts the production renderer with honest disconnected state and an optional live backend socket; native LIVI/CarPlay readiness remains a separate hardware gate. The local updater branch adds a supervised, user-requested Settings update path; see [update design](docs/update-design.md). It has not been published or device-tested.
+For the prepared Orange Pi 5 Plus system UI boot path, see [deployment/orangepi-system-ui.md](deployment/orangepi-system-ui.md). It starts the production renderer with honest disconnected state and an optional live backend socket; native LIVI/CarPlay readiness remains a separate hardware gate. The published `feat/orangepi-system-ui` branch includes the supervised, user-requested Settings update path; see [update design](docs/update-design.md). It has not been device-tested.
 
 Separate, reversible prototype. This is not an update to the existing v4 demo and does not contain a live CarPlay renderer.
 
 ## Run
 
-- Node 24 and Python 3.9+: `npm test` and `npm run build`. No npm dependencies; tests include Python guards for the native patch workflow.
+- Node 24 is the development baseline; Python 3.9+ is used by the test suite. Isolated official Node 22.22.2 on x86_64 also passed all 516 tests, the build, and the real-child supervisor fixture. The Pi's ARM64 Node 22.22.2 still needs its own run. No npm dependencies are required for these checks.
 - `npm run test:appliance` runs the fake-clock/fake-owner lifecycle harness only; it does not start or stop real processes.
 - Open `dist/preview.html` directly for the self-contained software preview.
 - Or run `npm start` and open http://127.0.0.1:8095 for development.
@@ -24,7 +24,7 @@ Phones, media and CarPlay are the headunit priority. Detailed instrumentation be
 - Touch-first glass-inspired home with Apps/Dashboard quick switch, narrow dock, large rounded tiles, phone-switching preview, a single settings page, configurable wallpapers, and nested diagnostics. Native Home shows sanitized observed track/artist/playback and optional battery/charging, with unavailable/stale states and explicit owner-checked play/pause. Signal and temperatures remain unavailable until their provider contracts are verified; no vehicle/aux battery or engine gauges are put on Home.
 - Connection screen distinguishes connecting, synchronizing, automatic retry, refusal and stopped states using sanitized transport phases. No socket paths or native errors reach the renderer.
 - Node adapter modules for LIVI protocol 8: little-endian length-framed JSON, hello/welcome, ordered revisions, atomic patches, resync, action/reply IDs and local Unix socket reconnect.
-- Explicit action allowlist: select/connect/next phone, main-screen LIVI/projection visibility, explicit media play/pause, and five normalized volume controls. The local updater branch adds only a fixed-branch, parked-confirmed update action through a separate supervisor. Arbitrary restart, quit, configuration and destructive unpairing are not exposed.
+- Explicit action allowlist: select/connect/next phone, main-screen LIVI/projection visibility, explicit media play/pause, and five normalized volume controls. The supervised updater adds only a fixed-branch, parked-confirmed update action. Arbitrary restart, quit, configuration and destructive unpairing are not exposed.
 - Explicit secondary-role compatibility is available only with `HEADUNIT_SECONDARY_WINDOWS=1` in compositor mode: host-authenticated cluster/aux status surfaces and bounded role-specific livi reports. No secondary main controls or RealDash instrumentation are added; see [secondary ownership](electron/README.md#opt-in-secondary-role-ownership). Native picture/camera geometry and actual output acceptance remain open.
 - `publicView` strips credentials, telemetry and unrelated personal metadata from data intended for a future Electron preload boundary. Raw core state must stay in the privileged host.
 - Vehicle service is untouched and independent. Optional sensor Settings default to no rules; the pure rules model supports numeric/missing/stale conditions, debounce/hysteresis, once-until-normal or repeat, and capability-gated sound intents. No real sensor evaluation or native banner/audio delivery is wired. See docs/sensor-alerts.md and docs/increment3-scope.md.
