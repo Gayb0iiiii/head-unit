@@ -145,6 +145,18 @@ test('clock settings expose truthful sync state and bounded manual action',async
  assert.deepEqual(calls,['2026-10-25T12:30']);
 });
 
+test('denied manual clock authorization retains the entered time and keyboard focus',async()=>{
+ const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),
+   getTimeStatus:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true}),
+   setManualTime:async()=>{throw Error('authorization denied');}};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);
+ ui.click('action','settings');ui.input('manualTime','2026-10-25T12:30');ui.focus('clock-apply');
+ ui.click('action','apply-manual-time');await new Promise(setImmediate);await new Promise(setImmediate);
+ assert.match(ui.root.innerHTML,/System authorization unavailable/);
+ assert.match(ui.root.innerHTML,/value="2026-10-25T12:30"/);
+ assert.equal(ui.doc.activeElement?.dataset?.focusKey,'clock-apply');
+});
+
 test('late host clock status enables Settings without navigating away',async()=>{
   let resolveStatus;
   const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),getTimeStatus:()=>new Promise(resolve=>{resolveStatus=resolve;})};
