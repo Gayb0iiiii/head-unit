@@ -15,7 +15,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 url = f'http://127.0.0.1:{server.server_port}/production.html'
-bridge = "window.headunit=Object.freeze({getView:async()=>({connected:false,route:'disconnected',connectionPhase:'backoff',phones:[]}),onView:()=>()=>{},getMetrics:async()=>({cpuPercent:null,gpuPercent:null})});"
+bridge = "window.__fixtureMetricReads=0;window.headunit=Object.freeze({getView:async()=>({connected:false,route:'disconnected',connectionPhase:'backoff',phones:[]}),onView:()=>()=>{},getMetrics:async()=>{window.__fixtureMetricReads++;return {cpuPercent:37.5,cpuStatus:'current',gpuPercent:null,gpuStatus:'unsupported',ramUsedBytes:1073741824,ramTotalBytes:4294967296,ramStatus:'current',networkDownBytesPerSec:2048,networkUpBytesPerSec:1024,networkStatus:'current',pingMs:31,pingStatus:'current'};}});"
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path=os.environ.get('HEADUNIT_TEST_CHROMIUM','/usr/bin/chromium'), headless=True,
                                 chromium_sandbox=os.environ.get('HEADUNIT_TEST_CHROMIUM_NO_SANDBOX') != '1')
@@ -149,8 +149,15 @@ with sync_playwright() as p:
             page.locator('[data-appearance="day"]').click()
             page.locator('[data-wallpaper="dusk"]').click()
             page.locator('[data-debug-overlay="true"]').click()
-            page.wait_for_timeout(1200)
+            page.wait_for_timeout(2200)
             assert page.locator('#debug-overlay').count()==1
+            assert 'RAM 1.0 GiB/4.0 GiB' in page.locator('#debug-overlay').inner_text()
+            reads = page.evaluate('window.__fixtureMetricReads')
+            page.locator('aside [data-action="radio"]').click()
+            assert 'CPU 37.5%' in page.locator('#debug-overlay').inner_text()
+            page.locator('aside [data-action="home"]').click()
+            assert 'Google TCP latency 31 ms' in page.locator('#debug-overlay').inner_text()
+            assert page.evaluate('window.__fixtureMetricReads') == reads
             page.reload();page.wait_for_timeout(1200)
             assert page.locator('body').get_attribute('data-appearance')=='day'
             assert page.locator('body').get_attribute('data-wallpaper')=='dusk'

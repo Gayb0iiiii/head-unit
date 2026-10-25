@@ -413,9 +413,23 @@ test('Debug overlay is off by default and can be enabled from offline Settings',
  const app=await launch(data,host,'production');app.click('action','settings');
  assert.doesNotMatch(app.root.innerHTML,/id="debug-overlay"/);assert.equal(reads,0);
  app.click('debugOverlay','true');assert.match(app.root.innerHTML,/id="debug-overlay"/);
- assert.match(app.root.innerHTML,/UI FPS unavailable/);
+ assert.match(app.doc.getElementById('debug-overlay').textContent,/UI FPS measuring/);
  app.click('debugOverlay','false');assert.doesNotMatch(app.root.innerHTML,/id="debug-overlay"/);
  assert.equal(reads,0);
+});
+test('production route changes preserve the overlay sample and do not restart host collection',async()=>{
+ const original=globalThis.setInterval;let overlayTick,reads=0;
+ globalThis.setInterval=(fn,ms)=>{if(ms===2000)overlayTick=fn;return {unref(){}};};
+ try{
+  const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),getMetrics:async()=>{reads++;return {cpuPercent:42,ramUsedBytes:1073741824,ramTotalBytes:4294967296,pingMs:31};}};
+  const app=await launch(new Map(),host,'production');app.click('action','settings');app.click('debugOverlay','true');
+  assert.ok(overlayTick);await overlayTick();assert.equal(reads,1);
+  app.click('action','radio');assert.equal(reads,1);
+  assert.match(app.doc.getElementById('debug-overlay').textContent,/CPU 42\.0%/);
+  app.click('action','home');assert.equal(reads,1);
+  assert.match(app.doc.getElementById('debug-overlay').textContent,/Google TCP latency 31 ms/);
+  app.click('action','settings');app.click('debugOverlay','false');
+ }finally{globalThis.setInterval=original;}
 });
 test('production sidebar follows requested order and all destinations have honest screens',async()=>{
  const calls=[];const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),navigate:route=>{calls.push(route);return Promise.resolve({accepted:true});}};

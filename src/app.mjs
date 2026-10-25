@@ -131,7 +131,10 @@ if(screen==='disconnected'){const status=connectionPresentation(s.connectionPhas
 if(screen==='camera')content='<header><h1>Camera unavailable</h1></header><section class="panel" role="status"><p>No camera feed is available.</p></section>';
 if(screen==='cluster')content='<header><h1>Display in use</h1></header>';
 document.getElementById('app').innerHTML=`<aside aria-label="Dock">${native?'':`<output id="headunit-clock" class="time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})}</output>`}<div class="dock-apps" role="navigation" aria-label="Primary">${native?[...['Radio:radio','Bluetooth:bluetooth','CarPlay:projection','Settings:settings','Apps:apps']].map(item=>{const [name,key]=item.split(':');return dockButton(name,key,screen===key);}).join(''):`${button('CarPlay','projection','dock-button')}${button('Phones','phones','dock-button')}`}</div>${button('Home','home','dock-button home-button')}</aside><main data-screen="${screen}" data-editing="${s.editingLayout}">${content}${native&&s.notice?'<p role="status">Reconnecting to phone display…</p>':''}${native&&s.commandError?'<p role="alert">Unable to complete that action.</p>':''}${native?'':`<footer class="bottom-note"><span>Demo mode</span><span>Simulated phones · No live audio or vehicle data</span></footer>`}${native&&s.debugOverlay?'<output id="debug-overlay" class="debug-overlay" aria-label="System performance">UI FPS unavailable · CPU unavailable · GPU use unavailable · RAM unavailable · ↓ unavailable ↑ unavailable · Google TCP latency unavailable</output>':''}</main>`;
-if(native&&s.debugOverlay&&!stopDebugOverlay)stopDebugOverlay=startDebugOverlay(window.headunit,()=>document.getElementById('debug-overlay'));
+if(native&&s.debugOverlay){
+  if(!stopDebugOverlay)stopDebugOverlay=startDebugOverlay(window.headunit,()=>document.getElementById('debug-overlay'));
+  else stopDebugOverlay.repaint?.();
+}
 if((!native||!s.debugOverlay)&&stopDebugOverlay){stopDebugOverlay();stopDebugOverlay=null;}
 document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
   const a=el.dataset.action;

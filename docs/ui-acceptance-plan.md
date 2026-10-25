@@ -23,7 +23,7 @@ Design reference: [Apple CarPlay](https://developer.apple.com/design/human-inter
 | CarPlay | A destination exists; it does not claim connection or rendered video without the native engine. |
 | Apps | Clear app navigation without fabricated installed apps or a dead tile. |
 | Settings | Day/night, bundled or selected local wallpaper, UI scale, glass, dock, and Debug overlay persist, remain usable offline, and have visible focus/pressed states. |
-| Debug overlay | Off by default. UI frame callback cadence, aggregate CPU, used/total RAM, active default-route interface rates, and bounded TCP-connect latency to Google are labeled accurately; GPU use is unavailable absent a verified counter. Timers and in-flight network probing stop when disabled/unloaded. |
+| Debug overlay | Off by default. UI frame callback cadence, aggregate CPU, used/total RAM, active default-route interface rates, and bounded TCP-connect latency to Google are labeled accurately; GPU use is unsupported absent a verified counter. A single sampler survives route changes. Pending, stale and unavailable values are distinct, with stale readings bounded to 10 seconds for local counters and 30 seconds for TCP latency. Timers and in-flight network probing stop when disabled/unloaded. |
 | Weather | No geolocation or network request before location/provider consent. A future source needs a timestamp, stale policy, and cancellable bounded requests. |
 | Directions | No panel until an authoritative, validated native turn-by-turn feed is present; video is not parsed for directions. |
 | Desktop | Settings shows a capability-gated switch. It remains disabled until a separate desktop session, seat handoff provider and return launcher have been verified; head-unit stays boot default. |

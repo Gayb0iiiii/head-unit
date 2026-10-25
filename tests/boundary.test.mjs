@@ -69,7 +69,7 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
 test('metrics IPC returns only bounded counters and rejects extra arguments',async()=>{
  const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
  const f=fixture();let stopped=0;const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,systemMetrics:{sample:async()=>({cpuPercent:34.5,gpuPercent:999,ramUsedBytes:1024,ramTotalBytes:2048,networkDownBytesPerSec:120,networkUpBytesPerSec:40,pingMs:31,secret:'hidden'}),stop:()=>stopped++}});
- assert.deepEqual(await f.call(channels.metrics),{cpuPercent:34.5,gpuPercent:null,ramUsedBytes:1024,ramTotalBytes:2048,networkDownBytesPerSec:120,networkUpBytesPerSec:40,pingMs:31});
+ assert.deepEqual(await f.call(channels.metrics),{cpuPercent:34.5,gpuPercent:null,ramUsedBytes:1024,ramTotalBytes:2048,networkDownBytesPerSec:120,networkUpBytesPerSec:40,pingMs:31,cpuStatus:'current',gpuStatus:'unsupported',ramStatus:'current',networkStatus:'current',pingStatus:'current'});
  await assert.rejects(()=>f.call(channels.metrics,['/etc/passwd']),/arguments/i);
  assert.deepEqual(await f.call(channels.stopMetrics),{stopped:true});assert.equal(stopped,1);
  await assert.rejects(()=>f.call(channels.stopMetrics,['google.com']),/arguments/i);

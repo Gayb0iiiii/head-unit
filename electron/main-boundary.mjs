@@ -123,9 +123,15 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
       const rate=value=>Number.isSafeInteger(value)&&value>=0&&value<=1e9?value:null;
       const ping=value=>Number.isInteger(value)&&value>=0&&value<=5000?value:null;
       const ramTotalBytes=bytes(sample?.ramTotalBytes),ramUsedBytes=bytes(sample?.ramUsedBytes);
-      return {cpuPercent:percent(sample?.cpuPercent),gpuPercent:percent(sample?.gpuPercent),
+      const result={cpuPercent:percent(sample?.cpuPercent),gpuPercent:percent(sample?.gpuPercent),
         ramUsedBytes:ramTotalBytes!==null&&ramUsedBytes!==null&&ramUsedBytes<=ramTotalBytes?ramUsedBytes:null,ramTotalBytes,
         networkDownBytesPerSec:rate(sample?.networkDownBytesPerSec),networkUpBytesPerSec:rate(sample?.networkUpBytesPerSec),pingMs:ping(sample?.pingMs)};
+      const status=(raw,valid)=>['pending','current','stale','unavailable','unsupported'].includes(raw)&&(valid||!['current','stale'].includes(raw))?raw:valid?'current':'unavailable';
+      return {...result,cpuStatus:status(sample?.cpuStatus,result.cpuPercent!==null),
+        gpuStatus:status(sample?.gpuStatus??'unsupported',result.gpuPercent!==null),
+        ramStatus:status(sample?.ramStatus,result.ramUsedBytes!==null&&result.ramTotalBytes!==null),
+        networkStatus:status(sample?.networkStatus,result.networkDownBytesPerSec!==null&&result.networkUpBytesPerSec!==null),
+        pingStatus:status(sample?.pingStatus,result.pingMs!==null)};
     });
     register('headunit:stop-metrics',0,()=>true,()=>{systemMetrics?.stop?.();return {stopped:true};});
     action('headunit:navigate',route => routes.has(route),route => ({type:'navigate',route}));

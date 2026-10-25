@@ -44,36 +44,52 @@ function pingGoogle(signal){
   });
 }
 export function createSystemMetrics({read=readFile,now=()=>Date.now(),ping=pingGoogle}={}) {
-  let previous=null,previousNetwork=null,lastTime=-Infinity,lastPingTime=-Infinity,pingController=null,generation=0;
-  let last={cpuPercent:null,gpuPercent:null,ramUsedBytes:null,ramTotalBytes:null,networkDownBytesPerSec:null,networkUpBytesPerSec:null,pingMs:null};
-  return {async sample(){
-    const time=now();
-    if(time-lastTime<1000)return {...last};
-    const elapsed=time-lastTime;
-    lastTime=time;
-    const sampleGeneration=generation;
+  const empty=()=>({cpuPercent:null,cpuStatus:'pending',gpuPercent:null,gpuStatus:'unsupported',ramUsedBytes:null,ramTotalBytes:null,ramStatus:'pending',networkDownBytesPerSec:null,networkUpBytesPerSec:null,networkStatus:'pending',pingMs:null,pingStatus:'pending'});
+  let previous=null,previousNetwork=null,lastTime=-Infinity,lastPingTime=-Infinity,pingController=null,generation=0,pending=null;
+  let last=empty();const successAt={cpu:-Infinity,ram:-Infinity,network:-Infinity,ping:-Infinity};
+  function retain(kind,fields,time,maximumAge){
+    if(time-successAt[kind]<=maximumAge&&fields.every(field=>last[field]!==null)){last[`${kind}Status`]='stale';return;}
+    for(const field of fields)last[field]=null;
+    last[`${kind}Status`]='unavailable';
+  }
+  async function collect(time,elapsed,epoch){
     const [statRaw,memRaw,routeRaw,devRaw]=await Promise.allSettled(['/proc/stat','/proc/meminfo','/proc/net/route','/proc/net/dev'].map(path=>read(path,'utf8')));
-    if(sampleGeneration!==generation)return {...last};
+    if(epoch!==generation)return {...last};
     const value=result=>result.status==='fulfilled'?result.value:null;
-    try{
-      const current=cpuTicks(value(statRaw));
-      const total=current?.total-previous?.total;
-      const idle=current?.idle-previous?.idle;
-      const cpuPercent=previous&&current&&total>0&&idle>=0&&idle<=total?Math.round((total-idle)*1000/total)/10:null;
-      previous=current;
-      const ram=memory(value(memRaw));
-      const net=network(value(devRaw),defaultInterface(value(routeRaw)));
-      const validDelta=previousNetwork&&net&&previousNetwork.iface===net.iface&&net.rx>=previousNetwork.rx&&net.tx>=previousNetwork.tx&&elapsed>=1000;
-      last={...last,cpuPercent,gpuPercent:null,ramUsedBytes:ram?.ramUsedBytes??null,ramTotalBytes:ram?.ramTotalBytes??null,
-        networkDownBytesPerSec:validDelta?Math.round((net.rx-previousNetwork.rx)*1000/elapsed):null,
-        networkUpBytesPerSec:validDelta?Math.round((net.tx-previousNetwork.tx)*1000/elapsed):null};
+    const current=cpuTicks(value(statRaw));
+    const total=current?.total-previous?.total,idle=current?.idle-previous?.idle;
+    if(previous&&current&&total>0&&idle>=0&&idle<=total){last.cpuPercent=Math.round((total-idle)*1000/total)/10;last.cpuStatus='current';successAt.cpu=time;}
+    else if(current&&successAt.cpu===-Infinity)last.cpuStatus='pending';
+    else retain('cpu',['cpuPercent'],time,10000);
+    previous=current;
+    const ram=memory(value(memRaw));
+    if(ram){Object.assign(last,ram);last.ramStatus='current';successAt.ram=time;}
+    else retain('ram',['ramUsedBytes','ramTotalBytes'],time,10000);
+    const iface=defaultInterface(value(routeRaw));
+    const net=network(value(devRaw),iface);
+    if(net){
+      const validDelta=previousNetwork&&previousNetwork.iface===net.iface&&net.rx>=previousNetwork.rx&&net.tx>=previousNetwork.tx&&elapsed>=1000;
+      if(validDelta){last.networkDownBytesPerSec=Math.round((net.rx-previousNetwork.rx)*1000/elapsed);last.networkUpBytesPerSec=Math.round((net.tx-previousNetwork.tx)*1000/elapsed);last.networkStatus='current';successAt.network=time;}
+      else{last.networkDownBytesPerSec=null;last.networkUpBytesPerSec=null;last.networkStatus='pending';}
       previousNetwork=net;
-    }catch{previous=null;previousNetwork=null;last={...last,cpuPercent:null,gpuPercent:null,ramUsedBytes:null,ramTotalBytes:null,networkDownBytesPerSec:null,networkUpBytesPerSec:null};}
+    }else if(value(routeRaw)!==null&&!iface){previousNetwork=null;retain('network',['networkDownBytesPerSec','networkUpBytesPerSec'],time,-1);}
+    else if(iface&&previousNetwork&&iface!==previousNetwork.iface){previousNetwork=null;last.networkDownBytesPerSec=last.networkUpBytesPerSec=null;last.networkStatus='pending';}
+    else retain('network',['networkDownBytesPerSec','networkUpBytesPerSec'],time,10000);
     if(time-lastPingTime>=10000){
-      lastPingTime=time;pingController?.abort();pingController=new AbortController();const currentGeneration=++generation;
-      try{const ms=await ping(pingController.signal);if(currentGeneration===generation)last.pingMs=Number.isFinite(ms)&&ms>=0&&ms<=5000?Math.round(ms):null;}
-      catch{if(currentGeneration===generation)last.pingMs=null;}
+      lastPingTime=time;pingController=new AbortController();
+      let ms=null;try{ms=await ping(pingController.signal);}catch{}
+      if(epoch!==generation)return {...last};
+      pingController=null;
+      if(Number.isFinite(ms)&&ms>=0&&ms<=5000){last.pingMs=Math.round(ms);last.pingStatus='current';successAt.ping=time;}
+      else retain('ping',['pingMs'],time,30000);
     }
     return {...last};
-  },stop(){generation++;pingController?.abort();pingController=null;previous=null;previousNetwork=null;lastTime=-Infinity;lastPingTime=-Infinity;last={cpuPercent:null,gpuPercent:null,ramUsedBytes:null,ramTotalBytes:null,networkDownBytesPerSec:null,networkUpBytesPerSec:null,pingMs:null};}};
+  }
+  return {sample(){
+    if(pending)return pending;
+    const time=now();if(time-lastTime<1000)return Promise.resolve({...last});
+    const elapsed=time-lastTime;lastTime=time;const epoch=generation;
+    const task=collect(time,elapsed,epoch).finally(()=>{if(pending===task)pending=null;});
+    pending=task;return task;
+  },stop(){generation++;pingController?.abort();pingController=null;pending=null;previous=null;previousNetwork=null;lastTime=-Infinity;lastPingTime=-Infinity;last=empty();for(const key of Object.keys(successAt))successAt[key]=-Infinity;}};
 }
