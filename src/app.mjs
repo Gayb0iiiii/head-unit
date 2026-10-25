@@ -79,11 +79,21 @@ function clockStatusLabel(){
   if(timeStatus.ntpEnabled)return timeStatus.synchronized?'Automatic time · Synchronized':'Automatic time · Waiting for sync';
   return 'Manual system time';
 }
+function manualTimeOutcome(result){
+  if(result?.changed===true)return 'System time updated. Automatic time is off.';
+  if(result?.ntpRestored===false)return 'Time outcome uncertain. Automatic time may be off; check the system clock.';
+  if(result?.changed===null){
+    if(result.ntpRestored===true)return 'Time outcome uncertain; check the system clock. Automatic time restored.';
+    if(result.status?.ntpEnabled===false)return 'Time outcome uncertain. Automatic time is off; check the system clock.';
+    return 'Time outcome uncertain; check the system clock and automatic time.';
+  }
+  return result?.ntpRestored===true?'Time was not changed. Automatic time restored.':'Time was not changed; check automatic time.';
+}
 function renderWeather(){
   const w=weatherSnapshot,hasReading=['current','stale'].includes(w.status)&&Number.isFinite(w.temperatureC)&&Number.isFinite(w.fetchedAt)&&Number.isFinite(w.observedAt);
   const city=w.location?.label?escapeHtml(w.location.label):'Local weather';
   if(!hasReading)return `<section class="panel home-weather" data-weather-status="${w.status}"><div class="weather-heading"><h2>Weather</h2><span>${city}</span></div><p class="weather-status">${w.status==='loading'?'Finding local weather':'Weather unavailable'}</p><button class="weather-configure" data-action="settings">Choose city in Settings</button></section>`;
-  const age=weatherAge(Date.now(),w.observedAt);
+  const age=weatherAge(Math.max(Date.now(),w.fetchedAt),w.observedAt);
   const details=[Number.isFinite(w.apparentC)?`Feels like ${Math.round(w.apparentC)}°`:null,Number.isFinite(w.windKmh)?`Wind ${Math.round(w.windKmh)} km/h`:null].filter(Boolean).join(' · ');
   return `<section class="panel home-weather" data-weather-status="${w.status}"><div class="weather-heading"><h2>Weather</h2><span>${city}</span></div><div class="weather-reading"><strong>${Math.round(w.temperatureC)}°C</strong><span>${weatherLabel(w.weatherCode)}</span></div>${details?`<p class="weather-detail">${details}</p>`:''}<div class="weather-credit"><span>${w.status==='stale'?'Earlier weather · ':''}Observed ${age}</span><a href="https://open-meteo.com/" data-weather-attribution>Weather data by Open-Meteo.com</a><a href="https://www.geonames.org/" data-location-attribution>Locations by GeoNames</a></div></section>`;
 }
@@ -177,7 +187,7 @@ document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
   if(a==='apply-manual-time'&&native){
     clockBusy=true;clockMessage='Checking system authorization…';render();
     Promise.resolve(window.headunit.setManualTime?.(manualTimeValue)).then(result=>{
-      clockMessage=result?.changed===true?'System time updated. Automatic time is off.':result?.ntpRestored===false?'Time outcome uncertain. Automatic time may be off; check the system clock.':result?.changed===null?'Time outcome uncertain; check the system clock. Automatic time restored.':'Time was not changed. Automatic time restored.';
+      clockMessage=manualTimeOutcome(result);
     }).catch(()=>{clockMessage='System authorization unavailable; check automatic time.';}).finally(async()=>{timeStatus=await window.headunit.getTimeStatus?.().catch(()=>null);clockBusy=false;render('clock-apply');});return;
   }
   if(a==='edit-layout'){

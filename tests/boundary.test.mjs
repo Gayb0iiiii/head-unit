@@ -115,7 +115,7 @@ test('weather and clock IPC expose bounded host facts and fixed local actions on
  let opened=0,locationsOpened=0;
  const weather={snapshot:()=>({status:'current',location:{id:123,label:'Albany, Western Australia',latitude:-35},temperatureC:18.4,apparentC:17.1,windKmh:14.3,weatherCode:2,isDay:true,observedAt:1000,fetchedAt:2000,secret:'private'}),
    search:async()=>[{id:123,label:'Albany, Western Australia, AU',latitude:-35}],select:async()=>{},subscribe:fn=>{listener=fn;return()=>{listener=null;}}};
- const timeService={status:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true,secret:'private'}),setNtp:async()=>({changed:true}),setTimezone:async()=>({changed:true}),setManualTime:async()=>({changed:null,ntpRestored:false})};
+ const timeService={status:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true,secret:'private'}),setNtp:async()=>({changed:true}),setTimezone:async()=>({changed:true}),setManualTime:async()=>({changed:null,ntpRestored:false,status:{timezone:'Australia/Perth',canNtp:true,ntpEnabled:false,synchronized:false,secret:'private'}})};
  const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,weather,timeService,openWeatherAttribution:async()=>opened++,openLocationAttribution:async()=>locationsOpened++});
  const current=await f.call('headunit:get-weather');assert.equal(current.temperatureC,18.4);assert.equal(current.location.latitude,undefined);assert.equal(current.secret,undefined);
  assert.deepEqual(await f.call('headunit:search-weather',['Albany']),[{id:123,label:'Albany, Western Australia, AU'}]);
@@ -125,7 +125,7 @@ test('weather and clock IPC expose bounded host facts and fixed local actions on
  assert.deepEqual(await f.call('headunit:get-time-status'),{timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true});
  assert.deepEqual(await f.call('headunit:set-ntp',[true]),{changed:true});
  await assert.rejects(()=>f.call('headunit:set-timezone',['../../etc']),/invalid/i);
- assert.deepEqual(await f.call('headunit:set-manual-time',['2026-10-25T12:30']),{changed:null,ntpRestored:false});
+ assert.deepEqual(await f.call('headunit:set-manual-time',['2026-10-25T12:30']),{changed:null,ntpRestored:false,status:{timezone:'Australia/Perth',canNtp:true,ntpEnabled:false,synchronized:false}});
  assert.deepEqual(await f.call(channels.weatherSource),{opened:true});assert.equal(opened,1);
  assert.deepEqual(await f.call(channels.locationSource),{opened:true});assert.equal(locationsOpened,1);
  await assert.rejects(()=>f.call(channels.weatherSource,['https://evil.test']),/invalid/i);

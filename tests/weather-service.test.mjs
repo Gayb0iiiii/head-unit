@@ -89,11 +89,13 @@ test('manual wall-clock rollback cannot make an old reading current again',async
   assert.equal(service.snapshot().status,'stale');service.dispose();
 });
 test('a newly fetched three-hour-old observation is earlier weather, never current',async()=>{
-  const now=Date.UTC(2026,9,25,8);
-  const service=createWeatherService({now:()=>now,readCache:async()=>null,writeCache:async()=>{},fetchJSON:async url=>
+  let now=Date.UTC(2026,9,25,8),steady=0;
+  const service=createWeatherService({now:()=>now,steadyNow:()=>steady,readCache:async()=>null,writeCache:async()=>{},fetchJSON:async url=>
     url.hostname==='geocoding-api.open-meteo.com'?{results:[albany]}:forecast(now-3*3600000)});
   await service.refresh();
   assert.equal(service.snapshot().status,'stale');
   assert.equal(service.snapshot().observedAt,now-3*3600000-900000);
+  now-=2*3600000;steady+=1000;
+  assert.equal(service.snapshot().status,'stale');
   service.dispose();
 });

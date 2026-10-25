@@ -25,7 +25,7 @@ const cleanWeather=value=>{
 };
 const cleanTime=value=>plain(value)&&text(value.timezone,80)&&typeof value.canNtp==='boolean'&&typeof value.ntpEnabled==='boolean'&&typeof value.synchronized==='boolean'
   ?{timezone:value.timezone,canNtp:value.canNtp,ntpEnabled:value.ntpEnabled,synchronized:value.synchronized}:null;
-const cleanChange=value=>({changed:typeof value?.changed==='boolean'?value.changed:null,...(typeof value?.ntpRestored==='boolean'?{ntpRestored:value.ntpRestored}:{})});
+const cleanChange=value=>({changed:typeof value?.changed==='boolean'?value.changed:null,...(typeof value?.ntpRestored==='boolean'?{ntpRestored:value.ntpRestored}:{}),...(cleanTime(value?.status)?{status:cleanTime(value.status)}:{})});
 
 function trustedURL(value) {
   try {

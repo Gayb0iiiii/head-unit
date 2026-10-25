@@ -41,7 +41,9 @@ export function createWeatherService({fetchJSON,readCache=async()=>null,writeCac
   }
   function snapshot(){
     const age=lastSuccessTick===null?Infinity:steadyNow()-lastSuccessTick;
-    const observationAge=data?now()-data.observedAt:Infinity;
+    // A wall-clock rollback must not promote an old observation to current.
+    // The monotonic age accumulated since this process fetched it is a floor.
+    const observationAge=data?Math.max(now()-data.observedAt,data.fetchedAt-data.observedAt+age):Infinity;
     return {status:data?(failed||age<0||age>currentMs||observationAge < -futureToleranceMs||observationAge>observationCurrentMs?'stale':'current'):city||failed?'unavailable':'loading',
       location:city?{id:city.id,label:city.label}:null,
       persistenceError,

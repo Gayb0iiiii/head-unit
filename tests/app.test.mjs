@@ -132,6 +132,14 @@ test('production Home shows only observed weather with provider age and host clo
  assert.doesNotMatch(ui.root.innerHTML,/Weather unavailable/);
 });
 
+test('weather age does not shrink after a host clock rollback',async()=>{
+ const now=Date.now();
+ const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),
+   getWeather:async()=>({status:'stale',location:{id:123,label:'Albany, Western Australia'},temperatureC:18,weatherCode:2,observedAt:now-3600000,fetchedAt:now+2*3600000})};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);
+ assert.match(ui.root.innerHTML,/Earlier weather · Observed 3 hrs ago/);
+});
+
 test('clock settings expose truthful sync state and bounded manual action',async()=>{
  const calls=[];const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),
    getTimeStatus:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true}),
@@ -166,6 +174,17 @@ test('uncertain manual clock outcome warns when automatic time was not confirmed
  ui.click('action','settings');ui.input('manualTime','2026-10-25T12:30');ui.click('action','apply-manual-time');
  await new Promise(setImmediate);await new Promise(setImmediate);
  assert.match(ui.root.innerHTML,/Automatic time may be off/);
+});
+
+test('uncertain manual clock with automatic time already off never claims it was restored',async()=>{
+ const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),
+   getTimeStatus:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:false,synchronized:false}),
+   setManualTime:async()=>({changed:null,status:{timezone:'Australia/Perth',canNtp:true,ntpEnabled:false,synchronized:false}})};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);
+ ui.click('action','settings');ui.input('manualTime','2026-10-25T12:30');ui.click('action','apply-manual-time');
+ await new Promise(setImmediate);await new Promise(setImmediate);
+ assert.match(ui.root.innerHTML,/Automatic time is off/);
+ assert.doesNotMatch(ui.root.innerHTML,/Automatic time restored/);
 });
 
 test('late host clock status enables Settings without navigating away',async()=>{
