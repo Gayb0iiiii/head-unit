@@ -51,3 +51,16 @@ test('timezone changes use only an approved local-zone choice and interactive ti
   assert.equal(calls[1].includes('SetTimezone'),true);
   assert.deepEqual(calls[1].slice(-3),['sb','Etc/UTC','true']);
 });
+
+test('denied automatic time and timezone authorization leaves OS state unchanged',async()=>{
+  const calls=[];
+  const service=createTimeService({run:async(command,args)=>{
+    calls.push([command,...args]);
+    if(command==='timedatectl')return synced;
+    throw Error('Interactive authorization denied');
+  }});
+  await assert.rejects(()=>service.setNtp(false),/authorization denied/);
+  await assert.rejects(()=>service.setTimezone('Etc/UTC'),/authorization denied/);
+  assert.deepEqual(await service.status(),parseTimeStatus(synced));
+  assert.deepEqual(calls.filter(([command])=>command==='busctl').map(call=>call[5]),['SetNTP','SetTimezone']);
+});
