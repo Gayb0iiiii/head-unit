@@ -23,7 +23,7 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     if(disposed||instance!==current||!instance.ready||!pending||instance.mode!=='candidate')return;
     try{await saveState({active:instance.release.sha,pending:null,previous:active.sha});}
     catch{if(instance.child.kill('SIGTERM')===false)onFatal(Error('Failed release could not stop'));else armStop(instance);return;}
-    active=instance.release;pending=null;failures=0;clearWatch();
+    active=instance.release;pending=null;instance.mode='active';failures=0;clearWatch();
   }
   async function receive(instance,message){
     if(disposed||instance!==current||!message||typeof message!=='object')return;
@@ -36,8 +36,9 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
         timer?.unref?.();
         return;
       }
-      failures=0;
       instance.ready=true;
+      timer=setTimer(()=>{void enqueue(()=>{if(current===instance&&!pending)failures=0;});},healthMs);
+      timer?.unref?.();
       return;
     }
     if(message.kind!=='activate'||!Number.isSafeInteger(message.id)||message.id<1||message.id>1e9)return;

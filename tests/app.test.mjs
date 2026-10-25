@@ -82,8 +82,15 @@ test('Settings update requires a second parked action and stays disabled in moti
  assert.match(ui.root.innerHTML,/Check for update/);
  ui.click('action','arm-update');assert.equal(requests,0);
  assert.match(ui.root.innerHTML,/I am parked · Update/);
+ ui.click('action','home');ui.click('action','settings');
+ assert.doesNotMatch(ui.root.innerHTML,/I am parked · Update/);
+ assert.equal(requests,0);
+ ui.click('action','arm-update');
+ ui.focus('confirm-update');
  ui.click('action','confirm-update');await new Promise(setImmediate);assert.equal(requests,1);
  publish({phase:'checking'});assert.match(ui.root.innerHTML,/Cancel check/);
+ assert.equal(ui.doc.activeElement?.dataset?.focusKey,'cancel-update');
+ publish({phase:'activating'});assert.equal(ui.doc.activeElement?.dataset?.focusKey,'update-status');
  ui.updateMotion('moving');assert.match(ui.root.innerHTML,/data-action="arm-update"[^>]*disabled/);
 });
 test('production bridge stays empty until an authoritative view arrives',async()=>{

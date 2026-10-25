@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,rm,rename} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {prepareHeadunitUpdate} from '../electron/update-source.mjs';
+import {prepareHeadunitUpdate,runUpdateCommand} from '../electron/update-source.mjs';
 
 const old='a'.repeat(40),next='b'.repeat(40);
-async function fixture({origin='https://github.com/Gayb0iiiii/head-unit.git',branch='feat/orangepi-system-ui',dirty='',activeHead=old,target=next,diverged=false,buildFails=false}={}){
+async function fixture({origin='https://github.com/Gayb0iiiii/head-unit.git',effectiveOrigin=origin,branch='feat/orangepi-system-ui',dirty='',activeHead=old,target=next,diverged=false,buildFails=false}={}){
   const base=await mkdtemp(path.join(tmpdir(),'headunit-update-test-'));
   const sourceRoot=path.join(base,'source'),releasesRoot=path.join(base,'releases');
   await mkdir(sourceRoot);await mkdir(releasesRoot);
@@ -17,6 +17,7 @@ async function fixture({origin='https://github.com/Gayb0iiiii/head-unit.git',bra
     if(file==='git'){
       if(command.includes('rev-parse --show-toplevel'))return {stdout:`${sourceRoot}\n`};
       if(command.includes('config --get remote.origin.url'))return {stdout:`${origin}\n`};
+      if(command.includes('remote get-url origin'))return {stdout:`${effectiveOrigin}\n`};
       if(command.includes('symbolic-ref --short HEAD'))return {stdout:`${branch}\n`};
       if(command.includes('status --porcelain=v1 --untracked-files=all'))return {stdout:dirty};
       if(command.includes('rev-parse HEAD'))return {stdout:`${args.includes(path.join(releasesRoot,next))?target:activeHead}\n`};
@@ -45,7 +46,7 @@ test('stages only the fixed branch after clean origin and ancestry checks, then 
 });
 
 test('wrong origin, branch, dirty checkout, and divergence never stage',async()=>{
-  for(const options of [{origin:'https://evil.example/head-unit.git'},{branch:'main'},{dirty:' M src/app.mjs\n'},{activeHead:'c'.repeat(40)},{diverged:true}]){
+  for(const options of [{origin:'https://evil.example/head-unit.git'},{effectiveOrigin:'https://evil.example/rewrite.git'},{branch:'main'},{dirty:' M src/app.mjs\n'},{activeHead:'c'.repeat(40)},{diverged:true}]){
     const f=await fixture(options);try{
       await assert.rejects(()=>prepareHeadunitUpdate({sourceRoot:f.sourceRoot,releasesRoot:f.releasesRoot,activeSha:old,run:f.run}));
       assert.equal(f.calls.some(c=>c.args.includes('worktree')&&c.args.includes('add')),false);
@@ -85,4 +86,15 @@ test('up-to-date branch avoids a worktree and build',async()=>{
     assert.deepEqual(await prepareHeadunitUpdate({sourceRoot:f.sourceRoot,releasesRoot:f.releasesRoot,activeSha:old,run:f.run}),{status:'current',sha:old});
     assert.equal(f.calls.some(c=>c.file==='npm'||c.args.includes('worktree')),false);
   }finally{await f.close();}
+});
+test('Git expands insteadOf when reading the effective origin endpoint',async()=>{
+ const root=await mkdtemp(path.join(tmpdir(),'headunit-url-rewrite-'));try{
+   await runUpdateCommand('git',['init','-q',root]);
+   await runUpdateCommand('git',['-C',root,'remote','add','origin','https://github.com/Gayb0iiiii/head-unit.git']);
+   await runUpdateCommand('git',['-C',root,'config','url.https://example.invalid/.insteadOf','https://github.com/']);
+   const literal=await runUpdateCommand('git',['-C',root,'config','--get','remote.origin.url']);
+   const effective=await runUpdateCommand('git',['-C',root,'remote','get-url','origin']);
+   assert.equal(literal.stdout.trim(),'https://github.com/Gayb0iiiii/head-unit.git');
+   assert.equal(effective.stdout.trim(),'https://example.invalid/Gayb0iiiii/head-unit.git');
+ }finally{await rm(root,{recursive:true,force:true});}
 });
