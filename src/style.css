@@ -300,7 +300,7 @@ html[data-mode=production] .settings-scale input{width:100%;margin:0}
 body[data-appearance=day] .settings-wallpaper .file-button{background:#d4e6ed;color:#142b41;border-color:#7895a8}
 @media(max-width:649px){html[data-mode=production] #app>aside{height:calc(76px * var(--ui-scale-inverse,1))}html[data-mode=production] #app>main{min-height:calc((100dvh - 112px) * var(--ui-scale-inverse,1))}}
 @media(max-width:649px){html[data-mode=production] #app>aside{padding-block:calc(5px * var(--ui-scale-inverse,1))}html[data-mode=production] .dock-button,html[data-mode=production] .home-button{min-height:calc(60px * var(--ui-scale-inverse,1))}}
-html[data-mode=production]{--production-panel-dark:rgb(9 24 39 / .94);--production-panel-day:rgb(237 245 248 / .96)}
+html[data-mode=production]{--production-panel-dark:rgb(9 24 39 / .94);--production-panel-day:rgb(237 245 248 / .96);--production-rail-dark:rgb(9 24 39 / .96);--production-rail-day:rgb(237 245 248 / .96);--production-status-dark:rgb(9 24 39 / .96)}
 html[data-mode=production] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:var(--production-panel-dark)}
 html[data-mode=production] body[data-appearance=day] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:var(--production-panel-day)}
 @media(prefers-reduced-transparency:reduce){html[data-mode=production] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:#091827;-webkit-backdrop-filter:none;backdrop-filter:none}html[data-mode=production] body[data-appearance=day] :is(.home-media,.home-time,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,main[data-screen=apps] .tile){background:#edf5f8}}
@@ -511,5 +511,9 @@ html[data-mode=production] body[data-appearance=day] .wallpaper-group :is(h2,.se
 html[data-mode=production] body[data-appearance=day] main>header h1{width:max-content;max-width:100%;padding:5px 13px;border-radius:14px;background:#edf5f8f2;color:#142b41}
 html[data-mode=production] body[data-appearance=day] .home-link-status{width:max-content;max-width:100%;min-height:32px;padding:3px 10px;border-radius:12px;background:#edf5f8f2;color:#355668}
 html[data-mode=production] body[data-appearance=day] :is(.settings-header>span,.gallery-header p){width:max-content;max-width:100%;padding:4px 9px;border-radius:10px;background:#edf5f8f2;color:#355668}
+/* Navigation and small status text need their own stable surfaces over bright images. */
+html[data-mode=production] #app>aside{background:var(--production-rail-dark);color:#f3f7fc}
+html[data-mode=production] body[data-appearance=day] #app>aside{background:var(--production-rail-day);color:#142b41}
+html[data-mode=production] body[data-appearance=night] .home-link-status{width:max-content;max-width:100%;min-height:32px;padding:3px 10px;border-radius:12px;background:var(--production-status-dark);color:#d5e6ee}
 @media(max-width:1000px){html[data-mode=production] .wallpaper-gallery-layout{grid-template-columns:1fr}html[data-mode=production] .wallpaper-controls{position:static;grid-row:1}html[data-mode=production] .wallpaper-options{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}}
 @media(max-width:649px){html[data-mode=production] .wallpaper-options{grid-template-columns:repeat(2,minmax(0,1fr))}html[data-mode=production] .wallpaper-live-preview{min-height:200px}html[data-mode=production] .gallery-header{align-items:flex-start}html[data-mode=production] .wallpaper-controls{padding:16px}}

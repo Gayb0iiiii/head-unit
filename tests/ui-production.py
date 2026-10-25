@@ -87,7 +87,9 @@ with sync_playwright() as p:
             page.locator('.wallpaper-option[data-wallpaper="meadow"]').click()
             assert page.locator('body').get_attribute('data-wallpaper') == 'meadow'
             assert 'meadow.svg' in page.locator('.wallpaper-live-preview').evaluate("el => getComputedStyle(el,'::before').backgroundImage")
-            page.locator('.accent-option[data-accent="coral"]').click()
+            page.locator('.accent-option[data-accent="coral"]').focus()
+            page.keyboard.press('Enter')
+            assert page.evaluate("document.activeElement?.dataset.focusKey") == 'accent-coral'
             page.locator('[data-wallpaper-brightness]').evaluate("el => {el.value='125';el.dispatchEvent(new Event('input',{bubbles:true}));}")
             page.locator('[data-wallpaper-dim]').evaluate("el => {el.value='35';el.dispatchEvent(new Event('input',{bubbles:true}));}")
             page.locator('[data-wallpaper-blur]').evaluate("el => {el.value='4';el.dispatchEvent(new Event('input',{bubbles:true}));}")
@@ -110,10 +112,10 @@ with sync_playwright() as p:
               const style = getComputedStyle(el);return {background:style.backgroundColor,color:style.color};
             })''')
             assert all(rgb(item['background'])[1] >= .9 for item in safe_text), safe_text
-            def contrast(item):
+            def contrast(item, base=24):
                 bg, alpha = rgb(item['background'])
                 fg, _ = rgb(item['color'])
-                bg = [alpha * channel + (1 - alpha) * 24 for channel in bg]
+                bg = [alpha * channel + (1 - alpha) * base for channel in bg]
                 low, high = sorted((luminance(bg), luminance(fg)))
                 return (high + .05) / (low + .05)
             assert all(contrast(item) >= 4.5 for item in safe_text), safe_text
@@ -124,6 +126,16 @@ with sync_playwright() as p:
             })''')
             assert all(rgb(item['background'])[1] >= .9 for item in gallery_labels), gallery_labels
             assert all(contrast(item) >= 4.5 for item in gallery_labels), gallery_labels
+            page.locator('.wallpaper-option[data-wallpaper="solid-ivory"]').click()
+            page.locator('[data-wallpaper-brightness]').evaluate("el => {el.value='140';el.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-appearance="night"]').click()
+            page.locator('aside [data-action="home"]').click()
+            night_navigation = page.evaluate('''() => ['#app>aside','.home-link-status'].map(selector => {
+              const style = getComputedStyle(document.querySelector(selector));return {background:style.backgroundColor,color:style.color};
+            })''')
+            assert all(rgb(item['background'])[1] >= .94 for item in night_navigation), night_navigation
+            assert all(contrast(item, 255) >= 4.5 for item in night_navigation), night_navigation
         for route, title in [('radio','Radio'),('bluetooth','Bluetooth'),('projection','CarPlay'),('settings','Settings'),('apps','Apps'),('home','Home')]*2:
             page.locator(f'aside [data-action="{route}"]').click()
             assert page.locator('h1').inner_text() == title, (width,height,route)
@@ -158,6 +170,17 @@ with sync_playwright() as p:
             def intersects(a,b):
                 return a['left'] < b['right'] and a['right'] > b['left'] and a['top'] < b['bottom'] and a['bottom'] > b['top']
             assert not intersects(bounds['overlay'],bounds['title']) and not intersects(bounds['overlay'],bounds['dock']), bounds
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-action="wallpaper-gallery"]').click()
+            page.locator('.wallpaper-option[data-wallpaper="solid-ivory"]').click()
+            page.locator('[data-wallpaper-brightness]').evaluate("el => {el.value='140';el.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('aside [data-action="settings"]').click()
+            page.locator('[data-appearance="night"]').click()
+            page.locator('aside [data-action="home"]').click()
+            compact_labels = page.evaluate('''() => ['#app>aside','.home-link-status','#debug-overlay'].map(selector => {
+              const style = getComputedStyle(document.querySelector(selector));return {background:style.backgroundColor,color:style.color};
+            })''')
+            assert all(rgb(item['background'])[1] >= .9 and contrast(item, 255) >= 4.5 for item in compact_labels), compact_labels
             page.locator('aside [data-action="settings"]').click()
             page.locator('[data-ui-scale]').evaluate("el => { el.value = '100'; el.dispatchEvent(new Event('input', {bubbles:true})); }")
             page.locator('[data-debug-overlay="false"]').click()

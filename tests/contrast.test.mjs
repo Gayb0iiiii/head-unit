@@ -24,3 +24,12 @@ test('production content contrast stays above 4.5:1 against black, white, and bu
  assert.ok(ratio(hex('#d5e6ee'),hex('#091827'))>=4.5);
  assert.ok(ratio(hex('#38556b'),hex('#edf5f8'))>=4.5);
 });
+test('production navigation rail and offline status keep contrast on extreme wallpapers',()=>{
+ for(const [name,text] of [['production-rail-dark','#f3f7fc'],['production-rail-day','#142b41'],['production-status-dark','#d5e6ee']]){
+   const {color,alpha}=surface(name);
+   for(const background of [[0,0,0],[255,255,255]]){
+     const measured=ratio(hex(text),blend(color,alpha,background));
+     assert.ok(measured>=4.5,`${name} on ${background}: ${measured.toFixed(2)}:1`);
+   }
+ }
+});

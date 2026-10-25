@@ -395,7 +395,8 @@ test('production wallpaper gallery groups offline artwork and persists its selec
  for(const id of ['meadow','blue-forms','pastel-mint','pastel-lilac','solid-slate','gradient-lagoon'])assert.match(ui.root.innerHTML,new RegExp(`data-wallpaper="${id}"`));
  assert.match(ui.root.innerHTML,/data-wallpaper-file/);
  ui.click('wallpaper','pastel-mint');assert.equal(ui.doc.body.dataset.wallpaper,'pastel-mint');
- ui.click('accent','coral');assert.equal(ui.doc.body.dataset.accent,'coral');
+ ui.focus('accent-coral');ui.click('accent','coral');assert.equal(ui.doc.body.dataset.accent,'coral');
+ assert.equal(ui.doc.activeElement?.dataset.focusKey,'accent-coral','accent remains keyboard-focused after rerender');
  ui.input('wallpaperDim','35');assert.equal(ui.style.get('--wallpaper-dim'),'0.35');
  ui.input('wallpaperBlur','4');assert.equal(ui.style.get('--wallpaper-blur'),'4px');
  ui.input('wallpaperBrightness','125');assert.equal(ui.style.get('--wallpaper-brightness'),'1.25');
