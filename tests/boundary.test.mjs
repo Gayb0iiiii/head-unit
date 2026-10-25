@@ -15,6 +15,10 @@ const channels = {
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
   touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media', metrics:'headunit:get-metrics', stopMetrics:'headunit:stop-metrics',
   desktop:'headunit:exit-to-desktop',
+  weather:'headunit:weather',getWeather:'headunit:get-weather',searchWeather:'headunit:search-weather',selectWeather:'headunit:select-weather',
+  timeStatus:'headunit:get-time-status',setNtp:'headunit:set-ntp',setTimezone:'headunit:set-timezone',setManualTime:'headunit:set-manual-time',
+  weatherSource:'headunit:open-weather-source',
+  locationSource:'headunit:open-location-source',
 };
 const expectedView = {connectionPhase:'ready',homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null,desktopAvailable:false};
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -58,13 +62,22 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
   const calls=[];
   const {api, exposed} = await preload(async (...args) => {calls.push(copy(args)); return copy(expectedView);});
   assert.deepEqual([...exposed.keys()], ['headunit']);
-  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','exitToDesktop','getMetrics','getView','media','navigate','onView','selectPhone','setVolume','stopMetrics','touch']);
+  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','exitToDesktop','getMetrics','getTimeStatus','getView','getWeather','media','navigate','onView','onWeather','openLocationAttribution','openWeatherAttribution','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','stopMetrics','touch']);
   assert.equal(Object.isFrozen(api), true);
   assert.deepEqual(await api.getView(), expectedView);
   await api.getMetrics();await api.stopMetrics();await api.exitToDesktop();await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
   await api.touch([{id:0,x:0.2,y:0.8,phase:'down'}]); await api.cancelTouch(); await api.media('pause','phone-1');
   assert.deepEqual(calls, [[channels.getView],[channels.metrics],[channels.stopMetrics],[channels.desktop],[channels.navigate,'settings'],[channels.selectPhone,'phone-1'],[channels.setVolume,0.4],[channels.touch,[{id:0,x:0.2,y:0.8,phase:'down'}]],[channels.cancelTouch],[channels.media,'pause','phone-1']]);
   for (const key of ['invoke','send','ipcRenderer','session','transport','core','intent']) assert.equal(api[key], undefined);
+});
+test('weather and clock preload uses only fixed IPC channels and strips event metadata',async()=>{
+  const calls=[],{api,ipc}=await preload(async (...args)=>{calls.push(args);return [];});
+  await api.getWeather();await api.searchWeather('Albany');await api.selectWeather(123);
+  await api.getTimeStatus();await api.setNtp(true);await api.setTimezone('Australia/Perth');await api.setManualTime('2026-10-25T12:30');await api.openWeatherAttribution();await api.openLocationAttribution();
+  assert.deepEqual(calls,[[channels.getWeather],[channels.searchWeather,'Albany'],[channels.selectWeather,123],[channels.timeStatus],[channels.setNtp,true],[channels.setTimezone,'Australia/Perth'],[channels.setManualTime,'2026-10-25T12:30'],[channels.weatherSource],[channels.locationSource]]);
+  let received;const stop=api.onWeather(value=>{received=value;});
+  ipc.emit(channels.weather,{sender:'private'},{status:'unavailable'});
+  assert.deepEqual(received,{status:'unavailable'});stop();
 });
 test('metrics IPC returns only bounded counters and rejects extra arguments',async()=>{
  const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
@@ -97,6 +110,29 @@ test('Desktop availability refreshes and notifies the trusted page without leaki
  dispose();assert.equal(listener,null);
 });
 
+test('weather and clock IPC expose bounded host facts and fixed local actions only',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath),f=fixture();let listener;
+ let opened=0,locationsOpened=0;
+ const weather={snapshot:()=>({status:'current',location:{id:123,label:'Albany, Western Australia',latitude:-35},temperatureC:18.4,apparentC:17.1,windKmh:14.3,weatherCode:2,isDay:true,observedAt:1000,fetchedAt:2000,secret:'private'}),
+   search:async()=>[{id:123,label:'Albany, Western Australia, AU',latitude:-35}],select:async()=>{},subscribe:fn=>{listener=fn;return()=>{listener=null;}}};
+ const timeService={status:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true,secret:'private'}),setNtp:async()=>({changed:true}),setTimezone:async()=>({changed:true}),setManualTime:async()=>({changed:null,ntpRestored:false})};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,weather,timeService,openWeatherAttribution:async()=>opened++,openLocationAttribution:async()=>locationsOpened++});
+ const current=await f.call('headunit:get-weather');assert.equal(current.temperatureC,18.4);assert.equal(current.location.latitude,undefined);assert.equal(current.secret,undefined);
+ assert.deepEqual(await f.call('headunit:search-weather',['Albany']),[{id:123,label:'Albany, Western Australia, AU'}]);
+ await assert.rejects(()=>f.call('headunit:search-weather',['https://evil.test/']),/invalid/i);
+ await assert.rejects(()=>f.call('headunit:select-weather',[{latitude:-35}]),/invalid/i);
+ assert.deepEqual(await f.call('headunit:select-weather',[123]),{accepted:true});
+ assert.deepEqual(await f.call('headunit:get-time-status'),{timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true});
+ assert.deepEqual(await f.call('headunit:set-ntp',[true]),{changed:true});
+ await assert.rejects(()=>f.call('headunit:set-timezone',['../../etc']),/invalid/i);
+ assert.deepEqual(await f.call('headunit:set-manual-time',['2026-10-25T12:30']),{changed:null,ntpRestored:false});
+ assert.deepEqual(await f.call(channels.weatherSource),{opened:true});assert.equal(opened,1);
+ assert.deepEqual(await f.call(channels.locationSource),{opened:true});assert.equal(locationsOpened,1);
+ await assert.rejects(()=>f.call(channels.weatherSource,['https://evil.test']),/invalid/i);
+ listener?.(current);assert.equal(f.wc.sent.at(-1)[0],'headunit:weather');assert.equal(f.wc.sent.at(-1)[1].secret,undefined);
+ dispose();assert.equal(listener,null);
+});
+
 test('preload strips privileged events and removes exactly its listener on unsubscribe', async () => {
   const {api, ipc, lifecycle} = await preload();
   const received=[];
@@ -120,7 +156,7 @@ test('preload strips privileged events and removes exactly its listener on unsub
 test('main bridge converts fixed calls to validated intents and exposes only sanitized views', async () => {
   const {attachHeadunitBoundary} = await moduleAt(boundaryPath);
   const f=fixture(); const dispose=attachHeadunitBoundary({...f, trustedWindow:f.window, trustedUrl:f.url});
-  assert.deepEqual([...f.handlers.keys()].sort(), Object.values(channels).filter(c=>c!==channels.view).sort());
+  assert.deepEqual([...f.handlers.keys()].sort(), Object.values(channels).filter(c=>c!==channels.view&&c!==channels.weather).sort());
   assert.deepEqual(await f.call(channels.getView), expectedView);
   const values=[[channels.navigate,['settings'],{type:'navigate',route:'settings'}],[channels.selectPhone,['phone-1'],{type:'selectPhone',id:'phone-1'}],[channels.setVolume,[0.4],{type:'volume',value:0.4}],[channels.touch,[[{id:0,x:0.2,y:0.8,phase:'down'}]],{type:'touch',points:[{id:0,x:0.2,y:0.8,phase:'down'}]}],[channels.cancelTouch,[],{type:'cancelTouch'}],[channels.media,['play','phone-1'],{type:'media',control:'play',phoneId:'phone-1'}],[channels.navigate,['dashboard'],{type:'navigate',route:'dashboard'}]];
   for (const [channel,args,intent] of values) {assert.deepEqual(await f.call(channel,args), {accepted:true}); assert.deepEqual(f.controller.calls.at(-1), ['intent',intent]);}
@@ -331,6 +367,16 @@ test('glass runtime installs a supplied desktop provider and disposes it with th
  assert.equal((await f.call(channels.getView)).desktopAvailable,true);
  assert.deepEqual(await f.call(channels.desktop),{accepted:true});
  runtime.dispose();assert.equal(disposed,1);
+});
+test('glass runtime starts the supplied weather source and exposes time status without a network fixture',async()=>{
+ const {createGlassRuntime}=await moduleAt(runtimePath),f=fixture();let started=0,stopped=0;
+ const weather={snapshot:()=>({status:'unavailable'}),start:()=>started++,dispose:()=>stopped++,subscribe:()=>()=>{}};
+ const timeService={status:async()=>({timezone:'Etc/UTC',canNtp:true,ntpEnabled:true,synchronized:true})};
+ const runtime=createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,
+   socketPath:'/tmp/headunit-contract/core.sock',preferencePath:'/tmp/headunit-contract/preferences.json',
+   connectSocket:()=>({on(){},removeListener(){},destroy(){}}),weather,timeService});
+ assert.deepEqual(await f.call(channels.timeStatus),{timezone:'Etc/UTC',canNtp:true,ntpEnabled:true,synchronized:true});
+ runtime.start();assert.equal(started,1);runtime.dispose();assert.equal(stopped,1);
 });
 
 test('glass runtime stops owning its socket after the host window is lost', async () => {

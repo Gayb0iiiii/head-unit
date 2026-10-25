@@ -16,7 +16,7 @@ async function launch(data = new Map(), host = null, mode = null) {
     set(html) {
       this.html = html;
       elements = [...html.matchAll(/<(button|input|output|p)\b([^>]*)(?:>([\s\S]*?)<\/\1>|\s*\/?>(?!<\/input>))/g)].map(([, tag, attrs, text]) => {
-        const dataset = Object.fromEntries([...attrs.matchAll(/data-([\w-]+)="([^"]*)"/g)].map(([, key, value]) => [key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), value]));
+        const dataset = Object.fromEntries([...attrs.matchAll(/data-([\w-]+)(?:="([^"]*)")?/g)].map(([, key, value]) => [key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), value??'']));
         return {
           dataset, attrs, text, tag, onclick: null, oninput: null,
           id: attrs.match(/\bid="([^"]*)"/)?.[1],
@@ -115,6 +115,43 @@ test('offline Home keeps missing media and weather compact and offers a real loc
  assert.match(ui.root.innerHTML,/<button class="media-browse" data-action="apps"[^>]*>[\s\S]*?<span>Browse apps<\/span>/);
  ui.click('action','apps');
  assert.match(ui.root.innerHTML,/<h1>Apps<\/h1>/);
+});
+
+test('production Home shows only observed weather with provider age and host clock zone',async()=>{
+ const now=Date.now();
+ const host={onView:()=>()=>{},getView:async()=>({connected:false,connectionPhase:'backoff',phones:[]}),
+   onWeather:()=>()=>{},getWeather:async()=>({status:'current',location:{id:123,label:'Albany, Western Australia'},temperatureC:18.4,apparentC:17.1,windKmh:14.3,weatherCode:2,isDay:true,fetchedAt:now,observedAt:now-900000}),
+   getTimeStatus:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true})};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);
+ assert.match(ui.root.innerHTML,/Albany, Western Australia/);
+ assert.match(ui.root.innerHTML,/18°C/);
+ assert.match(ui.root.innerHTML,/Partly cloudy/);
+ assert.match(ui.root.innerHTML,/Weather data by Open-Meteo.com/);
+ assert.match(ui.root.innerHTML,/Australia\/Perth/);
+ assert.doesNotMatch(ui.root.innerHTML,/Weather unavailable/);
+});
+
+test('clock settings expose truthful sync state and bounded manual action',async()=>{
+ const calls=[];const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),
+   getTimeStatus:async()=>({timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true}),
+   setManualTime:async value=>{calls.push(value);return {changed:true};}};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);
+ ui.click('action','settings');
+ assert.match(ui.root.innerHTML,/Automatic time/);
+ assert.match(ui.root.innerHTML,/Synchronized/);
+ assert.match(ui.root.innerHTML,/Australia\/Perth/);
+ assert.match(ui.root.innerHTML,/data-manual-time/);
+ ui.input('manualTime','2026-10-25T12:30');ui.click('action','apply-manual-time');await new Promise(setImmediate);
+ assert.deepEqual(calls,['2026-10-25T12:30']);
+});
+
+test('late host clock status enables Settings without navigating away',async()=>{
+  let resolveStatus;
+  const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),getTimeStatus:()=>new Promise(resolve=>{resolveStatus=resolve;})};
+  const ui=await launch(new Map(),host,'production');ui.click('action','settings');
+  assert.match(ui.root.innerHTML,/Time sync status unavailable/);
+  resolveStatus({timezone:'Australia/Perth',canNtp:true,ntpEnabled:true,synchronized:true});await new Promise(setImmediate);
+  assert.match(ui.root.innerHTML,/Synchronized/);
 });
 
 test('Escape backs out of a local destination while keyboard activation remains native',async()=>{

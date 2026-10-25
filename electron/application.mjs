@@ -4,7 +4,7 @@ import {headunitWindowOptions} from './host.mjs';
 import {createGlassRuntime} from './glass-runtime.mjs';
 
 /** Main-process owner. Does not spawn LIVI, alter services, or expose process controls to IPC. */
-export function startHeadunitApplication({app,BrowserWindow,Menu,ipcMain,signals=process,env=process.env,screen,platform=process.platform,
+export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,signals=process,env=process.env,screen,platform=process.platform,
   pageURL=new URL('../dist/index.html',import.meta.url).href,createRuntime=createGlassRuntime}) {
   const socketPath=env.LIVI_CORE_SOCKET;
   if(typeof socketPath!=='string'||!path.isAbsolute(socketPath)||path.basename(socketPath)!=='core.sock'||socketPath.includes('\0'))throw Error('Explicit LIVI_CORE_SOCKET required');
@@ -51,6 +51,9 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,ipcMain,signals
     runtime=createRuntime({ipcMain,trustedWindow:window,trustedUrl:pageURL,socketPath,
       ...(compositor&&env.HEADUNIT_SECONDARY_WINDOWS==='1'?{secondary:{BrowserWindow,screen}}:{}),
       preferencePath:path.join(app.getPath('userData'),'headunit-preferences.json'),
+      localServices:env.HEADUNIT_SESSION==='1',
+      openWeatherAttribution:shell?()=>shell.openExternal('https://open-meteo.com/'):undefined,
+      openLocationAttribution:shell?()=>shell.openExternal('https://www.geonames.org/'):undefined,
       lifeline:{env,onLost:()=>shutdown()}});
     if(compositor)detachWindow=attachCompositorWindow({window,screen,kiosk:env.LIVI_KIOSK==='1',subscribeConfig:runtime.subscribeWindowConfig});
     runtime.start();

@@ -9,6 +9,23 @@ const bounded = value => Number.isFinite(value) && value >= 0 && value <= 1;
 const text = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max;
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
 const exact = (value, keys) => plain(value) && Object.keys(value).sort().join(',') === [...keys].sort().join(',');
+const cityQuery=value=>typeof value==='string'&&value.length>=3&&value.length<=64&&/^[-'., \p{L}\p{M}]+$/u.test(value);
+const localDateTime=value=>typeof value==='string'&&/^(20[2-9][0-9]|2100)-\d\d-\d\dT\d\d:\d\d$/.test(value);
+const cleanWeather=value=>{
+  const source=plain(value)?value:{};
+  const number=(entry,min,max)=>Number.isFinite(entry)&&entry>=min&&entry<=max?entry:null;
+  const label=text(source.location?.label,120)?source.location.label:null;
+  const id=Number.isSafeInteger(source.location?.id)&&source.location.id>0?source.location.id:null;
+  return {status:['loading','current','stale','unavailable'].includes(source.status)?source.status:'unavailable',location:id&&label?{id,label}:null,
+    persistenceError:source.persistenceError===true,
+    temperatureC:number(source.temperatureC,-90,65),apparentC:number(source.apparentC,-100,70),windKmh:number(source.windKmh,0,350),
+    weatherCode:Number.isInteger(source.weatherCode)&&source.weatherCode>=0&&source.weatherCode<=99?source.weatherCode:null,
+    isDay:typeof source.isDay==='boolean'?source.isDay:null,
+    observedAt:number(source.observedAt,0,Number.MAX_SAFE_INTEGER),fetchedAt:number(source.fetchedAt,0,Number.MAX_SAFE_INTEGER)};
+};
+const cleanTime=value=>plain(value)&&text(value.timezone,80)&&typeof value.canNtp==='boolean'&&typeof value.ntpEnabled==='boolean'&&typeof value.synchronized==='boolean'
+  ?{timezone:value.timezone,canNtp:value.canNtp,ntpEnabled:value.ntpEnabled,synchronized:value.synchronized}:null;
+const cleanChange=value=>({changed:typeof value?.changed==='boolean'?value.changed:null,...(typeof value?.ntpRestored==='boolean'?{ntpRestored:value.ntpRestored}:{})});
 
 function trustedURL(value) {
   try {
@@ -54,7 +71,7 @@ function pointsValid(points) {
 }
 
 /** One host window owns these channels. Call the returned function when detaching. */
-export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff}) {
+export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff, weather, timeService, openWeatherAttribution, openLocationAttribution}) {
   const url = trustedURL(trustedUrl);
   const contents = trustedWindow?.webContents;
   if (!contents || !controller || !['view','subscribe','intent'].every(key => typeof controller[key] === 'function')) throw new TypeError('Trusted window and controller required');
@@ -65,6 +82,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
   const windowLifecycle = [];
   let unsubscribe;
   let unsubscribeDesktop;
+  let unsubscribeWeather;
   const registered = [];
   const lifecycle = [];
   function on(name, listener) { contents.on(name,listener); lifecycle.push([name,listener]); }
@@ -110,6 +128,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     for (const [name,listener] of windowLifecycle) trustedWindow.removeListener(name,listener);
     unsubscribe?.();
     unsubscribeDesktop?.();
+    unsubscribeWeather?.();
   }
   try {
     register('headunit:get-view',0,() => true,async () => {await desktopHandoff?.refresh?.();return rendererView(controller.view(),desktopHandoff?.available);});
@@ -118,6 +137,18 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
       if(await desktopHandoff.request()!==true)throw Error('Desktop session unavailable');
       return {accepted:true};
     });
+    register('headunit:get-weather',0,()=>true,()=>cleanWeather(weather?.snapshot?.()));
+    register('headunit:open-weather-source',0,()=>true,async()=>{if(typeof openWeatherAttribution!=='function')throw Error('Weather source unavailable');await openWeatherAttribution();return {opened:true};});
+    register('headunit:open-location-source',0,()=>true,async()=>{if(typeof openLocationAttribution!=='function')throw Error('Location source unavailable');await openLocationAttribution();return {opened:true};});
+    register('headunit:search-weather',1,cityQuery,async query=>{
+      const results=await weather?.search?.(query);
+      return (Array.isArray(results)?results:[]).slice(0,10).filter(item=>Number.isSafeInteger(item?.id)&&item.id>0&&text(item?.label,120)).map(item=>({id:item.id,label:item.label}));
+    });
+    register('headunit:select-weather',1,id=>Number.isSafeInteger(id)&&id>0,async id=>{if(!weather?.select)throw Error('Weather unavailable');await weather.select(id);return {accepted:true};});
+    register('headunit:get-time-status',0,()=>true,async()=>cleanTime(await timeService?.status?.()));
+    register('headunit:set-ntp',1,value=>typeof value==='boolean',async value=>cleanChange(await timeService?.setNtp?.(value)));
+    register('headunit:set-timezone',1,value=>['Australia/Perth','Etc/UTC'].includes(value),async value=>cleanChange(await timeService?.setTimezone?.(value)));
+    register('headunit:set-manual-time',1,localDateTime,async value=>cleanChange(await timeService?.setManualTime?.(value)));
     register('headunit:get-metrics',0,() => true,async()=>{
       const sample=await systemMetrics?.sample?.();
       const percent=value=>Number.isFinite(value)&&value>=0&&value<=100?value:null;
@@ -165,6 +196,9 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     });
     unsubscribeDesktop=desktopHandoff?.subscribe?.(()=>{
       if(pageTrusted())try{contents.send('headunit:view',rendererView(controller.view(),desktopHandoff.available));}catch{}
+    });
+    unsubscribeWeather=weather?.subscribe?.(snapshot=>{
+      if(pageTrusted())try{contents.send('headunit:weather',cleanWeather(snapshot));}catch{}
     });
     return dispose;
   } catch (error) {

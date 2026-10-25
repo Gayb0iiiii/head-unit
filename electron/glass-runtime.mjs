@@ -7,18 +7,26 @@ import {FilePreferences} from '../src/preferences.mjs';
 import {attachHeadunitHost} from './host.mjs';
 import {createSystemMetrics} from './system-metrics.mjs';
 import {createLogindDesktopHandoff} from './logind-desktop.mjs';
+import {createWeatherService} from './weather-service.mjs';
+import {fetchWeatherJSON,weatherCache} from './weather-host.mjs';
+import {createTimeService} from './time-service.mjs';
+import path from 'node:path';
 
 /** Attach the glass shell to a host-owned window. Only start() opens core.sock. */
-export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary,desktopHandoff}) {
+export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary,desktopHandoff,weather,timeService,localServices=false,openWeatherAttribution,openLocationAttribution}) {
   const transport = new CoreTransport(socketPath,connectSocket);
   const preferences = new FilePreferences(preferencePath);
   const controller = new HeadunitController(transport,preferences);
   const handoff=desktopHandoff??createLogindDesktopHandoff();
+  const cache=localServices?weatherCache(path.join(path.dirname(preferencePath),'headunit-weather.json')):null;
+  const weatherSource=weather??(localServices?createWeatherService({fetchJSON:fetchWeatherJSON,readCache:cache.read,writeCache:cache.write}):null);
+  const clockSource=timeService??(localServices?createTimeService():null);
   let detach;
   try {
-    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics(),desktopHandoff:handoff});
+    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics(),desktopHandoff:handoff,weather:weatherSource,timeService:clockSource,openWeatherAttribution,openLocationAttribution});
   } catch (error) {
     handoff?.dispose?.();
+    weatherSource?.dispose?.();
     controller.dispose();
     transport.stop();
     throw error;
@@ -39,6 +47,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
     contents.removeListener('render-process-gone',dispose);
     detach();
     handoff?.dispose?.();
+    weatherSource?.dispose?.();
     controller.dispose();
     transport.stop();
   }
@@ -59,6 +68,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
           detachLifeline=watchParentLifeline({...lifeline,onLost:()=>{dispose();onLost();}});
         }
         if(disposed){detachLifeline();return;}
+        weatherSource?.start?.();
         transport.start();
       } catch(error) {dispose();throw error;}
     },

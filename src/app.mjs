@@ -1,6 +1,7 @@
 import {pictureMarkup} from './picture.mjs';
 import {connectionPresentation} from './connection-status.mjs';
-import {startClock} from './clock.mjs';
+import {startClock,formatClock} from './clock.mjs';
+import {weatherLabel,weatherAge} from './weather-presentation.mjs';
 import {startDebugOverlay} from './debug-overlay.mjs';
 import {readWallpaperFile} from './wallpaper-image.mjs';
 import {wallpaperGroups,accents} from './wallpaper-catalog.mjs';
@@ -19,6 +20,14 @@ let wallpaperGalleryOpen=false;
 let stopDebugOverlay;
 let settingsAdvancedOpen=false;
 let wallpaperImportError='';
+let weatherSnapshot={status:'unavailable',location:null};
+let timeStatus=null;
+let weatherResults=[];
+let weatherQuery='';
+let weatherMessage='';
+let manualTimeValue='';
+let clockMessage='';
+let clockBusy=false;
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const glyphs={home:'<rect x="4" y="4" width="6" height="6" rx="2"/><rect x="14" y="4" width="6" height="6" rx="2"/><rect x="4" y="14" width="6" height="6" rx="2"/><rect x="14" y="14" width="6" height="6" rx="2"/>',phones:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>',projection:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>',settings:'<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',vehicle:'<path d="m4 10 2-5h12l2 5M3 16h18V10H3zM6 16v3m12-3v3M6 13h2m8 0h2"/>',audio:'<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/>',back:'<path d="m14 5-7 7 7 7"/>',dashboard:'<rect x="3" y="4" width="11" height="16" rx="2"/><rect x="17" y="4" width="4" height="7" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>',play:'<path d="m9 5 11 7-11 7z"/>',pause:'<path d="M8 5v14M16 5v14"/>'};
 glyphs.radio='<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M7 5l10-3M7 11h10M8 16h2m3 0h3"/>';
@@ -65,7 +74,20 @@ function renderNativeMedia(s){
   const enabled=available&&media.playing!==null&&!model.pendingPhone;
   return `<section class="dashboard-card music-card native-media home-media" data-layout-id="music" aria-label="Now playing"><h2>Now playing</h2><div class="home-media-content"><div class="home-media-symbol" aria-hidden="true">${icon('audio')}</div><div class="home-media-copy">${available?`<h3>${escapeHtml(media.title??'Track unavailable')}</h3><p>${escapeHtml(media.artist??'Artist unavailable')}</p><p>${media.playing===null?'Playback state unavailable':media.playing?'Playing':'Paused'}</p>`:`<h3>${message}</h3>`}</div></div>${!available?button('Browse apps','apps','media-browse'):''}${enabled?`<div class="native-media-controls"><button data-media="${media.playing?'pause':'play'}" ${s.mediaPending?'disabled':''}>${media.playing?'Pause':'Play'}</button></div>`:''}${s.mediaPending?'<p role="status">Updating playback…</p>':''}${s.editingLayout&&s.homeMode==='dashboard'?reorderControls('dashboard','music',s):''}</section>`;
 }
-function renderHomeSummary(){const now=new Date();return `<section class="home-summary" aria-label="Home information"><div class="panel home-time"><h2>Time</h2><time id="headunit-home-clock">${now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})}</time><span id="headunit-home-date">${now.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'})}</span></div><div class="panel home-weather" data-weather-status="unavailable"><h2>Weather</h2><p class="weather-status">Weather unavailable</p></div></section>`;}
+function clockStatusLabel(){
+  if(!timeStatus)return 'Time sync status unavailable';
+  if(timeStatus.ntpEnabled)return timeStatus.synchronized?'Automatic time · Synchronized':'Automatic time · Waiting for sync';
+  return 'Manual system time';
+}
+function renderWeather(){
+  const w=weatherSnapshot,hasReading=['current','stale'].includes(w.status)&&Number.isFinite(w.temperatureC)&&Number.isFinite(w.fetchedAt);
+  const city=w.location?.label?escapeHtml(w.location.label):'Local weather';
+  if(!hasReading)return `<section class="panel home-weather" data-weather-status="${w.status}"><div class="weather-heading"><h2>Weather</h2><span>${city}</span></div><p class="weather-status">${w.status==='loading'?'Finding local weather':'Weather unavailable'}</p><button class="weather-configure" data-action="settings">Choose city in Settings</button></section>`;
+  const age=weatherAge(Date.now(),w.fetchedAt);
+  const details=[Number.isFinite(w.apparentC)?`Feels like ${Math.round(w.apparentC)}°`:null,Number.isFinite(w.windKmh)?`Wind ${Math.round(w.windKmh)} km/h`:null].filter(Boolean).join(' · ');
+  return `<section class="panel home-weather" data-weather-status="${w.status}"><div class="weather-heading"><h2>Weather</h2><span>${city}</span></div><div class="weather-reading"><strong>${Math.round(w.temperatureC)}°C</strong><span>${weatherLabel(w.weatherCode)}</span></div>${details?`<p class="weather-detail">${details}</p>`:''}<div class="weather-credit"><span>${w.status==='stale'?'Earlier weather · ':'Updated '}${age}</span><a href="https://open-meteo.com/" data-weather-attribution>Weather data by Open-Meteo.com</a><a href="https://www.geonames.org/" data-location-attribution>Locations by GeoNames</a></div></section>`;
+}
+function renderHomeSummary(){const clock=formatClock(new Date(),timeStatus?.timezone);return `<section class="panel home-time"><h2>Time</h2><time id="headunit-home-clock">${clock.time}</time><span id="headunit-home-date">${clock.date}</span><p class="clock-status">${clockStatusLabel()}${timeStatus?` · ${escapeHtml(timeStatus.timezone)}`:''}</p></section>${renderWeather()}`;}
 function homeConnectionLabel(s){
   if(s.connected)return 'Phone system connected';
   if(s.connectionPhase==='refused')return 'Unable to connect phone system';
@@ -96,6 +118,15 @@ function renderWallpaperGallery(s){
   const slider=(title,key,value,min,max,step,suffix)=>`<label class="wallpaper-tuning"><span>${title}<output id="${key}-value">${value}${suffix}</output></span><input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-${key}="true" ${locked}></label>`;
   return `<header class="gallery-header"><button class="back" data-action="back" aria-label="Back to Settings">${icon('back')}</button><div><h1>Wallpapers</h1><p>Choose a look for your screen</p></div></header><div class="wallpaper-gallery-layout"><div class="wallpaper-gallery-content"><section class="wallpaper-live-preview" aria-label="Current wallpaper preview"><div class="wallpaper-preview-content"><span>Preview</span><div class="wallpaper-preview-panel"><strong>Home</strong><span>Selected wallpaper</span></div></div></section>${wallpaperGroups.map(group).join('')}<section class="wallpaper-group"><h2>My image</h2><div class="wallpaper-import"><label class="file-button">Choose image<input type="file" data-wallpaper-file accept="image/png,image/jpeg,image/webp" ${locked}></label>${s.customWallpaper?`<button class="wallpaper-option custom" data-wallpaper="custom" aria-pressed="${s.wallpaper==='custom'}" ${locked}><span class="wallpaper-option-art" aria-hidden="true"></span><strong>My image</strong></button><button class="text-button" data-reset-wallpaper ${locked}>Remove image</button>`:''}</div><p class="settings-note" role="status">${wallpaperImportError||'Local PNG, JPEG or WebP · up to 1 MB'}</p></section></div><section class="wallpaper-controls" aria-label="Wallpaper controls"><h2>Make it yours</h2><p class="settings-note">Changes appear on your screen as you adjust them.</p><h3>Accent colour</h3><div class="accent-options" role="group" aria-label="Accent colour">${accents.map(([value,label])=>`<button class="accent-option" data-accent="${value}" data-focus-key="accent-${value}" aria-pressed="${s.accent===value}" aria-label="${label}" ${locked}><span aria-hidden="true"></span><small>${label}</small></button>`).join('')}</div>${slider('Brightness','wallpaper-brightness',s.wallpaperBrightness,60,140,5,'%')}${slider('Dim wallpaper','wallpaper-dim',s.wallpaperDim,0,60,5,'%')}${slider('Blur wallpaper','wallpaper-blur',s.wallpaperBlur,0,8,1,' px')}<button class="text-button" data-action="reset-wallpaper-tuning" ${locked}>Reset adjustments</button><p id="save-status" class="save-status" role="status">${saveNotice()}</p></section></div>`;
 }
+function renderWeatherSettings(s){
+  const locked=s.motionState==='moving'?'disabled':'';
+  return `<section class="settings-card settings-weather"><h2>Weather location</h2><p class="settings-note">${weatherSnapshot.location?escapeHtml(weatherSnapshot.location.label):'Albany, Western Australia is the initial city.'} No device location is used.</p><div class="weather-location-search"><input type="search" data-weather-search aria-label="Search city" maxlength="64" value="${escapeHtml(weatherQuery)}" placeholder="City or town" ${locked}><button data-action="search-weather" ${locked}>Search</button></div>${weatherResults.length?`<div class="weather-results" role="group" aria-label="Choose a city">${weatherResults.map(item=>`<button data-weather-city="${item.id}" ${locked}>${escapeHtml(item.label)}</button>`).join('')}</div>`:''}<p class="settings-note" role="status">${escapeHtml(weatherMessage)}</p><p class="settings-note"><a href="https://open-meteo.com/" data-weather-attribution>Weather data by Open-Meteo.com</a> · <a href="https://www.geonames.org/" data-location-attribution>Locations by GeoNames</a></p></section>`;
+}
+function renderClockSettings(s){
+  const locked=s.motionState==='moving'||clockBusy||!timeStatus?'disabled':'';
+  const automatic=timeStatus?.ntpEnabled===true;
+  return `<section class="settings-card settings-clock"><h2>Date & time</h2><p class="settings-note" role="status">${clockStatusLabel()}${timeStatus?` · ${escapeHtml(timeStatus.timezone)}`:''}</p><div class="clock-setting-row"><span>Automatic time</span><button data-clock-ntp="true" aria-pressed="${automatic}" ${locked||!timeStatus?.canNtp?'disabled':''}>On</button><button data-clock-ntp="false" aria-pressed="${!automatic&&!!timeStatus}" ${locked||!timeStatus?.canNtp?'disabled':''}>Off</button></div><div class="clock-setting-row"><span>Time zone</span><button data-clock-zone="Australia/Perth" aria-pressed="${timeStatus?.timezone==='Australia/Perth'}" ${locked}>Perth</button><button data-clock-zone="Etc/UTC" aria-pressed="${timeStatus?.timezone==='Etc/UTC'}" ${locked}>UTC</button></div><label class="manual-time-label">Set local date and time<input type="datetime-local" data-manual-time value="${escapeHtml(manualTimeValue)}" ${locked}></label><button class="time-apply" data-action="apply-manual-time" ${locked||!manualTimeValue?'disabled':''}>Apply manual time</button><p class="settings-note">Applying manual time turns automatic time off. System authorization may be required.</p><p class="settings-note" role="status">${escapeHtml(clockMessage)}</p></section>`;
+}
 function renderNativeSettings(s){return `<header class="settings-header"><h1>Settings</h1><span>${s.motionState==='moving'?'Editing locked while moving':'Edit while parked'}</span></header>
 <div class="settings-grid">
 <section class="settings-card settings-appearance"><h2>Day & night</h2><div class="appearance-modes" role="group" aria-label="Day and night appearance">${['auto','day','night'].map(mode=>`<button data-appearance="${mode}" data-focus-key="appearance-${mode}" aria-pressed="${s.appearancePreference===mode}" ${s.motionState==='moving'?'disabled':''}>${mode[0].toUpperCase()+mode.slice(1)}</button>`).join('')}</div><p class="settings-note" role="status">${s.appearance.source==='fallback'?`Headlight signal unavailable. Keeping ${s.appearance.mode} appearance.`:s.appearance.source==='manual'?`${s.appearance.mode==='day'?'Day':'Night'} mode selected.`:'Appearance follows the headlights.'}</p><p class="settings-note">Panel brightness unavailable; appearance changes colors only.</p></section>
@@ -104,6 +135,7 @@ function renderNativeSettings(s){return `<header class="settings-header"><h1>Set
 <section class="settings-card settings-dock"><h2>Dock position</h2><div class="dock-position" role="group" aria-label="Dock position">${['left','right'].map(side=>`<button data-dock-side="${side}" data-focus-key="dock-${side}" aria-pressed="${s.dockSide===side}" ${s.motionState==='moving'?'disabled':''}>${side==='left'?'Left':'Right'}</button>`).join('')}</div><p class="settings-note">The dock stays along the bottom on narrow displays.</p></section>
 <section class="settings-card settings-scale"><h2>UI scale</h2><label for="ui-scale">Controls and text</label><input id="ui-scale" type="range" min="90" max="115" step="5" value="${s.uiScale}" data-ui-scale aria-describedby="ui-scale-help" ${s.motionState==='moving'?'disabled':''}><output id="ui-scale-value" for="ui-scale">${s.uiScale}%</output><p id="ui-scale-help" class="settings-note">Adjust for your display and viewing distance.</p><button class="text-button" data-reset-ui-scale ${s.motionState==='moving'?'disabled':''}>Reset scale</button></section>
 <section class="settings-card debug-settings"><h2>Debug overlay</h2><p class="settings-note">UI frames, system CPU and RAM, active-network rates, and TCP connect latency to google.com. GPU use needs a supported counter.</p><div role="group" aria-label="Debug overlay">${[false,true].map(value=>`<button data-debug-overlay="${value}" aria-pressed="${s.debugOverlay===value}">${value?'On':'Off'}</button>`).join('')}</div></section>
+${renderWeatherSettings(s)}${renderClockSettings(s)}
 </div><p id="save-status" class="save-status" role="status">${saveNotice()}</p>
 <div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop session unavailable'}</small></span><b>›</b></button><p class="settings-note">Head-unit remains the boot interface. Return to it from the desktop session.</p></section></div>
 <details class="settings-advanced"${settingsAdvancedOpen?' open':''}><summary>Units & sensor rules</summary><section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section></details>`;}
@@ -138,6 +170,16 @@ if(native&&s.debugOverlay){
 if((!native||!s.debugOverlay)&&stopDebugOverlay){stopDebugOverlay();stopDebugOverlay=null;}
 document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
   const a=el.dataset.action;
+  if(a==='search-weather'&&native){
+    weatherMessage='Searching…';weatherResults=[];render();
+    Promise.resolve(window.headunit.searchWeather?.(weatherQuery)).then(results=>{weatherResults=Array.isArray(results)?results:[];weatherMessage=weatherResults.length?'Choose a city':'No matching city found';render();}).catch(()=>{weatherMessage='City search unavailable';render();});return;
+  }
+  if(a==='apply-manual-time'&&native){
+    clockBusy=true;clockMessage='Checking system authorization…';render();
+    Promise.resolve(window.headunit.setManualTime?.(manualTimeValue)).then(result=>{
+      clockMessage=result?.changed===true?'System time updated. Automatic time is off.':result?.changed===null?'Time verification unavailable; check the system clock.':result?.ntpRestored===false?'Time unchanged or uncertain; check automatic time.':'Time was not changed. Automatic time restored.';
+    }).catch(()=>{clockMessage='System authorization unavailable; check automatic time.';}).finally(async()=>{timeStatus=await window.headunit.getTimeStatus?.().catch(()=>null);clockBusy=false;render();});return;
+  }
   if(a==='edit-layout'){
     if(model.beginLayoutEdit()) layoutMessage='Use Earlier and Later to reorder.';
     render('done-layout');return;
@@ -167,6 +209,23 @@ document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
 });
 document.querySelectorAll('[data-home-mode]').forEach(el=>el.onclick=()=>{layoutMessage='';model.setHomeMode(el.dataset.homeMode);render();});
 document.querySelectorAll('[data-media]').forEach(el=>el.onclick=()=>{model.media(el.dataset.media);render();});
+document.querySelectorAll('[data-weather-search]').forEach(el=>el.oninput=()=>{weatherQuery=el.value;});
+document.querySelectorAll('[data-weather-city]').forEach(el=>el.onclick=()=>{
+  if(!native)return;
+  weatherMessage='Loading selected city…';const id=Number(el.dataset.weatherCity);weatherResults=[];render();
+  Promise.resolve(window.headunit.selectWeather?.(id)).then(()=>window.headunit.getWeather?.()).then(value=>{if(value)weatherSnapshot=value;weatherMessage=value?.persistenceError?'Location selected for this session':'Location saved';render();}).catch(()=>{weatherMessage='Unable to use that city';render();});
+});
+document.querySelectorAll('[data-weather-attribution]').forEach(el=>el.onclick=event=>{event?.preventDefault?.();void Promise.resolve(window.headunit?.openWeatherAttribution?.()).catch(()=>{});});
+document.querySelectorAll('[data-location-attribution]').forEach(el=>el.onclick=event=>{event?.preventDefault?.();void Promise.resolve(window.headunit?.openLocationAttribution?.()).catch(()=>{});});
+document.querySelectorAll('[data-manual-time]').forEach(el=>el.oninput=()=>{manualTimeValue=el.value;for(const button of document.querySelectorAll('[data-action]'))if(button.dataset.action==='apply-manual-time')button.disabled=!manualTimeValue;});
+document.querySelectorAll('[data-clock-ntp]').forEach(el=>el.onclick=()=>{
+  if(!native)return;clockBusy=true;clockMessage='Checking system authorization…';render();
+  Promise.resolve(window.headunit.setNtp?.(el.dataset.clockNtp==='true')).then(result=>{clockMessage=result?.changed===true?'Automatic time setting updated.':result?.changed===null?'Time setting verification unavailable.':'Automatic time setting was not changed.';}).catch(()=>{clockMessage='System authorization unavailable.';}).finally(async()=>{timeStatus=await window.headunit.getTimeStatus?.().catch(()=>null);clockBusy=false;render();});
+});
+document.querySelectorAll('[data-clock-zone]').forEach(el=>el.onclick=()=>{
+  if(!native)return;clockBusy=true;clockMessage='Checking system authorization…';render();
+  Promise.resolve(window.headunit.setTimezone?.(el.dataset.clockZone)).then(result=>{clockMessage=result?.changed===true?'System time zone updated.':result?.changed===null?'Time zone verification unavailable.':'System time zone was not changed.';}).catch(()=>{clockMessage='System authorization unavailable.';}).finally(async()=>{timeStatus=await window.headunit.getTimeStatus?.().catch(()=>null);clockBusy=false;render();});
+});
 document.querySelectorAll('[data-phone]').forEach(el=>el.onclick=()=>{model.connect(el.dataset.phone);render();});
 document.querySelectorAll('button[data-wallpaper]').forEach(el=>el.onclick=()=>{wallpaperImportError='';model.wallpaper(el.dataset.wallpaper);render();});
 document.querySelectorAll('button[data-accent]').forEach(el=>el.onclick=()=>{model.setAccent(el.dataset.accent);render(el.dataset.focusKey);});
@@ -220,6 +279,17 @@ export function updateVehicleMotion(value){
 if(model){render();if(native)model.start();}
 else document.getElementById('app').innerHTML='<main class="system-unavailable" role="status"><h1>System unavailable</h1><p>Unable to load the head unit interface.</p></main>';
 
+let stopWeather=()=>{};
+let timeStatusTimer;
+if(native){
+  if(typeof window.headunit.onWeather==='function')stopWeather=window.headunit.onWeather(value=>{weatherSnapshot=value;if(model.state.screen==='home')render();});
+  if(typeof window.headunit.getWeather==='function')Promise.resolve(window.headunit.getWeather()).then(value=>{if(value){weatherSnapshot=value;if(model.state.screen==='home')render();}}).catch(()=>{});
+  if(typeof window.headunit.getTimeStatus==='function'){
+    const refreshTime=()=>Promise.resolve(window.headunit.getTimeStatus()).then(value=>{timeStatus=value;if(['home','settings'].includes(model.state.screen)&&!wallpaperGalleryOpen&&!document.activeElement?.dataset?.manualTime)render();}).catch(()=>{timeStatus=null;});
+    void refreshTime();timeStatusTimer=setInterval(refreshTime,60000);timeStatusTimer?.unref?.();
+  }
+}
+
 document.addEventListener?.('keydown',event=>{
   if(!model||event.key!=='Escape'||event.altKey||event.ctrlKey||event.metaKey)return;
   if(wallpaperGalleryOpen){wallpaperGalleryOpen=false;render();}
@@ -230,5 +300,5 @@ document.addEventListener?.('keydown',event=>{
   event.preventDefault();
 });
 
-const stopClock=startClock(date=>{const time=date.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});for(const id of ['headunit-clock','headunit-home-clock']){const node=document.getElementById(id);if(node)node.textContent=time;}const dateNode=document.getElementById('headunit-home-date');if(dateNode)dateNode.textContent=date.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'});});
-window.addEventListener?.('unload',()=>{stopClock();stopDebugOverlay?.();model?.stop?.();});
+const stopClock=startClock(date=>{const formatted=formatClock(date,timeStatus?.timezone);for(const id of ['headunit-clock','headunit-home-clock']){const node=document.getElementById(id);if(node)node.textContent=formatted.time;}const dateNode=document.getElementById('headunit-home-date');if(dateNode)dateNode.textContent=formatted.date;});
+window.addEventListener?.('unload',()=>{stopClock();stopWeather();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});

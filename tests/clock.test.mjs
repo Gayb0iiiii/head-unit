@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {startClock} from '../src/clock.mjs';
+import {startClock,formatClock} from '../src/clock.mjs';
+test('clock formatting follows the confirmed host timezone rather than a saved offset',()=>{
+ const date=new Date('2026-10-25T00:30:00Z');
+ assert.match(formatClock(date,'Australia/Perth').time,/08:30/);
+ assert.match(formatClock(date,'Etc/UTC').time,/00:30/);
+ assert.equal(formatClock(date,'Australia/Perth').timezone,'Australia/Perth');
+});
 test('clock updates at minute boundaries without a model render and stops cleanly',()=>{
  let now=61500,nextId=0;const pending=new Map(),seen=[];
  const stop=startClock(date=>seen.push(date.getTime()),{now:()=>now,setTimeout:(fn,delay)=>{pending.set(++nextId,{fn,delay});return nextId;},clearTimeout:id=>pending.delete(id)});
