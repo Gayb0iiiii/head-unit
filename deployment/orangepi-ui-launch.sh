@@ -14,6 +14,7 @@ if ! command -v cage >/dev/null 2>&1; then echo 'Cage Wayland compositor missing
 card=$("$repo/deployment/select-drm-card.sh")
 if [ ! -c "$card" ]; then echo "DRM display device missing: $card" >&2; exit 1; fi
 export WLR_DRM_DEVICES=$card
+export HEADUNIT_SESSION=1
 if [ -z "${XDG_RUNTIME_DIR:-}" ] || [ ! -d "$XDG_RUNTIME_DIR" ]; then
   echo 'A PAM/logind runtime directory is required' >&2; exit 1
 fi

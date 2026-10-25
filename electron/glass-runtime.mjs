@@ -6,16 +6,19 @@ import {HeadunitController} from '../src/controller.mjs';
 import {FilePreferences} from '../src/preferences.mjs';
 import {attachHeadunitHost} from './host.mjs';
 import {createSystemMetrics} from './system-metrics.mjs';
+import {createLogindDesktopHandoff} from './logind-desktop.mjs';
 
 /** Attach the glass shell to a host-owned window. Only start() opens core.sock. */
-export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary}) {
+export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary,desktopHandoff}) {
   const transport = new CoreTransport(socketPath,connectSocket);
   const preferences = new FilePreferences(preferencePath);
   const controller = new HeadunitController(transport,preferences);
+  const handoff=desktopHandoff??createLogindDesktopHandoff();
   let detach;
   try {
-    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics()});
+    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics(),desktopHandoff:handoff});
   } catch (error) {
+    handoff?.dispose?.();
     controller.dispose();
     transport.stop();
     throw error;
@@ -35,6 +38,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
     contents.removeListener('destroyed',dispose);
     contents.removeListener('render-process-gone',dispose);
     detach();
+    handoff?.dispose?.();
     controller.dispose();
     transport.stop();
   }

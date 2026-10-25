@@ -384,6 +384,7 @@ test('production Settings groups local controls and keeps sensors secondary',asy
  assert.match(app.root.innerHTML,/data-debug-overlay="true"/);
  assert.match(app.root.innerHTML,/Exit to Desktop/);
  assert.match(app.root.innerHTML,/data-action="exit-to-desktop"[^>]*disabled/);
+ assert.match(app.root.innerHTML,/Desktop session unavailable/);
 });
 
 test('production wallpaper gallery groups offline artwork and persists its selected palette and tuning',async()=>{

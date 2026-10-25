@@ -64,6 +64,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
   let responsive = true;
   const windowLifecycle = [];
   let unsubscribe;
+  let unsubscribeDesktop;
   const registered = [];
   const lifecycle = [];
   function on(name, listener) { contents.on(name,listener); lifecycle.push([name,listener]); }
@@ -108,9 +109,10 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     for (const [name,listener] of lifecycle) contents.removeListener(name,listener);
     for (const [name,listener] of windowLifecycle) trustedWindow.removeListener(name,listener);
     unsubscribe?.();
+    unsubscribeDesktop?.();
   }
   try {
-    register('headunit:get-view',0,() => true,() => rendererView(controller.view(),desktopHandoff?.available));
+    register('headunit:get-view',0,() => true,async () => {await desktopHandoff?.refresh?.();return rendererView(controller.view(),desktopHandoff?.available);});
     register('headunit:exit-to-desktop',0,() => true,async()=>{
       if(desktopHandoff?.available!==true||typeof desktopHandoff.request!=='function')throw Error('Desktop session unavailable');
       if(await desktopHandoff.request()!==true)throw Error('Desktop session unavailable');
@@ -160,6 +162,9 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
         // A frame can disappear between the trust check and the send.
         try { contents.send('headunit:view',rendererView(view,desktopHandoff?.available)); } catch {}
       }
+    });
+    unsubscribeDesktop=desktopHandoff?.subscribe?.(()=>{
+      if(pageTrusted())try{contents.send('headunit:view',rendererView(controller.view(),desktopHandoff.available));}catch{}
     });
     return dispose;
   } catch (error) {

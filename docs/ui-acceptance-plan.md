@@ -26,7 +26,7 @@ Design reference: [Apple CarPlay](https://developer.apple.com/design/human-inter
 | Debug overlay | Off by default. UI frame callback cadence, aggregate CPU, used/total RAM, active default-route interface rates, and bounded TCP-connect latency to Google are labeled accurately; GPU use is unsupported absent a verified counter. A single sampler survives route changes. Pending, stale and unavailable values are distinct, with stale readings bounded to 10 seconds for local counters and 30 seconds for TCP latency. Timers and in-flight network probing stop when disabled/unloaded. |
 | Weather | No geolocation or network request before location/provider consent. A future source needs a timestamp, stale policy, and cancellable bounded requests. |
 | Directions | No panel until an authoritative, validated native turn-by-turn feed is present; video is not parsed for directions. |
-| Desktop | Settings shows a capability-gated switch. It remains disabled until a separate desktop session, seat handoff provider and return launcher have been verified; head-unit stays boot default. |
+| Desktop | Settings shows a capability-gated switch. The host provider requires a distinct live local Plasma session and confirms logind activation; the return command is separate. Both directions and recovery require Pi verification before use. Head-unit stays boot default. |
 
 ## Local acceptance matrix
 
@@ -42,7 +42,7 @@ The repeatable browser passes are `python3 tests/ui-production.py` and `python3 
 
 Remaining product dependencies: no live radio tuner or Bluetooth pairing/audio adapter is integrated; no weather provider/location has been approved; no validated LIVI turn-by-turn metadata feed exists. The selected TK1560's EDID, touch mapping and effective UI scale need verification on hardware. The Home clock uses the Pi's local timezone, which needs checking on hardware. These destinations communicate unavailable state rather than successful operation.
 
-The Desktop control and staged LXQt/Xorg installation and return plan are in [desktop-session-handoff.md](desktop-session-handoff.md). No desktop provider has been installed, so the control is disabled rather than exiting to tty. Ubuntu resolute ARM64 package candidates and total installation footprint must be checked on the Pi before approval.
+The Desktop control, strict Plasma session discovery and return command are in [desktop-session-handoff.md](desktop-session-handoff.md). They remain unverified on the Pi. The control stays disabled without a live qualifying session and never exits to tty.
 
 ## Pending review after the visual checkpoint
 

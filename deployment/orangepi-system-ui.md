@@ -119,7 +119,7 @@ sudo systemctl daemon-reload
 
 If SSH and display are both unavailable, `systemd.mask=headunit-ui.service` on a one-time boot kernel command line can suppress the service; verify the board's bootloader editing method before relying on this path. Do not remove the source until the unit is disabled.
 
-Settings now includes a capability-gated “Exit to Desktop” control. It remains disabled until a verified second graphical session and narrow handoff provider are installed; it does not close to a terminal. The manual installation and return-path plan is in [desktop-session-handoff.md](../docs/desktop-session-handoff.md). No desktop or provider is installed on the Pi by this branch.
+Settings includes a capability-gated “Exit to Desktop” control. The branch now contains a narrow same-user logind handoff provider and a desktop-side return command. The button stays disabled unless a separate live Plasma session is identified; it never closes to a terminal. The required local checks, manual round trip, recovery and rollback are in [desktop-session-handoff.md](../docs/desktop-session-handoff.md). The provider has not been verified or deployed on the Pi.
 
 ## Native boundary
 

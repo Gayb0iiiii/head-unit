@@ -86,6 +86,17 @@ test('Desktop handoff stays unavailable without an installed provider and requir
  await assert.rejects(()=>ready.call(channels.desktop,['/bin/sh']),/arguments/i);stopReady();
 });
 
+test('Desktop availability refreshes and notifies the trusted page without leaking a session ID',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
+ const f=fixture();let available=false,listener;
+ const handoff={get available(){return available;},async refresh(){available=true;listener?.();},subscribe(fn){listener=fn;return()=>{listener=null;};},request:async()=>true};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,desktopHandoff:handoff});
+ assert.equal((await f.call(channels.getView)).desktopAvailable,true);
+ assert.equal(f.wc.sent.at(-1)[1].desktopAvailable,true);
+ assert.equal('sessionId' in f.wc.sent.at(-1)[1],false);
+ dispose();assert.equal(listener,null);
+});
+
 test('preload strips privileged events and removes exactly its listener on unsubscribe', async () => {
   const {api, ipc, lifecycle} = await preload();
   const received=[];
@@ -309,6 +320,17 @@ test('glass runtime attaches before an explicit local socket start and disposes 
   await selection;
   runtime.dispose();
   assert.equal(f.handlers.size,0);
+});
+
+test('glass runtime installs a supplied desktop provider and disposes it with the window',async()=>{
+ const {createGlassRuntime}=await moduleAt(runtimePath),f=fixture();let disposed=0;
+ const desktopHandoff={available:true,refresh:async()=>true,subscribe:()=>()=>{},request:async()=>true,dispose:()=>disposed++};
+ const runtime=createGlassRuntime({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,
+   socketPath:'/tmp/headunit-contract/core.sock',preferencePath:'/tmp/headunit-contract/preferences.json',
+   connectSocket:()=>{throw Error('must not connect');},desktopHandoff});
+ assert.equal((await f.call(channels.getView)).desktopAvailable,true);
+ assert.deepEqual(await f.call(channels.desktop),{accepted:true});
+ runtime.dispose();assert.equal(disposed,1);
 });
 
 test('glass runtime stops owning its socket after the host window is lost', async () => {
