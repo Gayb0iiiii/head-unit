@@ -1,12 +1,34 @@
 import {readFile,writeFile,rename,unlink,mkdir,stat} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
+import {get as httpsGet} from 'node:https';
+import {Readable} from 'node:stream';
 import path from 'node:path';
 
 const endpoints=new Set(['https://geocoding-api.open-meteo.com/v1/search','https://api.open-meteo.com/v1/forecast']);
 const limit=65536;
 
+// The Pi's Node 22 fetch can stall during dual-stack connection setup even
+// when HTTPS over IPv4 is available. Keep this request local to the host and
+// try IPv6 only when IPv4 cannot be reached.
+function fetchHTTPS(url,{signal,headers}={}){
+  return new Promise((resolve,reject)=>{
+    const attempt=family=>{
+      const request=httpsGet(url,{family,signal,headers},response=>{
+        const status=response.statusCode??0;
+        if(status<200||status>=300){response.destroy();resolve({ok:false,status});return;}
+        resolve({ok:true,status,body:Readable.toWeb(response)});
+      });
+      request.on('error',error=>{
+        if(family===4&&!signal?.aborted&&['ENOTFOUND','EAI_AGAIN','EADDRNOTAVAIL','ENETUNREACH'].includes(error.code))attempt(6);
+        else reject(error);
+      });
+    };
+    attempt(4);
+  });
+}
+
 /** Fixed-provider, small, time-bounded HTTPS JSON read. No renderer URL crosses this boundary. */
-export async function fetchWeatherJSON(url,signal,{fetchImpl=globalThis.fetch}={}){
+export async function fetchWeatherJSON(url,signal,{fetchImpl=fetchHTTPS}={}){
   if(!(url instanceof URL)||!endpoints.has(url.origin+url.pathname)||url.username||url.password||url.hash)throw TypeError('Weather host unavailable');
   const timeout=AbortSignal.timeout(8000);
   const boundedSignal=signal?AbortSignal.any([signal,timeout]):timeout;
