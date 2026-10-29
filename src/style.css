@@ -431,7 +431,7 @@ html[data-mode=production] body[data-appearance=day] main[data-screen=home] :is(
 }
 @media(max-height:540px) and (min-width:650px){
   html[data-mode=production] main[data-screen=home] .home-dashboard,
-  html[data-mode=production] main[data-screen=home] .home-dashboard[data-media-status=unavailable]{grid-template-rows:136px 100px;gap:8px}
+  html[data-mode=production] main[data-screen=home] .home-dashboard[data-media-status=unavailable]{grid-template-rows:136px 132px;gap:8px}
   html[data-mode=production] main[data-screen=home] .home-header{min-height:40px;margin-bottom:4px}
   html[data-mode=production] main[data-screen=home] .home-header h1{font-size:24px}
   html[data-mode=production] main[data-screen=home] .compact-link-status{display:flex;align-items:center;gap:7px;margin-left:auto;padding:5px 8px;border-radius:12px;background:var(--production-status-dark);color:#d5e6ee;font-size:12px;white-space:nowrap}
@@ -448,15 +448,15 @@ html[data-mode=production] body[data-appearance=day] main[data-screen=home] :is(
   html[data-mode=production] main[data-screen=home] .home-media-copy h3{font-size:18px;line-height:1.15;margin-bottom:5px}
   html[data-mode=production] main[data-screen=home] .home-media-copy p{font-size:13px;margin:2px 0}
   html[data-mode=production] main[data-screen=home] .native-media-controls button{min-height:48px;padding:8px 18px;font-size:15px}
-  html[data-mode=production] main[data-screen=home] .home-weather{padding:8px 14px;gap:2px}
-  html[data-mode=production] main[data-screen=home] .weather-heading h2{font-size:15px}
-  html[data-mode=production] main[data-screen=home] .weather-heading span{font-size:11px}
-  html[data-mode=production] main[data-screen=home] .weather-reading strong{font-size:27px}
-  html[data-mode=production] main[data-screen=home] .weather-reading span{font-size:12px}
+  html[data-mode=production] main[data-screen=home] .home-weather{padding:9px 14px;gap:3px}
+  html[data-mode=production] main[data-screen=home] .weather-heading h2{font-size:17px}
+  html[data-mode=production] main[data-screen=home] .weather-heading span{font-size:12px}
+  html[data-mode=production] main[data-screen=home] .weather-reading strong{font-size:29px}
+  html[data-mode=production] main[data-screen=home] .weather-reading span{font-size:13px}
   html[data-mode=production] main[data-screen=home] .weather-detail{display:none}
-  html[data-mode=production] main[data-screen=home] .weather-credit{gap:1px 7px;font-size:10px;line-height:1.1}
+  html[data-mode=production] main[data-screen=home] .weather-credit{gap:2px 8px;font-size:12px;line-height:1.1}
   html[data-mode=production] main[data-screen=home] .weather-credit span{width:100%}
-  html[data-mode=production] main[data-screen=home] .weather-credit a{font-size:10px}
+  html[data-mode=production] main[data-screen=home] .weather-credit a{font-size:12px}
   html[data-mode=production] main[data-screen=home] .weather-status{font-size:14px}
   html[data-mode=production] main[data-screen=home] .weather-configure{min-height:44px;font-size:13px}
   html[data-mode=production] main[data-screen=home] .home-shortcuts{display:none}
