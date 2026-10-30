@@ -648,7 +648,6 @@ html[data-mode=production] body[data-appearance=night]:after{background:linear-g
 .local-player .local-now p{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;line-height:1.35}
 html[data-mode=production] .settings-weather a{color:var(--text-secondary)}
 html[data-mode=production] input::placeholder{color:var(--text-secondary);opacity:1}
-.local-track{content-visibility:auto;contain-intrinsic-size:auto 68px}
 /* CSS zoom reduces usable panel width without changing media-query width. */
 @media(min-width:650px){.local-audio{grid-template-columns:minmax(0,.85fr) minmax(0,1.4fr)}}
 .local-modes{gap:6px}.local-modes button{min-width:0;padding:8px 10px}

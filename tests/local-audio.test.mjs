@@ -82,3 +82,12 @@ test('native ownership denies playback including a takeover during file loading'
 test('a duplicate queued file starts at the beginning when selected',async()=>{
  const {audio,media}=setup();await audio.ready;await audio.importFiles([file('A.wav')]);await audio.playTrack(audio.tracks[0].id);audio.enqueue(audio.current.id);media.currentTime=44;await audio.next();assert.equal(media.currentTime,0);
 });
+test('paused seeks save immediately for restart continuity',async()=>{
+ const {audio,media,prefs}=setup();await audio.ready;await audio.importFiles([file('A.wav')]);await audio.playTrack(audio.tracks[0].id);audio.pause();audio.seek(37);
+ assert.equal(media.paused,true);assert.equal(prefs.value.position,37);
+});
+test('reimport repairs a missing stored blob without losing favourites or queue',async()=>{
+ const {audio,rows}=setup();await audio.ready;const input=file('A.wav');await audio.importFiles([input]);const id=audio.tracks[0].id;audio.enqueue(id);audio.favourite(id);
+ rows.set(id,{...rows.get(id),blob:undefined});await audio.play();assert.match(audio.message,/Cannot play/);
+ await audio.importFiles([input]);assert.ok(rows.get(id).blob);assert.equal(audio.tracks.length,1);assert.deepEqual(audio.queue,[id]);assert.equal(audio.favourites.has(id),true);await audio.play();assert.equal(audio.playing,true);
+});

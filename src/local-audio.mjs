@@ -53,11 +53,15 @@ export class LocalAudio {
   }
   save(){try{this.storage?.setItem(preferenceKey,JSON.stringify({queue:this.queue,index:this.index,favourites:[...this.favourites],repeat:this.repeat,shuffle:this.shuffle,position:this.position}));}catch{this.message='Playback choices could not be saved. Check local storage.';}}
   async importFiles(files){
-    if(this.busy)return;this.busy=true;await this.ready;this.message='Importing files…';this.onChange();let added=0,unsupported=0,duplicates=0;
-    try{for(const file of files){const track=describeFile(file);if(!track){unsupported++;continue;}if(this.tracks.some(t=>t.id===track.id)){duplicates++;continue;}
+    if(this.busy)return;this.busy=true;await this.ready;this.message='Importing files…';this.onChange();let added=0,unsupported=0,duplicates=0,repaired=0;
+    try{for(const file of files){const track=describeFile(file);if(!track){unsupported++;continue;}if(this.tracks.some(t=>t.id===track.id)){
+        const stored=await this.store.get(track.id);
+        if(stored?.blob){duplicates++;continue;}
+        const existing=this.tracks.find(t=>t.id===track.id);await this.store.put({...existing,blob:file});repaired++;continue;
+      }
       if(this.tracks.length>=2000)throw Error('Library limit');
       const metadata=await readAudioMetadata(file);const tagged={...track,...metadata};await this.store.put({...tagged,blob:file});this.tracks.push(tagged);added++;
-    }this.message=`${added} imported · ${duplicates} already in library · ${unsupported} unsupported or oversized`;
+    }this.message=`${added} imported · ${duplicates} already in library · ${unsupported} unsupported or oversized${repaired?` · ${repaired} repaired`:``}`;
     }catch{this.message=`${added} imported. Import stopped: check local storage (2,000 track limit).`;}
     this.busy=false;this.onChange();
   }
@@ -89,7 +93,7 @@ export class LocalAudio {
     await this.select(next);
   }
   async previous(){if(this.media?.currentTime>3){this.seek(0);return;}await this.select(Math.max(0,this.index-1));}
-  seek(value){if(this.media&&Number.isFinite(this.media.duration)&&Number.isFinite(value))this.media.currentTime=Math.max(0,Math.min(value,this.media.duration));}
+  seek(value){if(this.media&&Number.isFinite(this.media.duration)&&Number.isFinite(value)){this.media.currentTime=Math.max(0,Math.min(value,this.media.duration));this.position=this.media.currentTime;this.save();}}
   move(index,step){const target=index+step;if(!Number.isInteger(index)||![-1,1].includes(step)||target<0||target>=this.queue.length)return;
     [this.queue[index],this.queue[target]]=[this.queue[target],this.queue[index]];
     if(this.index===index)this.index=target;else if(this.index===target)this.index=index;this.save();this.onChange();}

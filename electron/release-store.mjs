@@ -44,8 +44,9 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
     return {sha,path:sourcePath};
   }
   async function resolve(sha){
+    const staged=await verifyRelease(sha);if(staged)return staged;
     const source=await sourceRelease();
-    return sha===source.sha?source:await verifyRelease(sha);
+    return sha===source.sha?source:null;
   }
   async function saveState({active,pending=null,previous=null}){
     if(!validSha(active)||pending!==null&&!validSha(pending)||previous!==null&&!validSha(previous))throw TypeError('Invalid release manifest');
@@ -60,9 +61,9 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
     }
     finally{await rm(temporary,{force:true});}
   }
-  let initial,recovered=false;
+  let initial,recovered=false,manifestExists=false;
   try{
-    const stat=await lstat(manifestPath);
+    const stat=await lstat(manifestPath);manifestExists=true;
     if(!stat.isFile()||stat.isSymbolicLink())throw Error('Invalid release manifest');
     const manifest=JSON.parse(await readFile(manifestPath,'utf8'));
     if(manifest.version!==1||!validSha(manifest.active)||manifest.pending!==null&&!validSha(manifest.pending)||manifest.previous!==null&&!validSha(manifest.previous)||Object.keys(manifest).sort().join(',')!=='active,pending,previous,version')throw Error('Invalid release manifest');
@@ -70,7 +71,7 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
     if(!initial)throw Error('Recorded release unavailable');
     if(manifest.pending!==null){recovered=true;await saveState({active:initial.sha,pending:null,previous:manifest.previous});}
   }catch(error){
-    if(error?.code!=='ENOENT')throw error;
+    if(manifestExists||error?.code!=='ENOENT')throw error;
     initial=await sourceRelease();
     await saveState({active:initial.sha});
   }

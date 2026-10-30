@@ -58,6 +58,9 @@ with sync_playwright() as p:
   expect(page.locator(selector)).to_be_disabled()
  nav('audio');expect(page.locator('[data-local-search]')).to_be_disabled();expect(page.get_by_text('Park to browse and manage music.')).to_be_visible()
  page.evaluate("async()=>{const app=await import('/src/app.mjs');app.updateVehicleMotion('stationary');}")
+ page.evaluate("testHost.emit({connected:true,route:'projection',front:'livi',projectionReady:false,phones:[]})")
+ nav('projection')
+ expect(page.get_by_role('heading',name='Waiting for a phone display')).to_be_visible()
  # Geometry must work under unchanged production CSP; no inline-style exception.
  page.evaluate("testHost.emit({connected:true,route:'projection',front:'projection',projectionReady:true,picture:{width:800,height:480,insets:{top:24,bottom:0,left:80,right:0}},phones:[]})")
  expect(page.locator('.native-picture')).to_be_visible();box=page.locator('.native-picture').bounding_box();assert box['width']==800 and box['height']==480,box
