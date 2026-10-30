@@ -502,7 +502,7 @@ html[data-mode=production] body[data-appearance=night] :is(.settings-weather inp
 :is(body,.wallpaper-option)[data-wallpaper=solid-ink]{--wallpaper-image:linear-gradient(#182b3a,#182b3a)}
 :is(body,.wallpaper-option)[data-wallpaper=solid-rose]{--wallpaper-image:linear-gradient(#b66f7f,#b66f7f)}
 :is(body,.wallpaper-option)[data-wallpaper=solid-sage]{--wallpaper-image:linear-gradient(#879e87,#879e87)}
-:is(body,.wallpaper-option)[data-wallpaper=graphite]{--wallpaper-image:linear-gradient(140deg,#4a525d,#1e2630 52%,#37434c 53%,#101820)}
+:is(body,.wallpaper-option)[data-wallpaper=graphite]{--wallpaper-image:radial-gradient(ellipse at 80% 15%,#1b3036 0,transparent 55%),linear-gradient(180deg,#10171a,#070b0d)}
 :is(body,.wallpaper-option)[data-wallpaper=gradient-lagoon]{--wallpaper-image:radial-gradient(circle at 78% 14%,#83b8bf,transparent 45%),linear-gradient(135deg,#173a55,#357b83 55%,#14485f)}
 :is(body,.wallpaper-option)[data-wallpaper=gradient-sunset]{--wallpaper-image:radial-gradient(circle at 73% 15%,#f9b9a3,transparent 45%),linear-gradient(145deg,#624c7d,#dd897e 57%,#7b678f)}
 :is(body,.wallpaper-option)[data-wallpaper=gradient-aurora]{--wallpaper-image:radial-gradient(ellipse at 30% 18%,#a3d7be,transparent 48%),linear-gradient(140deg,#173444,#386677 55%,#344b6d)}
@@ -604,21 +604,21 @@ body[data-appearance=day] .local-audio{color:var(--text-primary)}body[data-appea
 @media(min-width:650px) and (max-height:600px){.local-art{display:grid;width:76px;border-radius:17px}.local-list{max-height:110px}.local-player{gap:5px}.local-player .local-state{font-size:12px}.local-now h2{font-size:21px}.local-progress input{height:26px}.local-library{gap:5px}}
 
 
-/* Drive comfort tokens: blue slate by day, deep ink at night. The stored glass
+/* Drive comfort tokens: lifted graphite by day, near-black at night. The stored glass
    tint controls ALL surface alpha; foreground opacity is never reduced. */
 body{
- --surface-rgb:9 24 39;--surface-alpha:calc(.70 + var(--glass-tint,.422) * .30);
+ --surface-rgb:12 17 20;--surface-alpha:calc(.70 + var(--glass-tint,.422) * .30);
  --surface-paint:rgb(var(--surface-rgb) / var(--surface-alpha));
- --text-primary:#d3dfe1;--text-secondary:#c1cdd1;--control-background:#253d4b;
- --selected-background:#9fb9c2;--selected-text:#122b36;--focus-ring:#94c1ce;
- --surface-border:rgb(180 208 218 / .32);color:var(--text-primary);
+ --text-primary:#d3dfe1;--text-secondary:#c1cdd1;--control-background:#253238;
+ --selected-background:#163b44;--selected-text:#a6dce4;--focus-ring:#94c1ce;
+ --surface-border:rgb(180 208 218 / .32);color:var(--text-primary);background:#080d10;
 }
 body[data-appearance=day]{
- --surface-rgb:184 201 204;--surface-alpha:calc(.81 + var(--glass-tint,.422) * .18);
+ --surface-rgb:34 43 47;--surface-alpha:calc(.90 + var(--glass-tint,.422) * .09);
  --surface-paint:rgb(var(--surface-rgb) / var(--surface-alpha));
- --text-primary:#172e3b;--text-secondary:#243b45;--control-background:#a6bac1;
- --selected-background:#385b66;--selected-text:#dbe7e8;--focus-ring:#31596a;
- --surface-border:rgb(33 65 80 / .4);color:var(--text-primary);background:#7c939b;
+ --text-primary:#d8e0e1;--text-secondary:#bdcbce;--control-background:#2c3c42;
+ --selected-background:#19434d;--selected-text:#b3e5ec;--focus-ring:#94c1ce;
+ --surface-border:rgb(164 191 199 / .25);color:var(--text-primary);background:#161d20;
 }
 html[data-mode=production] :is(.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.tile,.panel,.row,.wallpaper-controls,.wallpaper-preview-panel,.wallpaper-option){
  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(1.35);backdrop-filter:blur(var(--glass-blur)) saturate(1.35);
@@ -660,3 +660,70 @@ html[data-mode=production] input::placeholder{color:var(--text-secondary);opacit
 .local-track button{min-width:48px}
 .local-progress input{height:48px}
 html[data-mode=production] body[data-appearance=day] .local-group select{background:var(--control-background)}
+
+/* Content-first automotive layout: quiet graphite glass and a compact driver dock.
+   Existing wallpaper/dock choices remain user-controlled. */
+html[data-mode=production] body[data-appearance] :is(.panel,.settings-card,.settings-advanced,.feature-stage,.row,.home-time,.home-weather,.home-media,.home-shortcut){border-radius:14px;box-shadow:inset 0 1px 0 rgb(190 216 223 / .07),0 5px 16px rgb(0 0 0 / .12)}
+html[data-mode=production] body[data-appearance] main>header{min-height:48px;margin-bottom:16px;flex-direction:row;align-items:center;border-bottom:1px solid var(--surface-border);padding-bottom:8px}
+html[data-mode=production] body[data-appearance] main>header h1{font-size:24px;letter-spacing:-.4px;background:transparent;border-radius:0;padding:0}
+html[data-mode=production] body[data-appearance] .local-count{background:transparent;padding:0;font-size:12px}
+html[data-mode=production] .dock-button[aria-current=page]{background:var(--selected-background);color:var(--selected-text);box-shadow:inset -3px 0 #64b5c4}
+html[data-mode=production] .local-audio{align-items:start;gap:16px;flex:0}
+html[data-mode=production] .local-audio .panel{border-radius:12px;padding:18px}
+html[data-mode=production] .local-player{justify-content:start;gap:12px}
+html[data-mode=production] .local-art{width:min(100%,250px);border-radius:10px;background:rgb(160 190 200 / .05)}
+html[data-mode=production] .local-now h2{font-size:23px;text-align:left}
+html[data-mode=production] .local-now p{text-align:left;font-size:13px}
+html[data-mode=production] .local-library{gap:10px}
+html[data-mode=production] .local-list{max-height:calc(100dvh * var(--ui-scale-inverse,1) - 325px);min-height:160px}
+html[data-mode=production] .local-tabs button{border-radius:7px}
+html[data-mode=production] .local-track{padding:3px 0}
+html[data-mode=production] .local-empty{padding:16px 0}
+html[data-mode=production] .local-empty h2{font-size:20px;margin-bottom:10px}
+@media(min-width:650px){
+ html[data-mode=production] body[data-dock-side=left] #app{grid-template-columns:76px minmax(0,1fr);gap:14px;padding:12px}
+ html[data-mode=production] body[data-dock-side=right] #app{grid-template-columns:minmax(0,1fr) 76px;gap:14px;padding:12px}
+ html[data-mode=production] #app>aside{top:12px;border-radius:14px;padding:8px 4px;gap:6px;height:calc(100dvh * var(--ui-scale-inverse,1) - 24px)}
+ html[data-mode=production] .dock-apps{gap:5px;margin:0}
+ html[data-mode=production] .dock-button,html[data-mode=production] .home-button{min-height:62px;font-size:11px;border-radius:10px}
+ html[data-mode=production] .dock-button svg{width:25px;height:25px}
+ html[data-mode=production] #app>main{padding:4px 6px;min-height:calc(100dvh * var(--ui-scale-inverse,1) - 24px)}
+ html[data-mode=production] .local-audio{grid-template-columns:minmax(230px,.65fr) minmax(0,1.5fr)}
+}
+@media(min-width:650px) and (max-height:600px){
+ html[data-mode=production] .local-audio{grid-template-columns:minmax(190px,.7fr) minmax(0,1.5fr)}
+ html[data-mode=production] .local-art{width:112px}
+ html[data-mode=production] .local-audio .panel{padding:12px}
+ html[data-mode=production] .local-player{gap:7px}
+ html[data-mode=production] .local-now h2{font-size:20px}
+ html[data-mode=production] .local-list{min-height:110px}
+}
+@media(max-width:649px){
+ html[data-mode=production] .local-art{width:160px}
+ html[data-mode=production] .local-list{min-height:180px;max-height:340px}
+ html[data-mode=production] body[data-appearance] main>header h1{font-size:22px}
+}
+@media(min-width:650px){
+ html[data-mode=production] .local-library{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+ html[data-mode=production] .local-library>:is(.local-tabs,.local-list,.local-import,.local-message,.local-help,.local-delete){grid-column:1/-1}
+ html[data-mode=production] .local-library .local-tabs{order:0}
+ html[data-mode=production] .local-library .local-search{order:1;font-size:0;gap:0}
+ html[data-mode=production] .local-library .local-search input{font-size:14px}
+ html[data-mode=production] .local-library .local-group{order:2}
+ html[data-mode=production] .local-library .local-list{order:3;max-height:calc(100dvh * var(--ui-scale-inverse,1) - 260px)}
+ html[data-mode=production] .local-library>:is(.local-help,.local-delete){order:4}
+ html[data-mode=production] .local-library .local-import{order:5;padding-top:8px;border-top:1px solid var(--surface-border)}
+ html[data-mode=production] .local-library .local-message{order:6}
+}
+
+@media(min-width:650px) and (max-height:600px){
+ html[data-mode=production] .local-player{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center}
+ html[data-mode=production] .local-player .local-art{grid-column:1;grid-row:1;width:64px}
+ html[data-mode=production] .local-player .local-now{grid-column:2;grid-row:1}
+ html[data-mode=production] .local-player .local-now h2{font-size:17px}
+ html[data-mode=production] .local-player .local-now p{font-size:12px}
+ html[data-mode=production] .local-player>:is(.local-progress,.local-transport,.local-modes,.local-state){grid-column:1/-1;justify-self:center}
+ html[data-mode=production] .local-library .local-list{max-height:140px;min-height:110px}
+ html[data-mode=production] .local-group label{font-size:0;gap:0}
+ html[data-mode=production] .local-group select{font-size:13px;max-width:110px}
+}

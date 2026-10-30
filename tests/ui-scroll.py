@@ -28,5 +28,13 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  client.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});page.wait_for_timeout(300)
  assert listing.evaluate('el=>el.scrollTop')>50,'touch swipe did not scroll'
  expect(page.get_by_role('button',name='Pause local audio')).to_have_count(0)
+ expect(page.locator('body')).to_have_attribute('data-dock-side','right')
+ assert page.locator('aside').bounding_box()['width']<=80
+ assert page.locator('main>header').bounding_box()['height']<=64
+ for width,height in [(1920,1080),(1280,720),(800,480),(480,800)]:
+  page.set_viewport_size({'width':width,'height':height})
+  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+  page.mouse.move(2,2)
+  page.screenshot(path=f'/tmp/audio-populated-{width}x{height}.png',full_page=True)
  print('PASS: 30-track library mouse wheel, refresh position, touch swipe without playback')
  browser.close()
