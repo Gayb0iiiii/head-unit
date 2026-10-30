@@ -66,3 +66,20 @@ test('late activation completion after timeout never starts a competing fallback
 test('missing readiness for both sessions never turns process presence into readiness',async()=>{
  const h=harness();h.state.readiness={};assert.equal((await h.coordinator.run()).reason,'no-verified-session');assert.deepEqual(h.activated,[]);
 });
+
+test('future readiness and foreign session UID cannot select headunit',async()=>{
+ for(const alter of [s=>{s.readiness.headunit.observedAt=101;},s=>{s.sessions[0].uid=2000;}]){const h=harness();alter(h.state);assert.equal((await h.coordinator.run()).status,'desktop');assert.deepEqual(h.activated,['desk']);}
+});
+test('already exclusively active ready UI requires no activation',async()=>{
+ const h=harness();h.state.sessions[0].active=true;assert.equal((await h.coordinator.run()).reason,'already-active');assert.deepEqual(h.activated,[]);
+});
+test('malformed activation acknowledgement never permits competing fallback',async()=>{
+ const calls=[];const h=harness({activate:async id=>{calls.push(id);return {accepted:'yes'};}});assert.equal((await h.coordinator.run()).reason,'activation-uncertain');assert.deepEqual(calls,['ui']);
+});
+test('disposal during activation prevents readback and fallback after late success',async()=>{
+ let finish;const calls=[];const h=harness({activate:id=>{calls.push(id);return new Promise(resolve=>{finish=resolve;});}});const pending=h.coordinator.run();await new Promise(setImmediate);h.coordinator.dispose();finish({accepted:true});assert.equal((await pending).status,'cancelled');assert.deepEqual(calls,['ui']);
+});
+test('disposal during readback cannot report successful foreground selection',async()=>{
+ let reads=0,finish;const state=fixture();const h=harness({discover:async()=>{if(++reads===3)return new Promise(resolve=>{finish=resolve;});return structuredClone(state);},activate:async()=>{state.sessions[0].active=true;return {accepted:true};}});
+ const pending=h.coordinator.run();await new Promise(setImmediate);h.coordinator.dispose();finish(state);assert.equal((await pending).status,'cancelled');
+});

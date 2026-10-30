@@ -1,0 +1,27 @@
+✖ process identity binds boot, PID, start ticks, owner and real cgroup session (1.535856ms)
+✔ PID reuse, changed UID, invalid pid and ambiguous sessions fail closed (0.210312ms)
+✖ actual Linux current-process identity is read without inventing a login session (0.163983ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 1
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 68.984874
+
+✖ failing tests:
+
+test at tests/process-instance.test.mjs:12:1
+✖ process identity binds boot, PID, start ticks, owner and real cgroup session (1.535856ms)
+  TypeError: Cannot read properties of null (reading 'pid')
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/process-instance.test.mjs:13:76)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at tests/process-instance.test.mjs:20:1
+✖ actual Linux current-process identity is read without inventing a login session (0.163983ms)
+  TypeError: Cannot read properties of null (reading 'pid')
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/process-instance.test.mjs:21:89)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
