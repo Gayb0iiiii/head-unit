@@ -10,7 +10,7 @@ export function createBluetoothRuntime({enabled=false,adapterPath,outputName,isP
  const listeners=new Set();let host,focus,remembered,disposed=false,started=false;
  const snapshot=()=>({...host?.view(),...focus?.snapshot(),remembered:remembered?.snapshot(),audioOwned:focus?.snapshot().owned===true,sinkReady:monitor.sinkReady(),musicReady:focus?.canAcquire()===true,parked:isParked()===true});
  const publish=()=>{if(!disposed){for(const fn of listeners)fn(snapshot());void remembered?.tick();}};
- focus=createBluetoothFocus({controller,pipewire:monitor,onChange:publish});
+ focus=createBluetoothFocus({controller,pipewire:monitor,onChange:publish,onRevoke:()=>{if(!disposed)remembered?.suppress();}});
  host=createBluetoothMusicHost({bluez:bus,adapterPath,isParked,audio:focus,canForget:()=>focus.nativeIdle(),onForget:key=>remembered.forget(key),onMediaIntent:control=>remembered.intent(control),onChange:publish});
  remembered=createRememberedBluetooth({host,store:preferenceStore??(preferencePath?createBluetoothPreferences(preferencePath):null),isParked,canReconnect:()=>focus.canAcquire(),onChange:publish});
  const stopMonitor=monitor.subscribe?.(publish);

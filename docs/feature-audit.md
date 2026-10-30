@@ -147,3 +147,13 @@ Added bounded addressed-player AVRCP metadata and Play/Pause/Next/Previous, with
 The private-bus fixture now exercises real serialization of AVRCP metadata/control/error replies and confirmed RemoveDevice against a fake service. Calls, contacts, seek, remote shuffle/repeat, real phone behavior and target routing remain unimplemented or hardware-dependent. The whole integration remains inactive by default.
 
 Verification: **623 Node tests passed**, production build, real Unix-socket fixture, private D-Bus fixture and all five production browser suites passed. Logs, pre-fix review regressions and two injected-fixture screenshots are in `evidence/bluetooth-controls/`. No system-bus pairing, physical touch/audio, reboot, deployment or administrator-denied profile test was performed.
+
+## Short-display usability and takeover continuity
+
+At short landscape heights, the collection uses square-cover rows with adjacent metadata and 50px favourite/queue controls, instead of clipped artwork tiles. The selected Audio navigation item supplies the visible context while the duplicate heading remains available to assistive technology. Taller screens retain the artwork grid. Narrow screens use bounded square covers so the first row's metadata and actions fit; a visible swipe/scroll cue and scrollbar improve discoverability. The landscape player uses less vertical space. Viewport breakpoints and saved UI scale remain configurable; no physical display size is assumed.
+
+The tagged-fixture browser suite now runs with the production suites. It uses six original generated covers and silent MP3s, six distinct viewports (390×844 through 1920×1080), real wheel/touch gestures on overflowing collections, repeat/focus cycles, and 90/100/115% scale checks for 44px minimum action bounds and unobstructed action centers. These checks do not prove physical touch suitability or a full reference match.
+
+Independent Bluetooth re-review found native takeover disconnected music without saving pause intent. A composed regression reproduces it; the fix records pause when active or pending focus is revoked, prevents reconnect on the next startup, preserves preferences during orderly shutdown, and still disconnects if persistence fails. Bluetooth remains disabled by default and all existing hardware gates apply.
+
+Verification: **627 Node tests**, production build, Unix-socket and private-D-Bus fixtures, and **six production browser suites** passed. Logs, before-fix failures and six distinct tagged-fixture viewport screenshots are committed in `evidence/short-display/`. Physical display, touch, phone audio and reboot remain untested; no deployment occurred.

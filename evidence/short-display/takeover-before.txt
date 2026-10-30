@@ -1,0 +1,32 @@
+✔ Bluetooth runtime stays completely inactive without explicit host opt-in (1.727661ms)
+✔ composed host waits for local pause before profile connect and releases before disposal (4.859132ms)
+✔ runtime release-before-projection cancels a pending pause handshake durably (2.027825ms)
+✖ native takeover persists pause intent and next startup does not reconnect (1.945323ms)
+✔ orderly shutdown preserves an explicitly enabled unpaused reconnect preference (1.51799ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.769445
+
+✖ failing tests:
+
+test at tests/bluetooth-runtime.test.mjs:27:1
+✖ native takeover persists pause intent and next startup does not reconnect (1.945323ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/bluetooth-runtime.test.mjs:30:112)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

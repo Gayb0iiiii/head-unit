@@ -16,12 +16,12 @@ export function createPipeWireMonitor({outputName,run=execFile,now=Date.now}={})
  start(){if(timer||disposed)return;void api.refresh();timer=setInterval(()=>{void api.refresh();},5000);timer.unref?.();},dispose(){disposed=true;clearInterval(timer);listeners.clear();state=inspectPipeWire(null,outputName);}};return api;
 }
 /** Conservative focus gate: unknown native ownership never grants a Bluetooth lease. */
-export function createBluetoothFocus({controller,pipewire,onChange=()=>{},pauseMs=3000}={}){
+export function createBluetoothFocus({controller,pipewire,onChange=()=>{},onRevoke=()=>{},pauseMs=3000}={}){
  if(!Number.isFinite(pauseMs)||pauseMs<=0||pauseMs>10000)throw TypeError('Bounded pause deadline required');
  let disposed=false,pending=null,lease=null;
  const nativeIdle=()=>{const v=controller.view();return !disposed&&v.connected===true&&v.front==='livi'&&v.projectionReady!==true&&v.homeStatus?.media?.status==='available'&&v.homeStatus.media.playing===false;};
  const allowed=()=>nativeIdle()&&pipewire.sinkReady();
- const changed=()=>{if(!allowed()){if(pending){clearTimeout(pending.timer);pending.resolve(null);pending=null;}if(lease){lease.revoked=true;for(const fn of lease.listeners)void Promise.resolve().then(fn).catch(()=>{});}}onChange();};
+ const changed=()=>{if(!allowed()){if(!disposed&&(pending||lease)){try{onRevoke();}catch{/* Persistence errors must not prevent source cleanup. */}}if(pending){clearTimeout(pending.timer);pending.resolve(null);pending=null;}if(lease){lease.revoked=true;for(const fn of lease.listeners)void Promise.resolve().then(fn).catch(()=>{});}}onChange();};
  const stopController=controller.subscribe(changed),stopPipe=pipewire.subscribe?.(changed);
  const api={nativeIdle,canAcquire:()=>allowed()&&!pending&&!lease,sinkReady:()=>pipewire.sinkReady(),snapshot:()=>({pauseRequest:pending?.token??null,pauseAutomatic:pending?.automatic===true,owned:!!lease,audioUncertain:lease?.uncertain===true}),
  async acquire(_id,{automatic=false}={}){if(!allowed()||pending||lease)return null;return new Promise(resolve=>{const token=randomUUID();pending={token,automatic:automatic===true,resolve,timer:setTimeout(()=>{if(pending?.token===token){pending=null;resolve(null);onChange();}},pauseMs)};onChange();});},
