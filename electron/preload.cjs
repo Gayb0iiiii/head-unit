@@ -3,6 +3,10 @@
 const {contextBridge, ipcRenderer} = require('electron');
 const listeners = new Set();
 const api = Object.freeze({
+  controlBluetoothMedia:(token,control)=>ipcRenderer.invoke('headunit:control-bluetooth-media',token,control),
+  rememberBluetooth:(id,value)=>ipcRenderer.invoke('headunit:remember-bluetooth',id,value),
+  requestBluetoothForget:id=>ipcRenderer.invoke('headunit:request-bluetooth-forget',id),
+  confirmBluetoothForget:(token,value)=>ipcRenderer.invoke('headunit:confirm-bluetooth-forget',token,value),
   getBluetooth:()=>ipcRenderer.invoke('headunit:get-bluetooth'),
   discoverBluetooth:()=>ipcRenderer.invoke('headunit:discover-bluetooth'),
   stopBluetoothDiscovery:()=>ipcRenderer.invoke('headunit:stop-bluetooth-discovery'),

@@ -143,6 +143,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     register('headunit:get-bluetooth',0,()=>true,()=>filterBluetoothView(bluetooth?.snapshot?.()));
     const btId=value=>typeof value==='string'&&/^[a-f0-9-]{36}$/.test(value);
     for(const [channel,method,count,validate] of [
+      ['control-bluetooth-media','media',2,(token,control)=>btId(token)&&['play','pause','next','previous'].includes(control)],['remember-bluetooth','remember',2,(id,enabled)=>btId(id)&&typeof enabled==='boolean'],['request-bluetooth-forget','requestForget',1,btId],['confirm-bluetooth-forget','confirmForget',2,(token,value)=>btId(token)&&typeof value==='boolean'],
       ['discover-bluetooth','discover',0,()=>true],['stop-bluetooth-discovery','stopDiscovery',0,()=>true],
       ['pair-bluetooth','pair',1,btId],['cancel-bluetooth-pairing','cancelPairing',0,()=>true],
       ['connect-bluetooth-music','connectMusic',1,btId],['release-bluetooth-music','releaseMusic',0,()=>true],

@@ -137,3 +137,13 @@ The default entrypoints do not enable Bluetooth. PipeWire graph routing, actual 
 Verification: **604 Node tests passed**, build, socket fixture, five production browser suites and the real private-D-Bus serialization fixture passed. Optional dependencies were reinstalled from the lockfile with lifecycle scripts and native optional modules disabled; the production dependency audit reported zero known vulnerabilities. Evidence: `evidence/bluetooth-integration/`. These are software fixtures, not phone/hardware acceptance.
 
 The final bus lifecycle regression checks cover a BlueZ owner appearing while signal subscriptions are still being installed, and a failed Agent1 reply during socket teardown. Both fail closed without canceling unrelated daemon setup calls or creating unhandled Promise rejections.
+
+## Bluetooth controls and independent-review fixes
+
+The review's three reproduced policy failures are fixed with regression coverage: pending discovery cannot start late after Stop/suspend; a pending focus acquisition cannot connect late after Release/projection handoff; stale or missing native playback cannot grant focus. Stop/release waits for cleanup, and failure remains a failure.
+
+Added bounded addressed-player AVRCP metadata and Play/Pause/Next/Previous, with stale-token rejection and per-player NotSupported handling. Remembered reconnect is explicit opt-in, one attempt in a 60-second startup window, gated by saved pause intent and real ownership evidence. It issues no Play, and an automatic focus request cannot pause active local music. The private remembered-device preference contains no pairing keys. Forget requires a device-specific confirmation, disconnected/parked/idle state, and clears only matching remembered preferences before adapter-scoped removal. Actual device disappearance is observed rather than invented.
+
+The private-bus fixture now exercises real serialization of AVRCP metadata/control/error replies and confirmed RemoveDevice against a fake service. Calls, contacts, seek, remote shuffle/repeat, real phone behavior and target routing remain unimplemented or hardware-dependent. The whole integration remains inactive by default.
+
+Verification: **623 Node tests passed**, production build, real Unix-socket fixture, private D-Bus fixture and all five production browser suites passed. Logs, pre-fix review regressions and two injected-fixture screenshots are in `evidence/bluetooth-controls/`. No system-bus pairing, physical touch/audio, reboot, deployment or administrator-denied profile test was performed.

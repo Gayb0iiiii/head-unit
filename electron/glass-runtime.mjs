@@ -25,7 +25,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
   let bluetooth;
   let detach;
   try {
-    bluetooth=createBluetoothRuntime({...bluetoothOptions,controller});
+    bluetooth=createBluetoothRuntime({preferencePath:path.join(path.dirname(preferencePath),'headunit-bluetooth.json'),...bluetoothOptions,controller});
     detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics(),desktopHandoff:handoff,weather:weatherSource,timeService:clockSource,updateService,bluetooth,onRendererReady,openWeatherAttribution,openLocationAttribution});
   } catch (error) {
     handoff?.dispose?.();

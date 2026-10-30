@@ -104,3 +104,31 @@ test('revocation waits for an outstanding connect before disconnecting and relea
  const f=fixture({audio:{sinkReady:()=>true,acquire:async()=>lease}});f.emit({[device]:{'org.bluez.Device1':{Adapter:adapter,Paired:true,UUIDs:[source]}}});f.setHandler(r=>r.member==='ConnectProfile'?new Promise(resolve=>{finish=resolve;}):Promise.resolve());
  const connecting=f.host.connectMusic(f.deviceId());await tick();const releasing=lost();assert.equal(lease.released,undefined);assert.equal(f.calls.some(x=>x.member==='DisconnectProfile'),false);finish();await releasing;await assert.rejects(connecting);assert.equal(lease.released,true);assert.equal(f.calls.filter(x=>x.member==='DisconnectProfile').length,1);await f.host.dispose();
 });
+test('stopDiscovery waits for pending acquisition cleanup and cannot leave a late scan active',async()=>{
+ const f=fixture();let finish;f.setHandler(r=>r.member==='StartDiscovery'?new Promise(resolve=>{finish=resolve;}):Promise.resolve());const starting=f.host.discover();const failed=assert.rejects(starting);await tick();let stopped=false;const stopping=f.host.stopDiscovery().then(()=>{stopped=true;});await tick();assert.equal(stopped,false);finish();await stopping;await failed;assert.equal(f.host.view().discovering,false);assert.equal(f.calls.filter(x=>x.member==='StopDiscovery').length,1);await f.host.dispose();
+});
+test('releaseMusic waits for pending focus acquisition and blocks a late profile connect',async()=>{
+ let finish;const f=fixture({audio:{sinkReady:()=>true,acquire:()=>new Promise(resolve=>{finish=resolve;})}});f.emit({[device]:{'org.bluez.Device1':{Adapter:adapter,Paired:true,UUIDs:[source]}}});const connecting=f.host.connectMusic(f.deviceId());const failed=assert.rejects(connecting);await tick();let released=false;const releasing=f.host.releaseMusic().then(()=>{released=true;});await tick();assert.equal(released,false);finish(f.lease);await releasing;await failed;assert.equal(f.calls.length,0);assert.equal(f.lease.released,true);await f.host.dispose();
+});
+test('pending discovery cleanup failure never reports a successful stop',async()=>{
+ const f=fixture();let finish;f.setHandler(r=>r.member==='StartDiscovery'?new Promise(resolve=>{finish=resolve;}):Promise.reject(Error('stop failed')));const starting=f.host.discover();const failed=assert.rejects(starting);await tick();const stopping=f.host.stopDiscovery();const stopFailed=assert.rejects(stopping);finish();await failed;await stopFailed;assert.equal(f.host.view().discovering,true);f.setHandler(async()=>{});await f.host.dispose();
+});
+async function playingFixture(options={}){
+ const f=fixture(options);f.emit({[device]:{'org.bluez.Device1':{Adapter:adapter,Paired:true,UUIDs:[source]}}});await f.host.connectMusic(f.deviceId());
+ const player=device+'/player0';f.emit({[device]:{'org.bluez.Device1':{Adapter:adapter,Paired:true,Connected:true,UUIDs:[source]},'org.bluez.MediaControl1':{Connected:true,Player:player}},[player]:{'org.bluez.MediaPlayer1':{Device:device,Status:'paused',Track:{Title:'Original fixture',Artist:'Test artist',Duration:10000},Position:2500}}});return {...f,player};
+}
+test('AVRCP metadata is bounded and controls target only the addressed owned player',async()=>{
+ const f=await playingFixture();const media=f.host.view().media;assert.equal(media.title,'Original fixture');assert.equal(media.positionMs,2500);await f.host.media(media.token,'play');assert.equal(f.calls.at(-1).path,f.player);assert.equal(f.calls.at(-1).interface,'org.bluez.MediaPlayer1');assert.equal(f.calls.at(-1).member,'Play');assert.equal(f.host.view().media.status,'paused');await f.host.dispose();
+});
+test('stale player token and unsupported AVRCP control are rejected without fallback',async()=>{
+ const f=await playingFixture();const token=f.host.view().media.token;f.setHandler(async r=>{if(r.member==='Next')throw Object.assign(Error('unsupported'),{name:'org.bluez.Error.NotSupported'});});await assert.rejects(f.host.media(token,'next'));assert.equal(f.host.view().media.controls.includes('next'),false);f.emit({[device]:{'org.bluez.Device1':{Adapter:adapter,Paired:true,Connected:true,UUIDs:[source]},'org.bluez.MediaControl1':{Connected:true,Player:device+'/player1'}}});const before=f.calls.length;await assert.rejects(f.host.media(token,'play'));assert.equal(f.calls.length,before);await f.host.dispose();
+});
+test('forget requires matching confirmation and refuses connected devices',async()=>{
+ const f=fixture({canForget:()=>true});f.emit({[device]:{'org.bluez.Device1':{Adapter:adapter,Paired:true,Connected:false,UUIDs:[source]}}});f.host.requestForget(f.deviceId());const token=f.host.view().forget.token;await assert.rejects(f.host.confirmForget('wrong',true));assert.equal(f.calls.length,0);await f.host.confirmForget(token,false);assert.equal(f.calls.length,0);f.host.requestForget(f.deviceId());await f.host.confirmForget(f.host.view().forget.token,true);assert.equal(f.calls.at(-1).member,'RemoveDevice');assert.deepEqual(f.calls.at(-1).args,[device]);assert.equal(f.host.view().devices.length,1);f.emit({[device]:{'org.bluez.Device1':{Adapter:adapter,Paired:true,Connected:true}}});assert.throws(()=>f.host.requestForget(f.deviceId()));await f.host.dispose();
+});
+test('explicit pause still reaches the phone when saving pause intent fails',async()=>{
+ const f=await playingFixture({onMediaIntent:async()=>{throw Error('disk full');}});f.emit({[f.player]:{'org.bluez.MediaPlayer1':{Device:device,Status:'playing'}}});await assert.rejects(f.host.media(f.host.view().media.token,'pause'));assert.equal(f.calls.at(-1).member,'Pause');await f.host.dispose();
+});
+test('forget is blocked if clearing remembered preference fails or idle state changes',async()=>{
+ const f=fixture({canForget:()=>true,onForget:async()=>{throw Error('disk full');}});f.emit({[device]:{'org.bluez.Device1':{Adapter:adapter,Paired:true,Connected:false}}});f.host.requestForget(f.deviceId());await assert.rejects(f.host.confirmForget(f.host.view().forget.token,true));assert.equal(f.calls.some(x=>x.member==='RemoveDevice'),false);await f.host.dispose();
+});

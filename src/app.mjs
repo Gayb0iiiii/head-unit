@@ -22,7 +22,7 @@ let localAudio;
 let bluetoothState=filterBluetoothView(null);
 let stopBluetooth=()=>{};
 const audioView={tab:'library',query:'',manage:false};
-const localAudioAllowed=()=>!native||(!bluetoothState.audioOwned&&!bluetoothState.pauseRequest&&model.state.front==='livi'&&model.state.homeStatus?.media?.playing!==true);
+const localAudioAllowed=()=>!native||(!bluetoothState.audioOwned&&(!bluetoothState.pauseRequest||bluetoothState.pauseAutomatic&&localAudio?.media?.paused===false)&&model.state.front==='livi'&&model.state.homeStatus?.media?.playing!==true);
 function ensureLocalAudio(){
  if(!localAudio)localAudio=new LocalAudio({media:typeof Audio==='function'?new Audio():null,storage,canPlay:localAudioAllowed,onChange:()=>{if(localAudio?.playing&&!localAudioAllowed())localAudio.pause();if(model?.state.screen==='audio'||model?.state.screen==='home')render();},onProgress:()=>{
   const seek=document.getElementById('local-seek');if(seek&&document.activeElement!==seek)seek.value=localAudio.media.currentTime;
@@ -337,7 +337,7 @@ else document.getElementById('app').innerHTML='<main class="system-unavailable" 
 let stopWeather=()=>{};
 if(native&&typeof window.headunit.getBluetooth==='function'){
  let eventSeen=false,lastPause=null;
- const receive=value=>{bluetoothState=filterBluetoothView(value);if(bluetoothState.audioOwned||bluetoothState.pauseRequest)localAudio?.pause();
+ const receive=value=>{bluetoothState=filterBluetoothView(value);if(bluetoothState.audioOwned||bluetoothState.pauseRequest&&!bluetoothState.pauseAutomatic)localAudio?.pause();
   if(bluetoothState.pauseRequest&&lastPause!==bluetoothState.pauseRequest){lastPause=bluetoothState.pauseRequest;void Promise.resolve(window.headunit.acknowledgeBluetoothPause(lastPause,!localAudio||localAudio.media?.paused===true)).catch(()=>{});}
   if(model.state.screen==='bluetooth'||model.state.screen==='audio'||model.state.screen==='home')render();
  };

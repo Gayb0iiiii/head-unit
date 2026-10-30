@@ -11,6 +11,7 @@ const boundaryPath = new URL('../electron/main-boundary.mjs', import.meta.url);
 const hostPath = new URL('../electron/host.mjs', import.meta.url);
 const runtimePath = new URL('../electron/glass-runtime.mjs', import.meta.url);
 const channels = {
+  controlBluetoothMedia:'headunit:control-bluetooth-media',rememberBluetooth:'headunit:remember-bluetooth',requestBluetoothForget:'headunit:request-bluetooth-forget',confirmBluetoothForget:'headunit:confirm-bluetooth-forget',
   getBluetooth:'headunit:get-bluetooth',discoverBluetooth:'headunit:discover-bluetooth',stopBluetoothDiscovery:'headunit:stop-bluetooth-discovery',pairBluetooth:'headunit:pair-bluetooth',confirmBluetooth:'headunit:confirm-bluetooth',cancelBluetoothPairing:'headunit:cancel-bluetooth-pairing',connectBluetoothMusic:'headunit:connect-bluetooth-music',releaseBluetoothMusic:'headunit:release-bluetooth-music',acknowledgeBluetoothPause:'headunit:acknowledge-bluetooth-pause',
   view: 'headunit:view', getView: 'headunit:get-view', navigate: 'headunit:navigate',
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
@@ -64,7 +65,7 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
   const calls=[];
   const {api, exposed} = await preload(async (...args) => {calls.push(copy(args)); return copy(expectedView);});
   assert.deepEqual([...exposed.keys()], ['headunit']);
-  assert.deepEqual(Object.keys(api).sort(), ['acknowledgeBluetoothPause','cancelBluetoothPairing','confirmBluetooth','connectBluetoothMusic','discoverBluetooth','getBluetooth','onBluetooth','pairBluetooth','releaseBluetoothMusic','stopBluetoothDiscovery','cancelTouch','cancelUpdate','exitToDesktop','getMetrics','getTimeStatus','getUpdateStatus','getView','getWeather','media','navigate','onUpdateStatus','onView','onWeather','openLocationAttribution','openWeatherAttribution','requestUpdate','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','signalReady','stopMetrics','touch'].sort());
+  assert.deepEqual(Object.keys(api).sort(), ['controlBluetoothMedia','rememberBluetooth','requestBluetoothForget','confirmBluetoothForget','acknowledgeBluetoothPause','cancelBluetoothPairing','confirmBluetooth','connectBluetoothMusic','discoverBluetooth','getBluetooth','onBluetooth','pairBluetooth','releaseBluetoothMusic','stopBluetoothDiscovery','cancelTouch','cancelUpdate','exitToDesktop','getMetrics','getTimeStatus','getUpdateStatus','getView','getWeather','media','navigate','onUpdateStatus','onView','onWeather','openLocationAttribution','openWeatherAttribution','requestUpdate','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','signalReady','stopMetrics','touch'].sort());
   assert.equal(Object.isFrozen(api), true);
   assert.deepEqual(await api.getView(), expectedView);
   await api.getMetrics();await api.stopMetrics();await api.exitToDesktop();await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
@@ -531,4 +532,12 @@ test('projection actions wait for Bluetooth release and fail closed on cleanup f
 });
 test('Bluetooth preload strips IPC event and exposes only fixed commands',async()=>{
  const calls=[],{api,ipc,lifecycle}=await preload(async(...args)=>{calls.push(copy(args));});let received;api.onBluetooth(value=>{received=value;});ipc.emit('headunit:bluetooth',{secret:'event'},{availability:'available'});assert.deepEqual(received,{availability:'available'});await api.confirmBluetooth('token',false);await api.acknowledgeBluetoothPause('token',true);assert.deepEqual(calls,[['headunit:confirm-bluetooth','token',false],['headunit:acknowledge-bluetooth-pause','token',true]]);lifecycle.emit('unload');assert.equal(ipc.listenerCount('headunit:bluetooth'),0);
+});
+test('AVRCP and forget bridge reject arbitrary controls, paths, extra arguments and stale caller identity',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath),f=fixture(),calls=[];const id='11111111-1111-1111-1111-111111111111';
+ const bluetooth={media:async(...a)=>calls.push(a),requestForget:async(...a)=>calls.push(a),confirmForget:async(...a)=>calls.push(a),remember:async(...a)=>calls.push(a),suspend:async()=>{}};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,bluetooth});
+ for(const args of [[id,'seek'],['/org/bluez/player','play'],[id,'play','extra']])await assert.rejects(f.call('headunit:control-bluetooth-media',args),/arguments/);
+ await assert.rejects(f.call('headunit:confirm-bluetooth-forget',[id,'yes']),/arguments/);await assert.rejects(f.call('headunit:request-bluetooth-forget',[id],{...f.event,senderFrame:{url:f.url}}),/Untrusted/);
+ await f.call('headunit:control-bluetooth-media',[id,'pause']);await f.call('headunit:request-bluetooth-forget',[id]);await f.call('headunit:confirm-bluetooth-forget',[id,false]);assert.deepEqual(calls,[[id,'pause'],[id],[id,false]]);dispose();
 });

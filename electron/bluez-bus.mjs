@@ -79,9 +79,10 @@ export function createBluezBus({dbus,connect,timeoutMs=10000,pairTimeoutMs=65000
   watch(fn){if(disposed)throw unavailable();listeners.add(fn);fn({owner,objects:structuredClone(objects)});if(!disposed)void start();return()=>listeners.delete(fn);},
   async call(r){
    if(!owner||r.destination!==owner)throw unavailable();const args=r.args??[],signature=r.signature??'';let valid=false;
-   if(r.interface==='org.bluez.Adapter1'&&/^\/org\/bluez\/hci\d+$/.test(r.path))valid=['StartDiscovery','StopDiscovery'].includes(r.member)&&signature===''&&args.length===0;
+   if(r.interface==='org.bluez.Adapter1'&&/^\/org\/bluez\/hci\d+$/.test(r.path))valid=(['StartDiscovery','StopDiscovery'].includes(r.member)&&signature===''&&args.length===0)||(r.member==='RemoveDevice'&&signature==='o'&&args.length===1&&objects[args[0]]?.['org.bluez.Device1']?.Adapter===r.path);
    if(r.interface==='org.bluez.AgentManager1'&&r.path==='/org/bluez')valid=(r.member==='RegisterAgent'&&signature==='os'&&args.length===2&&args[0]===AGENT&&args[1]==='DisplayYesNo')||(r.member==='UnregisterAgent'&&signature==='o'&&args.length===1&&args[0]===AGENT);
    if(r.interface==='org.bluez.Device1'&&objects[r.path]?.['org.bluez.Device1'])valid=(['Pair','CancelPairing'].includes(r.member)&&signature===''&&args.length===0)||(['ConnectProfile','DisconnectProfile'].includes(r.member)&&signature==='s'&&args.length===1&&args[0]===SOURCE);
+   if(r.interface==='org.bluez.MediaPlayer1'&&objects[r.path]?.['org.bluez.MediaPlayer1'])valid=['Play','Pause','Next','Previous'].includes(r.member)&&signature===''&&args.length===0;
    if(!valid)throw unavailable();await raw(owner,r.path,r.interface,r.member,signature,args);
   },
   exportAgent(path,methods){if(path!==AGENT||agentMethods)throw unavailable();agentMethods=methods;return()=>{if(agentMethods===methods)agentMethods=null;};},

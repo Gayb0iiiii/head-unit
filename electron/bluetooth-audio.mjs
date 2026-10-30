@@ -19,11 +19,12 @@ export function createPipeWireMonitor({outputName,run=execFile,now=Date.now}={})
 export function createBluetoothFocus({controller,pipewire,onChange=()=>{},pauseMs=3000}={}){
  if(!Number.isFinite(pauseMs)||pauseMs<=0||pauseMs>10000)throw TypeError('Bounded pause deadline required');
  let disposed=false,pending=null,lease=null;
- const allowed=()=>!disposed&&controller.view().connected===true&&controller.view().front==='livi'&&controller.view().projectionReady!==true&&controller.view().homeStatus?.media?.playing!==true&&pipewire.sinkReady();
+ const nativeIdle=()=>{const v=controller.view();return !disposed&&v.connected===true&&v.front==='livi'&&v.projectionReady!==true&&v.homeStatus?.media?.status==='available'&&v.homeStatus.media.playing===false;};
+ const allowed=()=>nativeIdle()&&pipewire.sinkReady();
  const changed=()=>{if(!allowed()){if(pending){clearTimeout(pending.timer);pending.resolve(null);pending=null;}if(lease){lease.revoked=true;for(const fn of lease.listeners)void Promise.resolve().then(fn).catch(()=>{});}}onChange();};
  const stopController=controller.subscribe(changed),stopPipe=pipewire.subscribe?.(changed);
- const api={sinkReady:()=>pipewire.sinkReady(),snapshot:()=>({pauseRequest:pending?.token??null,owned:!!lease,audioUncertain:lease?.uncertain===true}),
- async acquire(){if(!allowed()||pending||lease)return null;return new Promise(resolve=>{const token=randomUUID();pending={token,resolve,timer:setTimeout(()=>{if(pending?.token===token){pending=null;resolve(null);onChange();}},pauseMs)};onChange();});},
+ const api={nativeIdle,canAcquire:()=>allowed()&&!pending&&!lease,sinkReady:()=>pipewire.sinkReady(),snapshot:()=>({pauseRequest:pending?.token??null,pauseAutomatic:pending?.automatic===true,owned:!!lease,audioUncertain:lease?.uncertain===true}),
+ async acquire(_id,{automatic=false}={}){if(!allowed()||pending||lease)return null;return new Promise(resolve=>{const token=randomUUID();pending={token,automatic:automatic===true,resolve,timer:setTimeout(()=>{if(pending?.token===token){pending=null;resolve(null);onChange();}},pauseMs)};onChange();});},
  acknowledgePause(token,paused){if(!pending||token!==pending.token||typeof paused!=='boolean')throw Error('Bluetooth pause unavailable');const request=pending;pending=null;clearTimeout(request.timer);if(!paused||!allowed()){request.resolve(null);onChange();return;}
   const current={revoked:false,listeners:new Set()};lease=current;const result={onUncertain:()=>{current.uncertain=true;current.revoked=true;onChange();},valid:()=>lease===current&&!current.revoked&&allowed(),onLost:fn=>{current.listeners.add(fn);if(current.revoked)void Promise.resolve().then(fn).catch(()=>{});return()=>current.listeners.delete(fn);},release:()=>{if(lease===current){lease=null;onChange();}}};request.resolve(result);onChange();
  },dispose(){if(disposed)return;disposed=true;changed();stopController?.();stopPipe?.();}};return api;
