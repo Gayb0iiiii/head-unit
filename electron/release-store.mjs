@@ -46,7 +46,10 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
   async function resolve(sha){
     const staged=await verifyRelease(sha);if(staged)return staged;
     try{const source=await sourceRelease();return sha===source.sha?source:null;}
-    catch(error){if(error?.code==='ENOENT')return null;throw error;}
+    // This catch covers source verification only. A damaged checkout or invalid
+    // source build cannot prevent checking the manifest's verified previous SHA.
+    // Manifest validation and recovery-state writes remain outside this catch.
+    catch{return null;}
   }
   async function saveState({active,pending=null,previous=null}){
     if(!validSha(active)||pending!==null&&!validSha(pending)||previous!==null&&!validSha(previous))throw TypeError('Invalid release manifest');

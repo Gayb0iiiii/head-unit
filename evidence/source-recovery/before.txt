@@ -1,0 +1,116 @@
+✔ clean first boot uses source build; pending activation reboots into known working release (17.858248ms)
+✔ candidate needs a real same-hash worktree and built production file (6.599346ms)
+✔ release symlink and malformed manifest fail closed (5.197284ms)
+✔ valid staged active release boots even when source build is absent (4.717071ms)
+✔ missing recorded release does not silently reset an existing manifest (5.295699ms)
+✔ unavailable active release recovers only to the recorded verified previous commit (7.697433ms)
+✔ a wrong-hash previous release cannot be promoted by recovery (7.133984ms)
+✖ verified staged previous release survives source git-error (4.932671ms)
+✖ verified staged previous release survives source invalid-sha (6.582316ms)
+✖ verified staged previous release survives source directory-build (4.427002ms)
+✖ verified staged previous release survives source symlink-build (4.109892ms)
+✖ source failure never hides invalid previous build or rewrites its manifest (4.524096ms)
+✖ fallback state persistence failure is propagated instead of returning recovered success (5.041833ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 7
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 158.282667
+
+✖ failing tests:
+
+test at tests/release-store.test.mjs:77:84
+✖ verified staged previous release survives source git-error (4.932671ms)
+  Error: damaged .git
+      at readHead (file:///workspace/head-unit/tests/release-store.test.mjs:84:86)
+      at sourceRelease (file:///workspace/head-unit/electron/release-store.mjs:40:21)
+      at resolve (file:///workspace/head-unit/electron/release-store.mjs:48:28)
+      at async createReleaseStore (file:///workspace/head-unit/electron/release-store.mjs:70:13)
+      at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:85:19)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-store.test.mjs:77:84
+✖ verified staged previous release survives source invalid-sha (6.582316ms)
+  Error: Invalid source commit
+      at sourceRelease (file:///workspace/head-unit/electron/release-store.mjs:41:29)
+      at async resolve (file:///workspace/head-unit/electron/release-store.mjs:48:22)
+      at async createReleaseStore (file:///workspace/head-unit/electron/release-store.mjs:70:13)
+      at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:85:19)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-store.test.mjs:77:84
+✖ verified staged previous release survives source directory-build (4.427002ms)
+  Error: Source build unavailable
+      at sourceRelease (file:///workspace/head-unit/electron/release-store.mjs:43:54)
+      at async resolve (file:///workspace/head-unit/electron/release-store.mjs:48:22)
+      at async createReleaseStore (file:///workspace/head-unit/electron/release-store.mjs:70:13)
+      at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:85:19)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-store.test.mjs:77:84
+✖ verified staged previous release survives source symlink-build (4.109892ms)
+  Error: Source build unavailable
+      at sourceRelease (file:///workspace/head-unit/electron/release-store.mjs:43:54)
+      at async resolve (file:///workspace/head-unit/electron/release-store.mjs:48:22)
+      at async createReleaseStore (file:///workspace/head-unit/electron/release-store.mjs:70:13)
+      at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:85:19)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-store.test.mjs:89:1
+✖ source failure never hides invalid previous build or rewrites its manifest (4.524096ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /verified fallback unavailable/. Input:
+  
+  'Error: broken git'
+  
+      at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:94:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: broken git
+        at readHead (file:///workspace/head-unit/tests/release-store.test.mjs:94:74)
+        at sourceRelease (file:///workspace/head-unit/electron/release-store.mjs:40:21)
+        at resolve (file:///workspace/head-unit/electron/release-store.mjs:48:28)
+        at async createReleaseStore (file:///workspace/head-unit/electron/release-store.mjs:70:13)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:94:3)
+        at async Test.run (node:internal/test_runner/test:1389:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:960:7),
+    expected: /verified fallback unavailable/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/release-store.test.mjs:98:1
+✖ fallback state persistence failure is propagated instead of returning recovered success (5.041833ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  Error: broken git
+      at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:104:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: broken git
+        at readHead (file:///workspace/head-unit/tests/release-store.test.mjs:104:100)
+        at sourceRelease (file:///workspace/head-unit/electron/release-store.mjs:40:21)
+        at resolve (file:///workspace/head-unit/electron/release-store.mjs:48:28)
+        at async createReleaseStore (file:///workspace/head-unit/electron/release-store.mjs:70:13)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:104:3)
+        at async Test.run (node:internal/test_runner/test:1389:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:960:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }

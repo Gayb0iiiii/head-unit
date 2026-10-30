@@ -211,3 +211,9 @@ Added inactive host helpers for bounded inherited parent/child IPC challenges an
 Added inactive read-only process-to-logind correlation using fixed bounded show-session properties, verified leader membership, repeated process/session identity checks and cancellation. It returns a common leader instance separately from the reporter process instance. The cross-session aggregator remains unimplemented: current sources do not authorize which process may assert each role's readiness. The design does not accept self-declared roles or same-UID membership as that authority; exact dependencies are in `docs/session-correlation.md`.
 
 Fixed the independent readiness freshness defect: probe-start timestamps are preserved and evidence older than two seconds is rejected after identity validation. Deferred-reader regressions reproduce the prior false freshness. **691 full-suite tests**, **36 focused tests**, build and Unix-socket fixture pass; evidence is in `evidence/session-correlation/`. No production wiring, bus endpoint, Pi services, permissions or physical acceptance changed.
+
+## Source failure must not block verified previous-release recovery
+
+Independent review reproduced source verification exceptions preventing previous-release resolution. The narrow source-verification catch now marks that candidate unavailable; manifest/root validation and persistence errors still propagate. Adversarial regressions cover broken Git, invalid SHA/build types, invalid previous candidates, recovery write denial and first-boot/untrusted-state failure. A real temporary Git fixture verifies staged previous recovery while the source has no repository.
+
+**699 tests**, **28 focused release-store/supervisor tests**, build and Unix-socket fixture passed; no tests skipped locally. Evidence: `evidence/source-recovery/`. No renderer change required a new browser run. Pi services, data, release state and all deployment/physical gates remain unchanged.

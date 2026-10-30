@@ -55,3 +55,9 @@ Reference semantics: [systemd.service](https://www.freedesktop.org/software/syst
 ### Coordinator implementation checkpoint
 
 A bounded inactive coordinator component now exists; see [boot-coordinator.md](boot-coordinator.md) for the executable policy, required discovery/readiness/activation contract and tests. It is not wired into launchers or units. The instance-bound authenticated readiness providers and actual logind authorization remain missing, so the joint boot gate above is unchanged. Fake-session results are not physical foreground or power-loss acceptance.
+
+### Source checkout failure during recorded-release recovery
+
+Source verification failure is now treated as an unavailable candidate inside recorded-SHA resolution: a git rev-parse error, invalid source SHA, directory build or symlink build cannot prevent checking a valid recorded previous staged release. Only that exact previous commit with a verified directory, regular production build and matching Git HEAD may be selected. Recovery still requires successfully persisting the corrected release record before returning success.
+
+This exception does not cover source/state root validation, manifest parsing/trust checks, recovery writes or first-boot initialization. A malformed manifest, symlinked state/root, invalid previous release or write failure remains fatal. A completely unavailable source root still fails the earlier root validation; this patch does not remove that boundary. Tests include an actual temporary Git previous release with a non-repository source, invalid/symlink builds, a wrong previous candidate, unprivileged write denial, untrusted manifest and first-boot source failure. No live release record or Pi checkout was altered.
