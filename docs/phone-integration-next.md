@@ -46,3 +46,7 @@ No credentials or commercial service tokens are needed for the software tests in
 ## Deferred visual work from independent review
 
 The 800×480 library still needs a composition pass: wide artwork is cropped and tile metadata/actions are not initially visible. Portrait needs a clearer internal-scroll cue, and navigation/title height should be reconsidered on short displays. Improved 480×800 control clearance and 1920 scaling do not prove physical touch suitability. These remain separate from the native integration work above.
+
+## Follow-through: host component now implemented
+
+The subsequent [Bluetooth music host component](bluetooth-music-host.md) implements discovery, numeric confirmation pairing and profile-specific connection policy with mocked service tests. The persistent D-Bus binding, actual PipeWire/focus provider and authenticated UI integration are still absent. This advances the component implementation; it does not change the unavailable installation state described above.
