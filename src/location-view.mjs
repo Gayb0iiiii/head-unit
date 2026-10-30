@@ -5,8 +5,9 @@ export function observeLocation(session){
  const g=session.state?.telemetry?.gnss,p=session.state?.telemetry?.gps;
  for(const [key,stamp] of [['receiver',g?.updatedAt],['fix',p?.fixTs]]){
   const old=session.locationObservation[key];if(old&&Object.is(old.stamp,stamp))continue;
-  const age=(session.wallNow?.()??Date.now())-stamp;
-  const knownAge=Number.isSafeInteger(stamp)&&stamp>0&&Number.isFinite(age)&&age>=0;
+  // Telemetry is untrusted JSON: never coerce objects/arrays before validation.
+  const age=Number.isSafeInteger(stamp)&&stamp>0?(session.wallNow?.()??Date.now())-stamp:NaN;
+  const knownAge=Number.isFinite(age)&&age>=0;
   session.locationObservation[key]={stamp,at:session.now(),knownAge,remaining:knownAge&&age<LOCATION_TTL_MS?LOCATION_TTL_MS-age:0};
  }
 }

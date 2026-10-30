@@ -19,3 +19,17 @@ test('restored upstream last-known coordinates without live receiver evidence st
 });
 
 test('missing receiver sample time means unknown freshness, not a known stale reading',()=>{const f=fixture();f.patch([{op:'remove',path:['telemetry','gnss','updatedAt']}]);assert.equal(f.view().status,'unavailable');assert.equal(f.view().latitude,null);});
+
+for(const phase of ['welcome','patch'])test(`malformed object GNSS timestamps fail closed during ${phase} without losing synchronization`,()=>{
+ for(const [group,key] of [['gnss','updatedAt'],['gps','fixTs']])for(const bad of [{toString:null},{valueOf:null,toString:{}},[ {toString:null} ],{},[],true,'1800000000000']){
+  const f=fixture();
+  if(phase==='welcome'){
+   const state=structuredClone(f.s.state);state.telemetry[group][key]=bad;
+   assert.doesNotThrow(()=>f.s.receive({type:'welcome',protocol:8,rev:2,state}));
+  }else f.patch([{op:'set',path:['telemetry',group,key],value:bad}]);
+  assert.equal(f.s.ready,true);assert.equal(f.s.resyncing,false);
+  assert.equal(f.view().status,'unavailable');assert.equal(f.view().latitude,null);
+  f.patch([{op:'set',path:['telemetry',group,key],value:stamp}]);
+  assert.equal(f.view().status,'current');
+ }
+});
