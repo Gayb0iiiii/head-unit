@@ -1,0 +1,46 @@
+Headunit startup rejected: another instance holds the profile lock.
+Headunit renderer exited: undefined
+✔ kiosk clears the application menu before showing a window (2.081305ms)
+✔ entrypoint waits for Electron, attaches before load, and never activates on second launch (1.015655ms)
+✔ supervisor health signal waits for trusted renderer readiness and a shown window (0.656162ms)
+✔ duplicate supervised UI fails without socket, window or foreground action (0.825233ms)
+✔ SIGTERM before readiness cannot create an orphan window later (0.228889ms)
+✔ SIGTERM during page load disposes once and prevents a late window show (0.333234ms)
+✔ parent during page load disposes once and prevents a late window show (0.480001ms)
+✔ before-quit during page load disposes once and prevents a late window show (0.767838ms)
+✔ crash during page load disposes once and prevents a late window show (0.458149ms)
+✔ page load failure cleans up and reports the actual startup error (1.078438ms)
+✔ unsafe launch flags and untrusted connection/page configuration fail before window ownership (0.934014ms)
+✔ real runtime is disposed before application quit without a native engine launch (5.309728ms)
+✔ Linux identity is explicit before readiness and compositor dimensions remain unspecified (1.327988ms)
+✔ application owns compositor timers and cancels fullscreen when shutdown interrupts load (0.937119ms)
+✔ application attaches the privileged config consumer before runtime start and disposes it before quit (0.305002ms)
+✔ secondary ownership is passed to runtime only with explicit opt-in and compositor mode (0.660549ms)
+✔ unresponsive renderer exits unsuccessfully for supervised recovery (0.381015ms)
+✔ owned parent readiness reflects trusted renderer and shown-window lifecycle without changing release signal (10.294426ms)
+✔ readiness responder is removed on SIGTERM and cannot reply after shutdown (0.900525ms)
+Headunit renderer exited: undefined
+✔ readiness responder is removed on before-quit and cannot reply after shutdown (4.310517ms)
+✔ readiness responder is removed on render-process-gone and cannot reply after shutdown (0.529514ms)
+✔ readiness responder is removed on unresponsive and cannot reply after shutdown (0.392251ms)
+✔ readiness responder is removed on destroyed and cannot reply after shutdown (0.467853ms)
+✔ unsupervised or disconnected launch does not register a parent readiness responder (0.355767ms)
+✔ a new main document revokes readiness without resending release activation readiness (0.376578ms)
+✔ replacement main document after renderer acknowledgement revokes readiness even before window show (1.148652ms)
+✔ only matching current challenge and exact schema produce fresh identity-bound readiness (5.451599ms)
+✔ PID reuse and foreign parent never acquire readiness (0.832173ms)
+✔ timeout disconnect disposal and abort remove listeners and never cache a previous ready (21.005889ms)
+✔ responder reports only host-supplied readiness and removes handlers on disposal (0.875157ms)
+✔ real owned Node child exchanges readiness over inherited IPC without a public socket (53.470445ms)
+✔ previous valid response cannot satisfy a new challenge and child identity cannot assert another session (0.853375ms)
+✔ send failure, hung identity provider and concurrent probes are bounded (21.261978ms)
+✔ identity validation delay cannot freshen a readiness reply beyond the coordinator lifetime (0.739265ms)
+✔ accepted readiness retains probe-start time instead of post-validation time (0.762049ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 35
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 183.050234

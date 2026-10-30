@@ -156,3 +156,17 @@ test('a new main document revokes readiness without resending release activation
  f.windows[0].webContents.emit('did-start-navigation',{isMainFrame:true,isSameDocument:false});assert.equal(f.signals.listenerCount('message'),0);
  f.runtimeConfig.onRendererReady();assert.equal(sent.filter(m=>m.kind==='ready').length,1);owner.shutdown();
 });
+
+test('replacement main document after renderer acknowledgement revokes readiness even before window show',async()=>{
+ const f=fixture({env:{HEADUNIT_SUPERVISED:'1',HEADUNIT_ACTIVE_SHA:'a'.repeat(40)}}),sent=[];f.signals.connected=true;f.signals.send=(value,callback)=>{sent.push(value);callback?.();};const owner=f.start();
+ f.ready.resolve();await Promise.resolve();
+ f.windows[0].webContents.emit('did-start-navigation',{},'file:///tmp/headunit/index.html',false,true);
+ assert.equal(f.signals.listenerCount('message'),1,'legitimate initial load retains responder');
+ f.runtimeConfig.onRendererReady();
+ f.windows[0].webContents.emit('did-start-navigation',{isMainFrame:true,isSameDocument:false});
+ f.load.resolve();await owner.ready;
+ f.signals.emit('message',{kind:'boot-readiness-probe',nonce:'d'.repeat(48)});await new Promise(setImmediate);
+ assert.equal(sent.some(m=>m.kind==='boot-readiness'&&m.ready===true),false);
+ assert.equal(f.signals.listenerCount('message'),0);
+ assert.deepEqual(sent.filter(m=>m.kind==='ready'),[{kind:'ready',sha:'a'.repeat(40)}],'existing release signal stays unchanged');owner.shutdown();
+});

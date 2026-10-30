@@ -68,7 +68,7 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
     // A replacement main document cannot inherit the old document's proof.
     // Keep the existing release-ready protocol unchanged; restart to re-attest.
     on(window.webContents,'did-start-navigation',(details,_url,sameDocument,isMainFrame)=>{
-      if(windowShown&&(details?.isMainFrame??isMainFrame)&&!(details?.isSameDocument??sameDocument)){
+      if((rendererReady||windowShown)&&(details?.isMainFrame??isMainFrame)&&!(details?.isSameDocument??sameDocument)){
         readinessRevoked=true;detachReadiness();
       }
     });
