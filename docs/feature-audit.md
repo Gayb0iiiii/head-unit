@@ -134,4 +134,6 @@ The optional integration now includes a pinned persistent D-Bus binding, ObjectM
 
 The default entrypoints do not enable Bluetooth. PipeWire graph routing, actual device permissions, motion integration, physical audio and phone acceptance remain gates, documented in `docs/bluetooth-music-host.md`. No configuration writes, security changes, real pairing, calls/contacts or Pi deployment occurred.
 
-Verification: **602 Node tests passed**, build, socket fixture, five production browser suites and the real private-D-Bus serialization fixture passed. Optional dependencies were reinstalled from the lockfile with lifecycle scripts and native optional modules disabled; the production dependency audit reported zero known vulnerabilities. Evidence: `evidence/bluetooth-integration/`. These are software fixtures, not phone/hardware acceptance.
+Verification: **604 Node tests passed**, build, socket fixture, five production browser suites and the real private-D-Bus serialization fixture passed. Optional dependencies were reinstalled from the lockfile with lifecycle scripts and native optional modules disabled; the production dependency audit reported zero known vulnerabilities. Evidence: `evidence/bluetooth-integration/`. These are software fixtures, not phone/hardware acceptance.
+
+The final bus lifecycle regression checks cover a BlueZ owner appearing while signal subscriptions are still being installed, and a failed Agent1 reply during socket teardown. Both fail closed without canceling unrelated daemon setup calls or creating unhandled Promise rejections.

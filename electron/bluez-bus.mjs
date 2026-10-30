@@ -15,7 +15,7 @@ function unwrap(value,depth=0){
 export function createBluezBus({dbus,connect,timeoutMs=10000,pairTimeoutMs=65000}={}){
  if(!Number.isFinite(pairTimeoutMs)||pairTimeoutMs<1000||pairTimeoutMs>120000)throw TypeError('Bounded pairing deadline required');
  if(!Number.isFinite(timeoutMs)||timeoutMs<=0||timeoutMs>60000)throw TypeError('Bounded bus deadline required');
- let bus,owner=null,objects={},disposed=false,starting,version=0,loading=false,queued=[],agentMethods=null;
+ let bus,owner=null,objects={},disposed=false,starting,version=0,loading=false,queued=[],agentMethods=null,watchingReady=false;
  const listeners=new Set(),pending=new Map();
  const publish=()=>{const snapshot={owner,objects:structuredClone(objects)};for(const fn of listeners)fn(snapshot);};
  const failPending=target=>{for(const [id,p] of pending)if(!target||p.target===target){clearTimeout(p.timer);pending.delete(id);p.reject(unavailable());}};
@@ -40,7 +40,7 @@ export function createBluezBus({dbus,connect,timeoutMs=10000,pairTimeoutMs=65000
    objects=unwrap(reply.body[0]);for(const msg of queued)apply(msg);loading=false;queued=[];publish();
   }catch{if(!disposed&&version===epoch){owner=null;objects={};loading=false;queued=[];failPending(target);publish();}}
  }
- function changeOwner(next){const previous=owner;version++;owner=/^:\d+\.\d+$/.test(next||'')?next:null;objects={};loading=false;queued=[];failPending(previous);publish();if(owner)void refresh(owner,version);}
+ function changeOwner(next){const previous=owner;version++;owner=/^:\d+\.\d+$/.test(next||'')?next:null;objects={};loading=false;queued=[];if(previous)failPending(previous);publish();if(owner&&watchingReady)void refresh(owner,version);}
  function message(msg){
   if(disposed)return;
   const p=pending.get(msg.replySerial);
@@ -57,10 +57,11 @@ export function createBluezBus({dbus,connect,timeoutMs=10000,pairTimeoutMs=65000
  function method(msg){
   if(msg.path!==AGENT||msg.interface!=='org.bluez.Agent1')return false;
   const captured=owner,methods=agentMethods;
-  const reject=name=>{if(!disposed)bus.send(dbus.Message.newError(msg,name,'Bluetooth request unavailable'));};
+  const respond=reply=>{if(disposed)return;try{bus.send(reply);}catch{lost();}};
+  const reject=name=>respond(dbus.Message.newError(msg,name,'Bluetooth request unavailable'));
   if(disposed||msg.sender!==captured||!methods){reject('org.bluez.Error.Rejected');return true;}
   if(!Object.hasOwn(agentSignatures,msg.member)||msg.signature!==agentSignatures[msg.member]){reject('org.bluez.Error.Rejected');return true;}
-  Promise.resolve().then(()=>methods[msg.member](...msg.body)).then(()=>{if(!disposed&&owner===captured&&agentMethods===methods)bus.send(dbus.Message.newMethodReturn(msg,'',[]));else reject('org.bluez.Error.Canceled');},()=>reject('org.bluez.Error.Rejected'));
+  Promise.resolve().then(()=>methods[msg.member](...msg.body)).then(()=>{if(!disposed&&owner===captured&&agentMethods===methods)respond(dbus.Message.newMethodReturn(msg,'',[]));else reject('org.bluez.Error.Canceled');},()=>reject('org.bluez.Error.Rejected'));
   return true;
  }
  async function start(){
@@ -69,8 +70,8 @@ export function createBluezBus({dbus,connect,timeoutMs=10000,pairTimeoutMs=65000
    dbus??=require('dbus-next');bus=connect?connect(dbus):dbus.systemBus({negotiateUnixFd:false});
    bus.on('message',message);bus.on('error',lost);bus.on('disconnect',lost);bus.addMethodHandler(method);
    for(const rule of ["type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='NameOwnerChanged',arg0='org.bluez'","type='signal',sender='org.bluez',interface='org.freedesktop.DBus.ObjectManager'","type='signal',sender='org.bluez',interface='org.freedesktop.DBus.Properties'"]){await raw(DAEMON,ROOT,DAEMON,'AddMatch','s',[rule]);}
-   const epoch=version;
-   try{const result=await raw(DAEMON,ROOT,DAEMON,'GetNameOwner','s',['org.bluez']);if(version===epoch&&!disposed)changeOwner(result.body[0]);}catch{if(version===epoch&&!disposed){objects={};owner=null;publish();}}
+   watchingReady=true;const epoch=version;
+   try{const result=await raw(DAEMON,ROOT,DAEMON,'GetNameOwner','s',['org.bluez']);if(version===epoch&&!disposed){if(owner!==result.body[0])changeOwner(result.body[0]);else if(owner)void refresh(owner,version);}}catch{if(version===epoch&&!disposed){objects={};owner=null;publish();}}
   })().catch(()=>{lost();});return starting;
  }
  function lost(){if(disposed)return;owner=null;objects={};version++;failPending();publish();void api.dispose();}
