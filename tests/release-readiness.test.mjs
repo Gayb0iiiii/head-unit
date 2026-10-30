@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {EventEmitter} from 'node:events';
+import test from 'node:test';import assert from 'node:assert/strict';import {EventEmitter,getEventListeners} from 'node:events';
 import {createReleaseSupervisor} from '../electron/release-supervisor.mjs';
 import {createOwnedReadiness} from '../electron/boot-readiness.mjs';
 import {correlateProcessSession} from '../electron/session-correlation.mjs';
@@ -50,4 +50,29 @@ test('readiness queries coalesce only while pending and re-probe after completio
 test('a changed session-leader binding permanently revokes readiness for that child',async()=>{
  let instance='d'.repeat(64);const h=await harness({correlate:async()=>({pid:55,uid:1000,processInstance:'c'.repeat(64),sessionId:'s2',instance,seat:'seat0',vt:1,active:true})});
  try{assert.equal((await h.supervisor.probeReadiness()).ready,true);instance='e'.repeat(64);assert.equal(await h.supervisor.probeReadiness(),null);const count=h.child.sent.length;assert.equal(await h.supervisor.probeReadiness(),null);assert.equal(h.child.sent.length,count);}finally{h.supervisor.dispose();}
+});
+
+test('later coalesced caller cancellation revokes shared proof but permits a fresh query',async()=>{
+ let finish,delay=true;const proof={pid:55,uid:1000,processInstance:'c'.repeat(64),sessionId:'s2',instance:'d'.repeat(64),seat:'seat0',vt:1,active:true};
+ const h=await harness({correlate:()=>delay?new Promise(resolve=>{finish=resolve;}):Promise.resolve(proof)});
+ try{
+  const first=h.supervisor.probeReadiness();await tick();const caller=new AbortController();
+  const second=h.supervisor.probeReadiness({signal:caller.signal});assert.equal(second,first);
+  caller.abort();finish(proof);assert.equal(await second,null);assert.equal(await first,null);
+  delay=false;assert.equal((await h.supervisor.probeReadiness()).ready,true);assert.deepEqual(h.states,[]);
+ }finally{h.supervisor.dispose();}
+});
+
+for(const outcome of ['success','abort','already-aborted'])test(`coalesced caller listeners are cleaned after ${outcome}`,async()=>{
+ const h=await harness();const firstCaller=new AbortController(),laterCaller=new AbortController();
+ try{
+  const first=h.supervisor.probeReadiness({signal:firstCaller.signal});
+  if(outcome==='already-aborted')laterCaller.abort();
+  const second=h.supervisor.probeReadiness({signal:laterCaller.signal});assert.equal(first,second);
+  if(outcome==='abort')laterCaller.abort();
+  const result=await first;assert.equal(result?.ready??false,outcome==='success');
+  for(const caller of [firstCaller,laterCaller])assert.equal(getEventListeners(caller.signal,'abort').length,0);
+  const fresh=h.supervisor.probeReadiness();firstCaller.abort();laterCaller.abort();
+  assert.equal((await fresh).ready,true,'settled callers cannot cancel a new query');assert.deepEqual(h.states,[]);
+ }finally{h.supervisor.dispose();}
 });

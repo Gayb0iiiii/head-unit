@@ -91,15 +91,29 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     probeReadiness({signal}={}){
       const instance=current;
       const isCurrent=()=>!disposed&&current===instance&&instance?.ready&&!instance.readinessLost&&!pending;
-      if(!isCurrent()||signal?.aborted)return Promise.resolve(null);
-      if(!instance.query)instance.query=queryReleaseReadiness({...readinessOptions,child:instance.child,isCurrent,signal:signal?AbortSignal.any([signal,instance.readinessStop.signal]):instance.readinessStop.signal}).then(proof=>{
-        if(!proof||!isCurrent())return null;
-        const bound=instance.readinessBinding;
-        if(bound&&(bound.sessionId!==proof.sessionId||bound.instance!==proof.instance)){instance.revokeReadiness();return null;}
-        instance.readinessBinding??={sessionId:proof.sessionId,instance:proof.instance};
-        return proof;
-      }).finally(()=>{instance.query=null;});
-      return instance.query;
+      if(!isCurrent())return Promise.resolve(null);
+      if(signal?.aborted){instance.query?.stop.abort();return instance.query?.promise??Promise.resolve(null);}
+      if(!instance.query){
+        const query={stop:new AbortController(),signals:new Set(),promise:null};
+        const cancel=()=>query.stop.abort();query.cancel=cancel;
+        instance.query=query;
+        query.promise=queryReleaseReadiness({...readinessOptions,child:instance.child,isCurrent,signal:AbortSignal.any([query.stop.signal,instance.readinessStop.signal])}).then(proof=>{
+          if(!proof||query.stop.signal.aborted||!isCurrent())return null;
+          const bound=instance.readinessBinding;
+          if(bound&&(bound.sessionId!==proof.sessionId||bound.instance!==proof.instance)){instance.revokeReadiness();return null;}
+          instance.readinessBinding??={sessionId:proof.sessionId,instance:proof.instance};
+          return proof;
+        }).finally(()=>{
+          for(const caller of query.signals)caller.removeEventListener('abort',cancel);
+          query.signals.clear();
+          if(instance.query===query)instance.query=null;
+        });
+      }
+      const query=instance.query;
+      if(signal&&!query.signals.has(signal)){
+        query.signals.add(signal);signal.addEventListener('abort',query.cancel,{once:true});
+      }
+      return query.promise;
     },
     dispose(){if(disposed)return;disposed=true;clearWatch();clearStop();current?.revokeReadiness();if(current)stopOwnedChild(current.child);current=null;},
   };
