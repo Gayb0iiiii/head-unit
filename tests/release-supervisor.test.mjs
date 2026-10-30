@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {EventEmitter} from 'node:events';
+import {EventEmitter,once} from 'node:events';
+import {spawn} from 'node:child_process';
 import {createReleaseSupervisor} from '../electron/release-supervisor.mjs';
 
 const old='a'.repeat(40),next='b'.repeat(40),third='c'.repeat(40);
@@ -102,4 +103,26 @@ test('a stable active release clears transient failures after its health interva
   for(let i=0;i<2;i++){h.children.at(-1).emit('exit',1);await h.supervisor.idle();}
   assert.equal(h.fatal,0);
   h.supervisor.dispose();
+});
+test('shutdown during asynchronous launch stops the late child instead of orphaning it',async()=>{
+ let finish,kills=[],timers=[];const child=new EventEmitter();child.kill=signal=>{kills.push(signal);return true;};
+ const supervisor=createReleaseSupervisor({initial:oldRelease,launch:()=>new Promise(resolve=>{finish=resolve;}),verifyRelease:async()=>candidate,saveState:async()=>{},setTimer:fn=>{timers.push(fn);return fn;},clearTimer:()=>{}});
+ const starting=supervisor.start();await tick();supervisor.dispose();finish(child);await starting;
+ assert.deepEqual(kills,['SIGTERM']);timers.at(-1)();assert.deepEqual(kills,['SIGTERM','SIGKILL']);
+});
+test('shutdown while verification waits cannot persist or activate a candidate',async()=>{
+ let finish;const states=[],child=new EventEmitter();child.kill=()=>true;child.send=()=>{};
+ const supervisor=createReleaseSupervisor({initial:oldRelease,launch:async()=>child,verifyRelease:()=>new Promise(resolve=>{finish=resolve;}),saveState:async value=>states.push(value),setTimer:()=>1,clearTimer:()=>{}});
+ await supervisor.start();child.emit('message',{kind:'ready',sha:old});await supervisor.idle();child.emit('message',{kind:'activate',id:1,sha:next});await tick();supervisor.dispose();finish(candidate);await supervisor.idle();assert.deepEqual(states,[]);
+});
+test('starting twice cannot create competing child owners',async()=>{
+ const h=harness();await h.supervisor.start();await h.supervisor.start();assert.equal(h.children.length,1);h.supervisor.dispose();
+});
+
+test('real child ignoring graceful shutdown is killed within the shutdown deadline',{timeout:3000},async()=>{
+ let child;const supervisor=createReleaseSupervisor({initial:oldRelease,shutdownMs:50,
+  launch:async()=>{child=spawn(process.execPath,['-e',"process.on('SIGTERM',()=>{});process.send({kind:'ready',sha:'"+old+"'});setInterval(()=>{},1000)"],{stdio:['ignore','ignore','ignore','ipc']});return child;},
+  verifyRelease:async()=>null,saveState:async()=>{}});
+ try{await supervisor.start();await once(child,'message');const exited=once(child,'exit');supervisor.dispose();const [code,signal]=await exited;assert.equal(code,null);assert.equal(signal,'SIGKILL');}
+ finally{supervisor.dispose();if(child?.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');}
 });

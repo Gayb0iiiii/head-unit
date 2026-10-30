@@ -37,7 +37,9 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
   page.mouse.move(2,2)
   page.screenshot(path=f'/tmp/audio-populated-{width}x{height}.png',full_page=True)
  page.set_viewport_size({'width':480,'height':800})
+ page.evaluate('scrollTo(0,0)');page.screenshot(path='/tmp/audio-portrait-player-top.png')
  listing.scroll_into_view_if_needed();listing.evaluate('el=>el.scrollTop=0');page.wait_for_timeout(150)
+ assert page.evaluate('scrollY')>100,'Portrait library must be tested separately from the player viewport'
  row=page.get_by_role('button',name='Play Track 00',exact=True);expect(row).to_be_visible();assert row.inner_text().startswith('Track 00')
  page.screenshot(path='/tmp/audio-portrait-visible-list.png')
  page.locator('[data-local=manage]').scroll_into_view_if_needed()

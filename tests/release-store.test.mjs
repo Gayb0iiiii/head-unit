@@ -59,3 +59,17 @@ test('missing recorded release does not silently reset an existing manifest',asy
   await assert.rejects(()=>createReleaseStore({...f,readHead:async()=>old}));assert.equal(await readFile(manifest,'utf8'),before);
  }finally{await f.close();}
 });
+test('unavailable active release recovers only to the recorded verified previous commit',async()=>{
+ const f=await fixture();try{
+  const readHead=async()=>old;const store=await createReleaseStore({...f,readHead});await store.saveState({active:next,previous:old});
+  const recovered=await createReleaseStore({...f,readHead});assert.equal(recovered.initial.sha,old);assert.equal(recovered.recovered,true);
+  assert.deepEqual(JSON.parse(await readFile(path.join(f.stateRoot,'release.json'),'utf8')),{version:1,active:old,pending:null,previous:null});
+ }finally{await f.close();}
+});
+test('a wrong-hash previous release cannot be promoted by recovery',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old});await store.saveState({active:next,previous:'c'.repeat(40)});
+  await assert.rejects(()=>createReleaseStore({...f,readHead:async()=>old}));
+  assert.equal(JSON.parse(await readFile(path.join(f.stateRoot,'release.json'),'utf8')).active,next);
+ }finally{await f.close();}
+});

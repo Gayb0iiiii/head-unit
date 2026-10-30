@@ -67,3 +67,20 @@ Portrait follow-up used a populated 30-track library. Labels appeared after a pa
 A direct file-origin persistent-profile continuity test is included for a suitable local runner, but managed Chromium blocked its `file://` navigation with `ERR_BLOCKED_BY_ADMINISTRATOR`. That verification remains blocked; no alternate executor or policy bypass was used. The Pi installation and physical recovery gates remain unchanged.
 
 Follow-up local verification: **548 Node tests passed, 0 failed**, build passed, Unix socket fixture passed, all four dist browser suites passed, and the separate original-artwork MP3 fixture passed. Immediate portrait pixels were inspected after removing deferred painting. Logs, viewport captures and the explicit file-origin blocker are in `evidence/continuity/`.
+
+## Deterministic recovery checkpoint
+
+Regression tests reproduced and fixed duplicate supervisor starts, a late child arriving after disposal, activation verification completing after shutdown, and a second update request after activation acknowledgement. Startup now has one owner; disposed supervisors terminate late children and refuse new activation. Shutdown escalates a non-exiting owned child from SIGTERM to SIGKILL after ten seconds. A real Node child that deliberately ignores SIGTERM verifies escalation with a 50ms test deadline. Unit fixtures separately exercise the default deadline callbacks and race boundaries.
+
+Missing active releases may recover only to the recorded, verified previous SHA. Wrong-hash fallbacks and missing active/previous builds leave the manifest intact and fail closed. This does not turn an unverified build into a recovery candidate or clear the existing crash budget. Browser portrait coverage now captures the top player and scrolled library at distinct document positions; the earlier controls/list captures were the same view and are not independent coverage.
+
+### Remaining implementation and acceptance work
+
+- Standalone Bluetooth pairing/music, calls/contacts and independent maps/navigation have no complete backend. They are unimplemented, not fixed by these UI changes.
+- CarPlay still needs the pinned native ARM64 runtime, MFi/phone integration and real compositor/input/audio testing. System connectivity alone is not presented as projection readiness.
+- Camera, physical brightness/headlight/motion input and sensor/alert delivery remain unavailable. Critical instrumentation is independent; the saved sensor settings do not start monitoring or sounds.
+- Installed desktop handoff, update activation and cold-boot/power-loss behavior are still Pi acceptance gates. No services were changed on the live Pi; software supervision is not a hardware watchdog.
+- Profile continuity across release paths remains blocked by the managed browser's file-origin policy. No bypass attempted.
+- Visual reference fidelity remains incomplete: the current rail is app navigation, the music view still uses player/list panels, and compact screens trade visible rows/artwork size for touch targets. Separate driver controls and an alternative artwork-led composition remain design work, with only supported actions eligible for controls.
+
+Verification at this checkpoint: **555 Node tests passed**, build and socket fixture passed; four production browser suites passed, including distinct portrait player/library viewports. Evidence is in `evidence/recovery/`. No file-origin retry, deployment, reboot or native hardware trial was performed.

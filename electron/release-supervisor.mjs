@@ -1,17 +1,24 @@
 const shaPattern=/^[0-9a-f]{40}$/;
 
 /** Keep Cage's supervised child alive while Electron restarts or rolls back. */
-export function createReleaseSupervisor({initial,recovered=false,launch,verifyRelease,saveState,setTimer=setTimeout,clearTimer=clearTimeout,onFatal=()=>{},readinessMs=30000,healthMs=10000}){
+export function createReleaseSupervisor({initial,recovered=false,launch,verifyRelease,saveState,setTimer=setTimeout,clearTimer=clearTimeout,onFatal=()=>{},readinessMs=30000,healthMs=10000,shutdownMs=10000}){
   if(!shaPattern.test(initial?.sha)||typeof initial?.path!=='string'||![launch,verifyRelease,saveState,setTimer,clearTimer,onFatal].every(fn=>typeof fn==='function'))throw TypeError('Invalid release supervisor');
-  let active=initial,current=null,pending=null,failures=0,disposed=false,timer=null,stopTimer=null,queue=Promise.resolve();
+  let active=initial,current=null,pending=null,failures=0,disposed=false,started=false,timer=null,stopTimer=null,queue=Promise.resolve();
   const enqueue=fn=>{queue=queue.then(fn).catch(error=>{if(!disposed)onFatal(error);});return queue;};
   const clearWatch=()=>{if(timer!==null)clearTimer(timer);timer=null;};
   const clearStop=()=>{if(stopTimer!==null)clearTimer(stopTimer);stopTimer=null;};
   const armStop=instance=>{clearStop();stopTimer=setTimer(()=>{if(current===instance&&instance.child.kill('SIGKILL')===false)onFatal(Error('Electron could not stop'));},10000);stopTimer?.unref?.();};
+  const stopOwnedChild=child=>{
+    const deadline=setTimer(()=>child.kill('SIGKILL'),shutdownMs);deadline?.unref?.();
+    child.once('exit',()=>clearTimer(deadline));
+    child.once('error',()=>clearTimer(deadline));
+    if(child.kill('SIGTERM')===false)clearTimer(deadline);
+  };
   const acknowledge=(child,id,accepted)=>{try{child.send?.({kind:'update-ack',id,accepted});}catch{}};
   async function launchRelease(release,mode){
     if(disposed)return;
     const child=await launch(release,mode);
+    if(disposed){stopOwnedChild(child);return;}
     const instance={child,release,mode,ready:false};current=instance;
     child.on('message',message=>{void enqueue(()=>receive(instance,message));});
     child.on('exit',code=>{void enqueue(()=>exited(instance,code));});
@@ -46,9 +53,11 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     if(!instance.ready||pending||instance.mode==='candidate'||!shaPattern.test(message.sha)||message.sha===active.sha){reject();return;}
     let candidate;
     try{candidate=await verifyRelease(message.sha);}catch{reject();return;}
+    if(disposed||instance!==current)return;
     if(candidate?.sha!==message.sha||typeof candidate.path!=='string'){reject();return;}
     try{await saveState({active:active.sha,pending:candidate.sha,previous:null});}
     catch{reject();return;}
+    if(disposed||instance!==current)return;
     pending={candidate,previous:active};
     if(instance.child.kill('SIGTERM')===false){
       pending=null;
@@ -73,8 +82,8 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     await launchRelease(active,'active');
   }
   return {
-    start:()=>enqueue(()=>launchRelease(active,recovered?'rollback':'active')),
+    start:()=>{if(started||disposed)return queue;started=true;return enqueue(()=>launchRelease(active,recovered?'rollback':'active'));},
     idle:()=>queue,
-    dispose(){disposed=true;clearWatch();clearStop();current?.child.kill?.('SIGTERM');current=null;},
+    dispose(){if(disposed)return;disposed=true;clearWatch();clearStop();if(current)stopOwnedChild(current.child);current=null;},
   };
 }

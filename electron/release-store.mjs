@@ -45,8 +45,8 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
   }
   async function resolve(sha){
     const staged=await verifyRelease(sha);if(staged)return staged;
-    const source=await sourceRelease();
-    return sha===source.sha?source:null;
+    try{const source=await sourceRelease();return sha===source.sha?source:null;}
+    catch(error){if(error?.code==='ENOENT')return null;throw error;}
   }
   async function saveState({active,pending=null,previous=null}){
     if(!validSha(active)||pending!==null&&!validSha(pending)||previous!==null&&!validSha(previous))throw TypeError('Invalid release manifest');
@@ -68,8 +68,12 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
     const manifest=JSON.parse(await readFile(manifestPath,'utf8'));
     if(manifest.version!==1||!validSha(manifest.active)||manifest.pending!==null&&!validSha(manifest.pending)||manifest.previous!==null&&!validSha(manifest.previous)||Object.keys(manifest).sort().join(',')!=='active,pending,previous,version')throw Error('Invalid release manifest');
     initial=await resolve(manifest.active);
-    if(!initial)throw Error('Recorded release unavailable');
-    if(manifest.pending!==null){recovered=true;await saveState({active:initial.sha,pending:null,previous:manifest.previous});}
+    if(!initial&&manifest.previous!==null&&manifest.previous!==manifest.active){
+      initial=await resolve(manifest.previous);
+      if(initial){recovered=true;await saveState({active:initial.sha,pending:null,previous:null});}
+    }
+    if(!initial)throw Error('Recorded release and verified fallback unavailable');
+    if(!recovered&&manifest.pending!==null){recovered=true;await saveState({active:initial.sha,pending:null,previous:manifest.previous});}
   }catch(error){
     if(manifestExists||error?.code!=='ENOENT')throw error;
     initial=await sourceRelease();
