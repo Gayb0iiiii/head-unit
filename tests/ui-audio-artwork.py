@@ -31,8 +31,15 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  page.get_by_role('button',name='Pause local audio').click()
  for width,height in [(1920,1080),(1280,720),(800,480),(480,800)]:
   page.set_viewport_size({'width':width,'height':height});page.mouse.move(2,2)
+  if width>=650:
+   player=page.locator('.local-player').bounding_box();assert player['y']+player['height']<=height+1,('player below viewport',width,player)
+   assert page.locator('[data-local=play]').bounding_box()['height']>=50
+   assert page.locator('.local-tools summary').bounding_box()['height']>=48
+   controls=page.locator('.local-driver-controls').bounding_box();library=page.locator('.local-library').bounding_box();assert controls['x']>=library['x']+library['width']
+   assert player['y']>=library['y']+library['height']
+   listing=page.locator('.local-list').bounding_box();assert listing['y']+listing['height']<=library['y']+library['height']
   page.screenshot(path=f'/tmp/audio-tagged-{width}x{height}.png')
   if width==480:
    page.locator('.local-list').scroll_into_view_if_needed();page.screenshot(path='/tmp/audio-tagged-portrait-library.png')
  page.reload();page.locator('aside [data-action=audio]').click();expect(page.locator('.local-art img')).to_be_visible();expect(page.get_by_role('button',name='Play local audio',exact=True)).to_be_visible()
- print(json.dumps({'passed':True,'fixtures':'six original covers + silent MP3s','checks':['ID3 title/artist/album','embedded PNG decode','MP3 duration','paused restart with artwork','four viewport captures']}));browser.close()
+ print(json.dumps({'passed':True,'fixtures':'six original covers + silent MP3s','checks':['ID3 title/artist/album','embedded PNG decode','MP3 duration','paused restart with artwork','four viewport captures','bottom player in landscape viewport','separate right playback controls','touch targets and contained library']}));browser.close()

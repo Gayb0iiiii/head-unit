@@ -29,7 +29,8 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  assert listing.evaluate('el=>el.scrollTop')>50,'touch swipe did not scroll'
  expect(page.get_by_role('button',name='Pause local audio')).to_have_count(0)
  expect(page.locator('body')).to_have_attribute('data-dock-side','right')
- assert page.locator('aside').bounding_box()['width']<=80
+ assert page.locator('aside').bounding_box()['height']<=64
+ assert page.locator('.local-driver-controls').bounding_box()['width']<=80
  assert page.locator('main>header').bounding_box()['height']<=64
  for width,height in [(1920,1080),(1280,720),(800,480),(480,800)]:
   page.set_viewport_size({'width':width,'height':height})
@@ -39,9 +40,12 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  page.set_viewport_size({'width':480,'height':800})
  page.evaluate('scrollTo(0,0)');page.screenshot(path='/tmp/audio-portrait-player-top.png')
  listing.scroll_into_view_if_needed();listing.evaluate('el=>el.scrollTop=0');page.wait_for_timeout(150)
- assert page.evaluate('scrollY')>100,'Portrait library must be tested separately from the player viewport'
  row=page.get_by_role('button',name='Play Track 00',exact=True);expect(row).to_be_visible();assert row.inner_text().startswith('Track 00')
  page.screenshot(path='/tmp/audio-portrait-visible-list.png')
+ page.evaluate('scrollTo(0,document.documentElement.scrollHeight)');assert page.evaluate('scrollY')>100
+ controls=page.locator('.local-driver-controls').bounding_box();dock=page.locator('aside').bounding_box();assert controls['y']+controls['height']<=dock['y']
+ page.screenshot(path='/tmp/audio-portrait-player-bottom.png')
+ page.locator('.local-tools summary').click()
  page.locator('[data-local=manage]').scroll_into_view_if_needed()
  dock=page.locator('aside').bounding_box();control=page.locator('[data-local=manage]').bounding_box()
  assert control['y']+control['height']<=dock['y'],('dock overlaps import controls',control,dock)
