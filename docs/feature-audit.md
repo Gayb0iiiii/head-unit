@@ -227,3 +227,9 @@ Fixed independent review's staged `dist` symlink escape. The build path now requ
 Wired the existing private owned-child responder to trusted renderer acknowledgement, shown/non-destroyed window and current lifecycle state. Only supervised connected parent IPC receives replies. Cleanup, renderer loss and main-document replacement revoke the proof and suppress in-flight responses; the release activation ready message remains unchanged. No public renderer IPC or cross-session aggregation is added.
 
 **712 tests**, **34 focused application/readiness tests**, build and Unix-socket fixture pass; evidence is in `evidence/renderer-readiness/`. Fake-Electron lifecycle cases cover repeated probes, loss during a pending response, navigation, shutdown and unsupervised launches. No new browser pixel test was needed for this host-only change. Parent-side aggregation/correlation remains unwired, joint boot remains blocked, and physical/deployment gates are listed in `docs/boot-readiness.md` and the current inventory. No Pi, service, permission, merge, deployment or blocked-operation change occurred.
+
+## Explicit release-supervisor readiness composition
+
+The supervisor exposes a bounded host-only query combining owned-child readiness with session correlation. It preserves probe time, rejects stale/mismatched evidence, pins the first verified session binding and revokes on lifecycle loss, replacement, disposal or reassignment. Queries are explicit, never automatic, and do not participate in release activation/health/rollback decisions. No boot service or aggregator is enabled.
+
+**724 tests**, **40 focused release/readiness tests**, build and Unix-socket fixture pass. Evidence: `evidence/supervisor-readiness/`; detailed snapshot/cancellation semantics and remaining Pi gates are in `docs/release-readiness.md`. No deployment or reboot was performed; test-build installation approval is not exercised by this thread.

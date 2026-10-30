@@ -55,3 +55,7 @@ Remaining acceptance gates: authenticated cross-session role registration/aggreg
 ### Pre-show navigation review
 
 The independent fake-Electron sequence (renderer acknowledgement, replacement main-document navigation before window show, then load/show) reproduced a readiness=true response based on the old acknowledgement. Revocation now starts once either the renderer has acknowledged or the window has been shown. The regression verifies legitimate initial navigation before acknowledgement remains allowed and the existing release-ready signal/timing is unchanged. This is a reproduced state-machine gap, not a demonstrated real Electron ordering or physical exploit; renderer-initiated navigation restrictions remain intact. **713 full-suite tests**, **35 focused tests**, build and socket fixture pass. Evidence: `evidence/preshow-readiness/`.
+
+### Supervisor query integration
+
+The [release-supervisor query](release-readiness.md) now composes owned-child probing with session correlation, preserves the original timestamp, pins the first verified session binding and discards results on lifecycle loss/reassignment. It is explicit and not automatically invoked by a launcher or aggregator. Boot coordination, cross-session role aggregation and real desktop readiness remain gated; release/update/rollback behavior is unchanged.

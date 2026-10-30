@@ -1,0 +1,74 @@
+✖ supervisor composes owned IPC with session correlation and preserves original probe time (2.473957ms)
+✖ late correlation cannot freshen expired evidence or accept session reassignment (0.362748ms)
+✖ exit revokes pending supervisor readiness and cleans probe listeners (0.197783ms)
+✖ disconnect revokes pending supervisor readiness and cleans probe listeners (0.223852ms)
+✖ dispose revokes pending supervisor readiness and cleans probe listeners (0.19592ms)
+✖ replacement child cannot inherit late old-child correlation (0.289199ms)
+✖ query timeout and cancellation do not change release state or stop the child (0.185034ms)
+✖ activation invalidates in-flight query without changing update acknowledgement (0.182871ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 0
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 79.834134
+
+✖ failing tests:
+
+test at tests/release-readiness.test.mjs:15:1
+✖ supervisor composes owned IPC with session correlation and preserves original probe time (2.473957ms)
+  TypeError: h.supervisor.probeReadiness is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:16:61)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at tests/release-readiness.test.mjs:18:1
+✖ late correlation cannot freshen expired evidence or accept session reassignment (0.362748ms)
+  TypeError: h.supervisor.probeReadiness is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:19:123)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-readiness.test.mjs:22:52
+✖ exit revokes pending supervisor readiness and cleans probe listeners (0.197783ms)
+  TypeError: h.supervisor.probeReadiness is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:23:69)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-readiness.test.mjs:22:52
+✖ disconnect revokes pending supervisor readiness and cleans probe listeners (0.223852ms)
+  TypeError: h.supervisor.probeReadiness is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:23:69)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-readiness.test.mjs:22:52
+✖ dispose revokes pending supervisor readiness and cleans probe listeners (0.19592ms)
+  TypeError: h.supervisor.probeReadiness is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:23:69)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-readiness.test.mjs:27:1
+✖ replacement child cannot inherit late old-child correlation (0.289199ms)
+  TypeError: h.supervisor.probeReadiness is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:28:123)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-readiness.test.mjs:30:1
+✖ query timeout and cancellation do not change release state or stop the child (0.185034ms)
+  TypeError: h.supervisor.probeReadiness is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:31:97)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/release-readiness.test.mjs:33:1
+✖ activation invalidates in-flight query without changing update acknowledgement (0.182871ms)
+  TypeError: h.supervisor.probeReadiness is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:34:73)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

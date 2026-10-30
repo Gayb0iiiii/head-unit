@@ -1,7 +1,8 @@
+import {queryReleaseReadiness} from './release-readiness.mjs';
 const shaPattern=/^[0-9a-f]{40}$/;
 
 /** Keep Cage's supervised child alive while Electron restarts or rolls back. */
-export function createReleaseSupervisor({initial,recovered=false,launch,verifyRelease,saveState,setTimer=setTimeout,clearTimer=clearTimeout,onFatal=()=>{},readinessMs=30000,healthMs=10000,shutdownMs=10000}){
+export function createReleaseSupervisor({initial,recovered=false,launch,verifyRelease,saveState,setTimer=setTimeout,clearTimer=clearTimeout,onFatal=()=>{},readinessMs=30000,healthMs=10000,shutdownMs=10000,readinessOptions={}}){
   if(!shaPattern.test(initial?.sha)||typeof initial?.path!=='string'||![launch,verifyRelease,saveState,setTimer,clearTimer,onFatal].every(fn=>typeof fn==='function'))throw TypeError('Invalid release supervisor');
   let active=initial,current=null,pending=null,failures=0,disposed=false,started=false,timer=null,stopTimer=null,queue=Promise.resolve();
   const enqueue=fn=>{queue=queue.then(fn).catch(error=>{if(!disposed)onFatal(error);});return queue;};
@@ -19,10 +20,12 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     if(disposed)return;
     const child=await launch(release,mode);
     if(disposed){stopOwnedChild(child);return;}
-    const instance={child,release,mode,ready:false};current=instance;
+    const instance={child,release,mode,ready:false,readinessStop:new AbortController(),readinessLost:false,query:null};current=instance;
+    const revoke=()=>{instance.readinessLost=true;instance.readinessStop.abort();child.removeListener('disconnect',revoke);};
+    instance.revokeReadiness=revoke;child.on('disconnect',revoke);
     child.on('message',message=>{void enqueue(()=>receive(instance,message));});
-    child.on('exit',code=>{void enqueue(()=>exited(instance,code));});
-    child.on('error',()=>{void enqueue(()=>exited(instance,1));});
+    child.on('exit',code=>{revoke();void enqueue(()=>exited(instance,code));});
+    child.on('error',()=>{revoke();void enqueue(()=>exited(instance,1));});
     timer=setTimer(()=>{if(current===instance&&!instance.ready){if(child.kill('SIGTERM')===false)onFatal(Error('Electron readiness timeout could not stop the child'));else armStop(instance);}},readinessMs);
     timer?.unref?.();
   }
@@ -85,6 +88,19 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
   return {
     start:()=>{if(started||disposed)return queue;started=true;return enqueue(()=>launchRelease(active,recovered?'rollback':'active'));},
     idle:()=>queue,
-    dispose(){if(disposed)return;disposed=true;clearWatch();clearStop();if(current)stopOwnedChild(current.child);current=null;},
+    probeReadiness({signal}={}){
+      const instance=current;
+      const isCurrent=()=>!disposed&&current===instance&&instance?.ready&&!instance.readinessLost&&!pending;
+      if(!isCurrent()||signal?.aborted)return Promise.resolve(null);
+      if(!instance.query)instance.query=queryReleaseReadiness({...readinessOptions,child:instance.child,isCurrent,signal:signal?AbortSignal.any([signal,instance.readinessStop.signal]):instance.readinessStop.signal}).then(proof=>{
+        if(!proof||!isCurrent())return null;
+        const bound=instance.readinessBinding;
+        if(bound&&(bound.sessionId!==proof.sessionId||bound.instance!==proof.instance)){instance.revokeReadiness();return null;}
+        instance.readinessBinding??={sessionId:proof.sessionId,instance:proof.instance};
+        return proof;
+      }).finally(()=>{instance.query=null;});
+      return instance.query;
+    },
+    dispose(){if(disposed)return;disposed=true;clearWatch();clearStop();current?.revokeReadiness();if(current)stopOwnedChild(current.child);current=null;},
   };
 }
