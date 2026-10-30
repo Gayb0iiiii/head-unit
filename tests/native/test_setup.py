@@ -123,5 +123,71 @@ class EngineGuard(unittest.TestCase):
                 check.engine_artifacts(pathlib.Path(directory))
 
 
+class ArchitectureGuard(unittest.TestCase):
+    def manifest(self):
+        return {'rustc': {'release': '1.100.0-beta.3', 'commit-hash': 'pinned',
+                          'host': 'x86_64-unknown-linux-gnu'}}
+
+    def test_arm_selection_preserves_pin_and_default(self):
+        original = self.manifest()
+        selected = check.select_target(original, 'aarch64-unknown-linux-gnu')
+        self.assertEqual(selected['rustc']['host'], 'aarch64-unknown-linux-gnu')
+        self.assertEqual(selected['rustc']['commit-hash'], 'pinned')
+        self.assertEqual(original['rustc']['host'], 'x86_64-unknown-linux-gnu')
+        self.assertEqual(check.select_target(original, None), original)
+        with self.assertRaisesRegex(ValueError, 'supported'):
+            check.select_target(original, 'aarch64-apple-darwin')
+
+    def test_arm_target_rejects_x86_compiler_before_build(self):
+        selected = check.select_target(self.manifest(), 'aarch64-unknown-linux-gnu')
+        with patch.object(check, 'run', return_value='release: 1.100.0-beta.3\ncommit-hash: pinned\nhost: x86_64-unknown-linux-gnu\n'):
+            with self.assertRaisesRegex(ValueError, 'host'):
+                check.check_toolchain(selected, pathlib.Path('/tmp'))
+
+    def test_arm_compiler_still_requires_exact_release_and_commit(self):
+        selected = check.select_target(self.manifest(), 'aarch64-unknown-linux-gnu')
+        for version in ['release: other\ncommit-hash: pinned\n', 'release: 1.100.0-beta.3\ncommit-hash: other\n']:
+            with patch.object(check, 'run', return_value=version+'host: aarch64-unknown-linux-gnu\n'):
+                with self.assertRaises(ValueError):
+                    check.check_toolchain(selected, pathlib.Path('/tmp'))
+
+    def test_static_elf_identity_accepts_both_supported_targets_and_rejects_mislabeling(self):
+        with tempfile.TemporaryDirectory() as folder:
+            binary = pathlib.Path(folder) / 'fixture'
+            for target, machine in [('aarch64-unknown-linux-gnu', 183), ('x86_64-unknown-linux-gnu', 62)]:
+                header = bytearray(64);header[:7] = b'\x7fELF\x02\x01\x01';header[18:20] = machine.to_bytes(2, 'little')
+                binary.write_bytes(header)
+                self.assertEqual(check.verify_elf(binary, target)['machine'], machine)
+                other = 'x86_64-unknown-linux-gnu' if machine == 183 else 'aarch64-unknown-linux-gnu'
+                with self.assertRaisesRegex(ValueError, 'ELF'):
+                    check.verify_elf(binary, other)
+            for contents in [b'not ELF', b'\x7fELF\x01\x01'+bytes(58), b'\x7fELF\x02\x02'+bytes(58)]:
+                binary.write_bytes(contents)
+                with self.assertRaisesRegex(ValueError, 'ELF'):
+                    check.verify_elf(binary, 'aarch64-unknown-linux-gnu')
+
+    def test_core_compile_and_tests_cannot_inherit_an_environment_cross_target(self):
+        manifest = {'patch_sha256': 'ok', 'rustc': {'host': 'aarch64-unknown-linux-gnu'}}
+        with patch.object(check, 'digest', return_value='ok'), patch.object(check, 'verify_source'), patch.object(check, 'check_toolchain'), patch.object(check, 'run') as command:
+            with patch.dict(check.os.environ, {'CARGO_BUILD_TARGET': 'x86_64-unknown-linux-gnu'}):
+                check.execute_checked('compile', pathlib.Path('/tmp'), manifest, pathlib.Path('/tmp/patch'), None)
+                check.execute_checked('test', pathlib.Path('/tmp'), manifest, pathlib.Path('/tmp/patch'), None)
+        self.assertEqual(len(command.call_args_list), 3)
+        for call in command.call_args_list:
+            args = call.args[0]
+            self.assertEqual(args[args.index('--target')+1], 'aarch64-unknown-linux-gnu')
+        self.assertIn('--no-run', command.call_args_list[1].args[0])
+        self.assertIn('owned_input', command.call_args_list[2].args[0])
+
+    def test_wrong_architecture_artifact_never_reaches_readelf_or_execution(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = pathlib.Path(folder);(target/'release').mkdir()
+            (target/'release'/'livi-core').write_bytes(b'wrong architecture')
+            with patch.object(check, 'run') as command:
+                with self.assertRaisesRegex(ValueError, 'ELF'):
+                    check.engine_artifacts(target, 'aarch64-unknown-linux-gnu')
+                command.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()

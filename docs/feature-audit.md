@@ -157,3 +157,7 @@ The tagged-fixture browser suite now runs with the production suites. It uses si
 Independent Bluetooth re-review found native takeover disconnected music without saving pause intent. A composed regression reproduces it; the fix records pause when active or pending focus is revoked, prevents reconnect on the next startup, preserves preferences during orderly shutdown, and still disconnects if persistence fails. Bluetooth remains disabled by default and all existing hardware gates apply.
 
 Verification: **627 Node tests**, production build, Unix-socket and private-D-Bus fixtures, and **six production browser suites** passed. Logs, before-fix failures and six distinct tagged-fixture viewport screenshots are committed in `evidence/short-display/`. Physical display, touch, phone audio and reboot remain untested; no deployment occurred.
+
+## ARM64 native build path
+
+Added a separate architecture-native ARM64 CI job preserving existing x86 jobs and source/compiler/Cargo pins. Explicit target selection requires matching rustc host identity; static ELF checks prevent x86 outputs from being labelled ARM. Build reports distinguish compilation from engine/phone/hardware readiness and record actual system dependency versions without claiming a snapshot-pinned Ubuntu environment. Local guards pass, but this x86 workspace lacks native build prerequisites; exact-head CI must establish ARM compilation and reviewed Rust test results. See `docs/arm64-build.md` and `evidence/arm64-path/`. No native engine, Pi configuration or hardware operation was run.
