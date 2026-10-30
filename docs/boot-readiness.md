@@ -35,3 +35,7 @@ No services import these modules, and boot enablement remains blocked. SSH, remo
 682 Node tests pass, including 27 focused coordinator/transport/evidence tests; production build and Unix-socket fixture pass. The focused suite includes a real unprivileged Node child exchanging challenges over inherited IPC and a read of the current Linux process; these are not systemd/Plasma/Electron/VT tests. Adversarial cases cover wrong parent/UID, PID reuse, malformed/ambiguous evidence, replay, extra fields, changed session, timeout, cancellation, send failure and listener cleanup.
 
 Coordinator review gaps are covered: future readiness timestamps, foreign session UID, already-active target, malformed activation acknowledgement, disposal during activation and disposal during readback. Evidence is in `evidence/boot-readiness/`. No physical VT, hotplug, board reboot or power-loss validation occurred.
+
+### Correlation and freshness follow-up
+
+The [read-only session correlator](session-correlation.md) now maps an authenticated process proof to a separately verified common logind leader instance. It does not authorize a role reporter or relay readiness across sessions. The aggregator decision and remaining registration/desktop-readiness gates are documented there. The transport now preserves probe-start time and rejects evidence older than two seconds after identity validation, fixing the independent review's freshness defect; it never renews readiness merely because validation completed.

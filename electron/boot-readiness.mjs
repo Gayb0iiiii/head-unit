@@ -14,7 +14,7 @@ export async function createOwnedReadiness({child,uid,parentPid=process.pid,read
   if(disposed||signal?.aborted||child.connected!==true)return Promise.resolve(null);
   if(pending)return pending;
   pending=new Promise(resolve=>{
-   const nonce=randomBytes(24).toString('hex');let finished=false,checking=false;
+   const nonce=randomBytes(24).toString('hex'),observedAt=now();let finished=false,checking=false;
    const finish=value=>{if(finished)return;finished=true;clearTimeout(timer);child.removeListener('message',message);child.removeListener('disconnect',lost);child.removeListener('exit',lost);child.removeListener('error',lost);signal?.removeEventListener('abort',lost);cancel=null;resolve(value);};
    const lost=()=>finish(null);cancel=lost;
    const timer=setTimeout(lost,timeoutMs);
@@ -24,7 +24,8 @@ export async function createOwnedReadiness({child,uid,parentPid=process.pid,read
     const identity=await deadline(()=>readIdentity(child.pid,uid),timeoutMs);
     if(finished)return;
     if(disposed||child.connected!==true||!owned(identity)||identity.instance!==initial.instance||identity.sessionId!==initial.sessionId){finish(null);return;}
-    const observedAt=now();finish(Number.isFinite(observedAt)?{pid:identity.pid,sessionId:identity.sessionId,instance:identity.instance,ready:value.ready,observedAt}:null);
+    const checkedAt=now(),age=checkedAt-observedAt;
+    finish(Number.isFinite(observedAt)&&Number.isFinite(checkedAt)&&age>=0&&age<=2000?{pid:identity.pid,sessionId:identity.sessionId,instance:identity.instance,ready:value.ready,observedAt}:null);
    };
    child.on('message',message);for(const event of ['disconnect','exit','error'])child.on(event,lost);signal?.addEventListener('abort',lost,{once:true});
    try{child.send({kind:'boot-readiness-probe',nonce},error=>{if(error)lost();});}catch{lost();}

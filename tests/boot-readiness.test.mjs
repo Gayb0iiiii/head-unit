@@ -37,3 +37,13 @@ test('send failure, hung identity provider and concurrent probes are bounded',as
  const hung=await fixture({readIdentity:()=>new Promise(()=>{})});assert.equal(hung.probe,null);
  const h=await fixture();const first=h.probe.probe(),second=h.probe.probe();assert.equal(first,second);h.probe.dispose();assert.equal(await first,null);
 });
+
+test('identity validation delay cannot freshen a readiness reply beyond the coordinator lifetime',async()=>{
+ let clock=100,reads=0,finish;const h=await fixture({timeoutMs:5000,now:()=>clock,readIdentity:async()=>{if(++reads===1)return identity;return new Promise(resolve=>{finish=resolve;});}});
+ const pending=h.probe.probe();await new Promise(setImmediate);h.child.emit('message',{kind:'boot-readiness',nonce:h.child.sent.nonce,ready:true});
+ clock=2201;finish(identity);assert.equal(await pending,null);h.probe.dispose();
+});
+test('accepted readiness retains probe-start time instead of post-validation time',async()=>{
+ let clock=100,reads=0;const h=await fixture({now:()=>clock,readIdentity:async()=>{if(++reads>1)clock=500;return identity;}});
+ const pending=h.probe.probe();await new Promise(setImmediate);clock=200;h.child.emit('message',{kind:'boot-readiness',nonce:h.child.sent.nonce,ready:true});assert.equal((await pending).observedAt,100);h.probe.dispose();
+});
