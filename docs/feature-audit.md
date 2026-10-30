@@ -171,3 +171,9 @@ ARM64 provenance clarification: PR integration run 41104184250 associated with h
 GNSS verification: **640 Node tests**, production build and the encoded Unix-socket fixture passed. All **seven production browser suites** passed; the GNSS suite was rerun after the final copy/fixture-timestamp adjustment. Three viewport screenshots use injected data, not a real receiver. Evidence: `evidence/gnss-location/`.
 
 Final GNSS age-classification review distinguishes unavailable freshness (missing/future/invalid source times) from known-old stale readings. Regressions reproduce the prior conflation. **641 Node tests**, build and socket fixture pass after this host-side correction; the renderer contract and previously verified seven browser suites are unchanged.
+
+## Recovery and offline continuity reassessment
+
+The current feature/gate matrix is [current-feature-inventory.md](current-feature-inventory.md); earlier checkpoint lists are historical. Two reproduced software gaps are corrected: restoring a queue after missing files now preserves the selected occurrence (including duplicates), and a missing selected track cannot transfer its saved seek position to another track. Restart still does not load or play media. Candidate launch rejection now clears the pending journal and launches the verified previous release immediately, without depending on an outer service restart. Existing readiness, health-window, shutdown, fatal-fallback and desktop-session policies remain in place.
+
+All three regressions failed before correction. **648 Node tests**, **29 focused tests**, production build, encoded Unix-socket fixture and **seven production browser suites** passed. Evidence is under `evidence/recovery-audit/`. No physical desktop, Pi services, source routing, hardware, reboot or power-loss acceptance occurred; the inventory names those gates explicitly. No denied PR-description update or administrator-blocked profile test was retried.

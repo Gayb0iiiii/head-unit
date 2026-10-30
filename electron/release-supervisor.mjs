@@ -71,9 +71,10 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     if(disposed||instance!==current)return;
     clearWatch();clearStop();current=null;
     if(pending&&instance.mode!=='candidate'){
-      await launchRelease(pending.candidate,'candidate');return;
+      try{await launchRelease(pending.candidate,'candidate');return;}
+      catch{if(disposed)return;/* Restore the previous UI if candidate launch itself fails. */}
     }
-    if(pending&&instance.mode==='candidate'){
+    if(pending){
       await saveState({active:pending.previous.sha,pending:null,previous:null});
       active=pending.previous;pending=null;failures=0;
       await launchRelease(active,'rollback');return;

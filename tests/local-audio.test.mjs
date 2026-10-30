@@ -91,3 +91,14 @@ test('reimport repairs a missing stored blob without losing favourites or queue'
  rows.set(id,{...rows.get(id),blob:undefined});await audio.play();assert.match(audio.message,/Cannot play/);
  await audio.importFiles([input]);assert.ok(rows.get(id).blob);assert.equal(audio.tracks.length,1);assert.deepEqual(audio.queue,[id]);assert.equal(audio.favourites.has(id),true);await audio.play();assert.equal(audio.playing,true);
 });
+
+test('offline restore preserves the selected queue occurrence when earlier files disappear',async()=>{
+ const store={list:async()=>[{id:'A'},{id:'B'}]};
+ const saved={queue:['missing','A','B','A','B'],index:3,position:42};
+ const audio=new LocalAudio({media:new Media(),store,storage:{getItem:()=>JSON.stringify(saved)}});await audio.ready;
+ assert.deepEqual(audio.queue,['A','B','A','B']);assert.equal(audio.index,2);assert.equal(audio.current.id,'A');assert.equal(audio.position,42);assert.equal(audio.playing,false);assert.equal(audio.media.src,'');
+});
+test('offline restore does not apply a missing selected tracks position to another file',async()=>{
+ const audio=new LocalAudio({media:new Media(),store:{list:async()=>[{id:'A'},{id:'B'}]},storage:{getItem:()=>JSON.stringify({queue:['A','missing','B'],index:1,position:87})}});await audio.ready;
+ assert.equal(audio.current.id,'B');assert.equal(audio.position,0);assert.equal(audio.playing,false);assert.match(audio.message,/unavailable/i);
+});

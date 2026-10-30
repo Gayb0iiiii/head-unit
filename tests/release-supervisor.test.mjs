@@ -126,3 +126,13 @@ test('real child ignoring graceful shutdown is killed within the shutdown deadli
  try{await supervisor.start();await once(child,'message');const exited=once(child,'exit');supervisor.dispose();const [code,signal]=await exited;assert.equal(code,null);assert.equal(signal,'SIGKILL');}
  finally{supervisor.dispose();if(child?.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');}
 });
+
+test('candidate launch rejection immediately restores the verified previous release',async()=>{
+ const launches=[],states=[],children=[],fatal=[];
+ const supervisor=createReleaseSupervisor({initial:oldRelease,
+  launch:async release=>{launches.push(release.sha);if(release.sha===next)throw Error('spawn unavailable');const child=new EventEmitter();child.send=()=>{};child.kill=()=>{queueMicrotask(()=>child.emit('exit',0));return true;};children.push(child);return child;},
+  verifyRelease:async()=>candidate,saveState:async state=>states.push(state),setTimer:()=>1,clearTimer:()=>{},onFatal:error=>fatal.push(error)});
+ try{await supervisor.start();children[0].emit('message',{kind:'ready',sha:old});await supervisor.idle();children[0].emit('message',{kind:'activate',id:1,sha:next});await supervisor.idle();await tick();await supervisor.idle();
+  assert.deepEqual(launches,[old,next,old]);assert.deepEqual(states.at(-1),{active:old,pending:null,previous:null});assert.equal(fatal.length,0);
+ }finally{supervisor.dispose();}
+});

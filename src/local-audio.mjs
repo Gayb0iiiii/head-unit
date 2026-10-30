@@ -43,10 +43,16 @@ export class LocalAudio {
   get playing(){return !!this.media&&!this.media.paused;}
   async restore(){
     try {this.tracks=await this.store.list();const saved=JSON.parse(this.storage?.getItem(preferenceKey)||'{}');
-      this.queue=Array.isArray(saved.queue)?saved.queue.filter(id=>this.tracks.some(t=>t.id===id)).slice(0,2000):[];
-      this.index=this.queue.length?Math.min(Math.max(Number.isInteger(saved.index)?saved.index:0,0),this.queue.length-1):-1;
+      const original=Array.isArray(saved.queue)?saved.queue:[];
+      const selected=Number.isInteger(saved.index)&&saved.index>=0&&saved.index<original.length?saved.index:0;
+      const retained=original.map((id,index)=>({id,index})).filter(row=>this.tracks.some(t=>t.id===row.id)).slice(0,2000);
+      this.queue=retained.map(row=>row.id);
+      const restored=retained.findIndex(row=>row.index===selected);
+      this.index=restored>=0?restored:retained.findIndex(row=>row.index>selected);
+      if(this.index<0&&this.queue.length)this.index=this.queue.length-1;
       this.favourites=new Set(Array.isArray(saved.favourites)?saved.favourites.filter(id=>this.tracks.some(t=>t.id===id)):[]);
-      this.position=Number.isFinite(saved.position)&&saved.position>=0?saved.position:0;
+      this.position=restored>=0&&Number.isFinite(saved.position)&&saved.position>=0?saved.position:0;
+      if(original.length&&restored<0)this.message='Previously selected file is unavailable. Playback remains paused.';
       this.repeat=['off','one','all'].includes(saved.repeat)?saved.repeat:'off';this.shuffle=saved.shuffle===true;
     }catch{this.message='Local storage unavailable. Check available space and restart.';}
     this.onChange();
