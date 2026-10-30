@@ -129,12 +129,12 @@ test('debug overlay is disabled by default and persists only an explicit boolean
 });
 test('native Apps order contains only real destinations and persists reordering',()=>{
  const storage=memoryStorage(),model=new Headunit(storage,{simulation:false});
- assert.deepEqual(model.state.appOrder,['radio','bluetooth','projection','settings']);
+ assert.deepEqual(model.state.appOrder,['audio','bluetooth','projection','settings']);
  assert.equal(model.beginLayoutEdit(),true);
  assert.equal(model.moveLayoutItem('apps','settings',-1),true);
- assert.deepEqual(new Headunit(storage,{simulation:false}).state.appOrder,['radio','bluetooth','settings','projection']);
+ assert.deepEqual(new Headunit(storage,{simulation:false}).state.appOrder,['audio','bluetooth','settings','projection']);
  model.resetLayout('apps');
- assert.deepEqual(model.state.appOrder,['radio','bluetooth','projection','settings']);
+ assert.deepEqual(model.state.appOrder,['audio','bluetooth','projection','settings']);
 });
 
 test('saved layouts keep allowlisted unique IDs and append missing defaults', () => {

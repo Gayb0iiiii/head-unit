@@ -5,7 +5,7 @@ import {Headunit} from './model.mjs';
 
 const visibleRoutes = new Set(['home','dashboard','phones','settings','audio','vehicle','projection','camera','cluster','disconnected']);
 const navigableRoutes = new Set(['home','dashboard','phones','settings','audio','vehicle','projection','radio','bluetooth','apps']);
-const localRoutes = new Set(['radio','bluetooth','apps']);
+const localRoutes = new Set(['audio','radio','bluetooth','apps']);
 
 /** Browser-side projection of the privileged, authoritative host view. */
 export class NativeHeadunit extends Headunit {
@@ -146,7 +146,7 @@ export class NativeHeadunit extends Headunit {
     this.cancelSelection();
     this.state.commandError = false;
     this.localRoute=localRoutes.has(route)?route:null;
-    if(this.localRoute){this.state.screen=this.localRoute;this.onChange();return;}
+    if(this.localRoute){this.state.screen=this.localRoute;if(route==='audio'&&this.state.connected&&this.state.front==='projection')this.command('navigate','audio');this.onChange();return;}
     if(!this.state.connected){
       this.state.screen=['settings','projection'].includes(route)?route:'home';
       this.onChange();

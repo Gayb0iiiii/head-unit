@@ -1,8 +1,8 @@
 # Audio integration backlog
 
-Phones, media and CarPlay remain primary. Local music files stored on the Pi are desired later at lower priority; no scanner, library or decoder is added in this checkpoint.
+Phones, media and CarPlay remain primary. The offline local library/player is now implemented; see [local audio](local-audio.md). Radio hardware has been dropped.
 
-A future external DSP is likely Helix, but the exact model is undecided. RCA versus optical output is also undecided. Keep a hardware-independent audio-output boundary and select the actual endpoint only after the hardware is chosen. Do not assume a vendor control protocol or claim DSP control.
+The external DSP is HELIX DSP PRO MK3. RCA versus optical output is also undecided. Keep a hardware-independent audio-output boundary and select the actual endpoint only after the hardware is chosen. Do not assume a vendor control protocol or claim DSP control.
 
 One master-volume/mute owner must be agreed before native implementation to avoid competing software, projection and DSP gains. The current normalized LIVI volume adapter does not settle that system-level ownership. Test music/call/navigation ducking and restoration with manual volume changes against actual outputs.
 

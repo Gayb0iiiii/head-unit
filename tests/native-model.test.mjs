@@ -48,9 +48,9 @@ test('a failed initial view read is not reported as a failed user action',async(
  const model=new NativeHeadunit(undefined,host);await model.start();
  assert.equal(model.state.commandError,false);assert.equal(model.state.screen,'home');model.stop();
 });
-test('local Radio Bluetooth and Apps routes never call the LIVI navigation bridge',async()=>{
+test('local Audio Bluetooth and Apps routes never call the LIVI navigation bridge',async()=>{
  const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
- for(const route of ['radio','bluetooth','apps']){
+ for(const route of ['audio','bluetooth','apps']){
    model.navigate(route);assert.equal(model.state.screen,route);
    host.emit({connected:false,connectionPhase:'backoff'});assert.equal(model.state.screen,route);
  }
@@ -163,4 +163,11 @@ for (const interruption of [
   host.emit({connected:true,route:'home',front:'livi',phones:[]});
   assert.equal(model.state.editingLayout,false,'returning Home does not restore editing');
   model.stop();
+});
+
+test('opening local audio from projection asks the native host to return its surface',async()=>{
+ const host=bridge(),model=new NativeHeadunit(undefined,host);await model.start();
+ host.emit({connected:true,front:'projection',route:'projection',phones:[]});
+ model.navigate('audio');assert.deepEqual(host.calls,[['navigate','audio']]);
+ host.emit({connected:true,front:'livi',route:'audio',phones:[]});assert.equal(model.state.screen,'audio');model.stop();
 });

@@ -81,9 +81,9 @@ Prototype code is offered under GPL-3.0-or-later; see LICENSE. LIVI is GPL-3.0-o
 2. A usable Electron/native LIVI runtime is required for compositor, real process-isolation, touch and media verification. Current source/VM tests cannot replace it.
 3. Actual hardware/provider choices are required for Bluetooth profiles/contacts, temperature/headlight/reverse signals, cameras and wheel inputs. See docs/phones-backlog.md, docs/appearance-and-inputs.md and docs/camera-backlog.md.
 
-## Later audio choices
+## Local audio
 
-Local Pi music is a later, low-priority feature. DSP model, RCA/optical output, control protocol and master-volume/mute ownership remain undecided. See docs/audio-backlog.md.
+Audio now provides an offline imported-file library, artwork/metadata, search, favourites, playback and queue controls. Radio is no longer in the primary navigation. Restart restores choices while remaining paused. See [local audio](docs/local-audio.md) for formats, storage, verification and source-ownership limits. HELIX DSP PRO MK3 tuning remains untouched.
 
 ## Complete pinned-source gate
 

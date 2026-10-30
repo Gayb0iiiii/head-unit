@@ -4,7 +4,7 @@ const checked=[];for(const directory of ['src','electron'])for(const name of awa
 for(const file of checked){const r=spawnSync(process.execPath,['--check',file],{stdio:'inherit'});if(r.status)process.exit(r.status);}
 // This small offline packer supports only our named, relative browser modules.
 // Explicit allowlist prevents accidentally shipping host/IPC/native code.
-const allowed=new Set(['app','picture','connection-status','appearance','wallpaper-image','wallpaper-catalog','weather-presentation','model','native-model','home-status','clock','debug-overlay','layout','sensor-settings','sensor-alerts','units']);
+const allowed=new Set(['audio-metadata','local-audio','local-audio-view','app','picture','connection-status','appearance','wallpaper-image','wallpaper-catalog','weather-presentation','model','native-model','home-status','clock','debug-overlay','layout','sensor-settings','sensor-alerts','units']);
 const modules=new Map(), visiting=new Set();
 async function collect(name){
  if(!allowed.has(name))throw new Error(`Non-browser dependency: ${name}`);

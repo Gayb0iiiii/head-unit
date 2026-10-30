@@ -285,7 +285,7 @@ test('Home switches directly between app grid and a clearly simulated music/vehi
   assert.match(ui.root.innerHTML, /Unavailable/);
   assert.match(ui.root.innerHTML, /data-action="projection"/);
   assert.doesNotMatch(ui.root.innerHTML, /312|km\/h|Demo values|battery/i);
-  assert.match(ui.root.innerHTML, /Simulated phones · No live audio or vehicle data/);
+  assert.match(ui.root.innerHTML, /Simulated phones · Local files play on this device/);
   ui.click('homeMode', 'apps');
   assert.match(ui.root.innerHTML, /class="apps"/);
   assert.doesNotMatch(ui.root.innerHTML, /class="dashboard"/);
@@ -524,7 +524,7 @@ test('production route changes preserve the overlay sample and do not restart ho
   const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),getMetrics:async()=>{reads++;return {cpuPercent:42,ramUsedBytes:1073741824,ramTotalBytes:4294967296,pingMs:31};}};
   const app=await launch(new Map(),host,'production');app.click('action','settings');app.click('debugOverlay','true');
   assert.ok(overlayTick);await overlayTick();assert.equal(reads,1);
-  app.click('action','radio');assert.equal(reads,1);
+  app.click('action','audio');assert.equal(reads,1);
   assert.match(app.doc.getElementById('debug-overlay').textContent,/CPU 42\.0%/);
   app.click('action','home');assert.equal(reads,1);
   assert.match(app.doc.getElementById('debug-overlay').textContent,/Google TCP latency 31 ms/);
@@ -535,9 +535,9 @@ test('production sidebar follows requested order and all destinations have hones
  const calls=[];const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),navigate:route=>{calls.push(route);return Promise.resolve({accepted:true});}};
  const app=await launch(new Map(),host,'production');await new Promise(resolve=>setImmediate(resolve));
  const order=[...app.root.innerHTML.matchAll(/class="dock-button" data-action="([^"]+)"/g)].map(match=>match[1]);
- assert.deepEqual(order.slice(0,5),['radio','bluetooth','projection','settings','apps']);
- app.click('action','radio');assert.match(app.root.innerHTML,/<h1>Radio<\/h1>/);assert.match(app.root.innerHTML,/class="feature-stage"/);assert.match(app.root.innerHTML,/Digital.*AM.*FM/s);assert.doesNotMatch(app.root.innerHTML,/data-action="tune"/);
- assert.match(app.root.innerHTML,/data-action="radio"[^>]*aria-current="page"/);
+ assert.deepEqual(order.slice(0,5),['audio','bluetooth','projection','settings','apps']);
+ app.click('action','audio');assert.match(app.root.innerHTML,/<h1>Local audio<\/h1>/);assert.match(app.root.innerHTML,/Add files/);assert.doesNotMatch(app.root.innerHTML,/data-action="tune"/);
+ assert.match(app.root.innerHTML,/data-action="audio"[^>]*aria-current="page"/);
  app.click('action','bluetooth');assert.match(app.root.innerHTML,/<h1>Bluetooth<\/h1>/);assert.match(app.root.innerHTML,/class="feature-stage"/);assert.doesNotMatch(app.root.innerHTML,/Pair now|Connected device/);
  app.click('action','projection');assert.match(app.root.innerHTML,/<h1>CarPlay<\/h1>/);
  app.click('action','settings');assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);
@@ -562,7 +562,7 @@ test('native connection screen explains retry, refusal and synchronization witho
  await new Promise(resolve=>setImmediate(resolve));assert.match(app.root.innerHTML,/<h1>Home<\/h1>/);assert.match(app.root.innerHTML,/Connecting phone system/);
  emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/Phone system offline/);assert.doesNotMatch(app.root.innerHTML,/reconnect automatically|Unable to complete that action/);
  assert.doesNotMatch(app.root.innerHTML,/data-phone=|data-media=/);
- app.click('action','settings');assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);assert.doesNotMatch(app.root.innerHTML,/data-action="audio"/);
+ app.click('action','settings');assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);assert.match(app.root.innerHTML,/data-action="audio"/);
  emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);
  app.click('action','home');assert.match(app.root.innerHTML,/<h1>Home<\/h1>/);assert.match(app.root.innerHTML,/Phone system offline/);
  emit({connected:true,route:'home',front:'livi',phones:[]});

@@ -197,3 +197,13 @@ Independent review found and drove fixes for CP slot order/reuse and AA multi-co
 Fresh shell aggregate: **390 Node tests passed**, including six Python guard tests; static/self-contained build and Unix-socket fixture (**1 passed**) passed. Logs are under `/workspace/setup-evidence/native-input/`, including red regressions, `ledger-green.txt`, `repro-compile.txt`, `repro-tests.txt`, and `shell-tests.txt`. The same draft PR gains a native CI job using the exact source/toolchain/patch; it does not run the full unreviewed native test suite or executable.
 
 No physical release, CarPlay/AA phone behavior, secure Electron acceptance, actual media/composition, calibration or Orange Pi validation is established. Full helper/media/compositor builds still require their development dependencies. Readiness/health protocol design, permitted native runtime acceptance and hardware remain separate next steps; no fake readiness or supervisor execution was added.
+
+## Offline local audio — 2026-10-30
+
+Based on the fetched `codex/weather-pi-network` commit `bafb0e2`; the initial workspace had no uncommitted changes. Radio primary navigation is replaced by local audio without changing the weather branch, native command allowlists or HELIX tuning.
+
+Fresh Node 24 verification: **537 tests passed, 0 failed**; build/syntax checks passed; Unix-socket Electron fixture **1 passed**; `git diff --check` passed. Regression coverage includes imports/deduplication, metadata/artwork bounds, storage errors, restore/import race, paused startup/position restoration, queue order/repeat/shuffle/removal, stale file loads, native ownership during load, and duplicate queue restart.
+
+Python Playwright with local Chromium exercised production HTML/CSP and actual IndexedDB/WAV decoding: import, advancing media time, pause/next, queue reorder, favourites, folders/search, reload without autoplay, source-navigation pause, persistent removal and no horizontal overflow at 1280×720, 800×480 and 480×800. No page errors. Logs and screenshots are in `evidence/local-audio/`; generated silent WAV files and a disconnected bridge fixture were used. Screenshots were inspected; they are software UI evidence, not sound quality or physical touchscreen evidence.
+
+Physical Orange Pi/Electron codec support, HELIX output, USB media handling on Armbian, power-cut durability/profile migration and native call/navigation ducking are unverified. No native engine, service changes, deployment or merge occurred. See `docs/local-audio.md` for the implemented scope and limits.

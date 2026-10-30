@@ -9,7 +9,7 @@ const defaultOrders = Object.freeze({
   apps: Object.freeze(['projection', 'phones', 'vehicle', 'audio', 'settings']),
   dashboard: Object.freeze(['music', 'temperature'])
 });
-const nativeAppOrder=Object.freeze(['radio','bluetooth','projection','settings']);
+const nativeAppOrder=Object.freeze(['audio','bluetooth','projection','settings']);
 const orderKey = kind => kind === 'apps' ? 'appOrder' : 'dashboardOrder';
 const sanitizeOrder = (value, defaults) => [...new Set([
   ...(Array.isArray(value) ? value.filter(id => defaults.includes(id)) : []), ...defaults
