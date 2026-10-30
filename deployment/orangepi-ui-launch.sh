@@ -14,8 +14,10 @@ fi
 if [ ! -x "$electron" ]; then echo "Electron binary missing: $electron" >&2; exit 1; fi
 if [ ! -x "$node_binary" ]; then echo "Node executable missing: $node_binary" >&2; exit 1; fi
 if ! command -v cage >/dev/null 2>&1; then echo 'Cage Wayland compositor missing' >&2; exit 1; fi
-card=$("$repo/deployment/select-drm-card.sh")
-if [ ! -c "$card" ]; then echo "DRM display device missing: $card" >&2; exit 1; fi
+# 78 is a deliberate failed start, not success/skip: the service must restore
+# getty after taking tty1, without repeatedly retrying a disconnected display.
+if ! card=$("$repo/deployment/select-drm-card.sh"); then exit 78; fi
+if [ ! -c "$card" ]; then echo "DRM display device missing: $card" >&2; exit 78; fi
 export WLR_DRM_DEVICES=$card
 export HEADUNIT_SESSION=1
 export HEADUNIT_ROOT=$repo

@@ -187,3 +187,9 @@ Independent review's two audio continuity findings were reproduced and corrected
 The current feature inventory and physical/deployment gates remain in `docs/current-feature-inventory.md`. No live Pi, security/network configuration, pairings or credentials changed. Neither blocked operation was retried.
 
 Verification: **653 Node tests**, **74 focused tests**, production build, Unix-socket fixture and **seven production browser suites** passed on the combined changes. Pre-fix weather/audio failures and final logs are in `evidence/user-journeys/`. Browser mouse/touch injection does not establish physical touchscreen ergonomics or Pi service behavior.
+
+## Display preflight and boot-plan correction
+
+Independent review confirmed that a DRM device-existence condition did not prove connected HDMI. The UI launcher now exits 78 on rejected selection/missing display device; the service suppresses restart for that status and keeps its failed-start/getty recovery policy. Tests execute the launcher with isolated stubs and exercise disconnected/unknown/writeback-only selector fixtures. **655 Node tests**, the three focused display tests and build pass; evidence is in `evidence/display-preflight/`. A stale test enforcing the old device-existence condition was updated.
+
+The install plan now explicitly blocks jointly enabling the UI/Plasma templates until observed readiness, explicit final activation/readback and failure fallback are implemented and accepted. Merely ordering Type=simple units is insufficient. No systemd manager, Pi, VT, compositor or display was exercised; getty restoration and hotplug remain target acceptance gates. See the detailed preconditions in `docs/pi-install-recovery-plan.md`.

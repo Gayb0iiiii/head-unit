@@ -9,7 +9,8 @@ test('deployment contracts remain disabled examples with no installed services o
  const unit=await readFile(new URL('../deployment/headunit-ui.service.example',import.meta.url),'utf8');
  assert.match(unit,/User=cruiser/);assert.match(unit,/PAMName=login/);
  assert.match(unit,/OnFailure=getty@tty1\.service/);
- assert.match(unit,/ConditionPathExistsGlob=\/dev\/dri\/card\*/);
+ assert.match(unit,/RestartPreventExitStatus=78/);
+ assert.doesNotMatch(unit,/ConditionPathExistsGlob=/);
  const launch=await readFile(new URL('../deployment/orangepi-ui-launch.sh',import.meta.url),'utf8');
  assert.match(launch,/uname -m/);assert.match(launch,/exec cage -s --/);
  assert.match(launch,/electron\/kiosk/);assert.doesNotMatch(launch,/electron\/preview/);

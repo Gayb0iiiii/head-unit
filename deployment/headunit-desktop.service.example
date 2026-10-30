@@ -1,3 +1,4 @@
+# NOT BOOT-ACCEPTED: see docs/pi-install-recovery-plan.md foreground gate.
 # NOT INSTALLED. Review local Plasma paths, seat authorization and VT2 first.
 [Unit]
 Description=Persistent local Plasma maintenance desktop
