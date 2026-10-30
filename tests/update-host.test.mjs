@@ -27,3 +27,12 @@ test('update channel comes only from host environment',async()=>{
  const service=createHostUpdateService({env:{...env,HEADUNIT_UPDATE_BRANCH:'codex/weather-pi-network'},channel,prepare:async value=>{branch=value.branch;return {status:'current',sha:old};}});
  service.start(true);await tick();assert.equal(branch,'codex/weather-pi-network');assert.equal(service.snapshot().phase,'current');service.dispose();
 });
+test('supervisor disconnect rejects pending activation and removes IPC listeners',async()=>{
+ const channel=new EventEmitter();channel.send=()=>{};
+ const service=createHostUpdateService({env,channel,prepare:async()=>({status:'ready',sha:next})});service.start(true);await tick();channel.emit('disconnect');await tick();
+ assert.equal(service.snapshot().phase,'failed');assert.equal(channel.listenerCount('message'),0);assert.equal(channel.listenerCount('disconnect'),0);service.dispose();
+});
+test('disposing during activation removes acknowledgement listener immediately',async()=>{
+ const channel=new EventEmitter();channel.send=()=>{};
+ const service=createHostUpdateService({env,channel,prepare:async()=>({status:'ready',sha:next})});service.start(true);await tick();service.dispose();assert.equal(channel.listenerCount('message'),0);await tick();
+});

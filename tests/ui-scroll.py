@@ -42,8 +42,9 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  listing.scroll_into_view_if_needed();listing.evaluate('el=>el.scrollTop=0');page.wait_for_timeout(150)
  row=page.get_by_role('button',name='Play Track 00',exact=True);expect(row).to_be_visible();assert row.inner_text().startswith('Track 00')
  page.screenshot(path='/tmp/audio-portrait-visible-list.png')
- page.evaluate('scrollTo(0,document.documentElement.scrollHeight)');assert page.evaluate('scrollY')>100
+ page.evaluate('scrollTo(0,0)')
  controls=page.locator('.local-driver-controls').bounding_box();dock=page.locator('aside').bounding_box();assert controls['y']+controls['height']<=dock['y']
+ before=listing.evaluate('el=>el.scrollTop');listing.evaluate('el=>el.scrollTop+=300');assert listing.evaluate('el=>el.scrollTop')>before
  page.screenshot(path='/tmp/audio-portrait-player-bottom.png')
  page.locator('.local-tools summary').click()
  page.locator('[data-local=manage]').scroll_into_view_if_needed()

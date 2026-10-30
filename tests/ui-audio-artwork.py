@@ -38,6 +38,11 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
    controls=page.locator('.local-driver-controls').bounding_box();library=page.locator('.local-library').bounding_box();assert controls['x']>=library['x']+library['width']
    assert player['y']>=library['y']+library['height']
    listing=page.locator('.local-list').bounding_box();assert listing['y']+listing['height']<=library['y']+library['height']
+  if width==1920:
+   assert page.locator('.local-cover').first.bounding_box()['width']>=230
+   assert page.locator('[data-local=play]').bounding_box()['height']>=70
+  if width==480:
+   dock=page.locator('aside').bounding_box();controls=page.locator('.local-driver-controls').bounding_box();assert controls['y']+controls['height']<=dock['y'],('portrait transport covered',controls,dock)
   page.screenshot(path=f'/tmp/audio-tagged-{width}x{height}.png')
   if width==480:
    page.locator('.local-list').scroll_into_view_if_needed();page.screenshot(path='/tmp/audio-tagged-portrait-library.png')

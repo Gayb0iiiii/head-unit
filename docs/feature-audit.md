@@ -94,3 +94,20 @@ Library options holds import/search/grouping/Manage in a reversible disclosure; 
 The generated MP3/artwork test now checks the player remains in landscape view, the playback stack is separate from navigation/library, and the scrolling library stays inside its panel. Portrait tests capture the artwork view and separately scroll to playback controls, asserting the bottom dock does not cover them. New evidence supersedes the earlier two-card music screenshots; historical screenshots are retained as checkpoints. Direct inspection of the original Library images remains unavailable in this workspace, so the composition follows the independent reference review's description rather than claiming an exact match.
 
 Music-workspace verification: **555 Node tests passed**, build and socket fixture passed, all four production browser suites passed (including 48 scale/dock combinations), and the generated-artwork MP3 suite passed its new containment/transport/touch-target checks. Latest logs and distinct viewport screenshots: `evidence/music-workspace/`. File-origin profile verification was not retried; no Pi service, merge or deployment changed.
+
+## Offline journeys and host lifecycle checkpoint
+
+Bluetooth and offline CarPlay now offer a direct route to local audio instead of dead-end unavailable screens. A connected-but-not-ready CarPlay screen offers the existing saved-phone chooser only when the host reports an available phone; otherwise it offers offline audio. No discovery, pairing or projected-frame capability is invented. Connection notices explicitly refer to phone audio rather than implying imported local music is unavailable.
+
+Desktop availability refreshes share one in-flight discovery, preventing racing stale results; disposal during activation readback cannot report success. The host updater now rejects outstanding acknowledgements immediately on supervisor IPC disconnection and removes its listeners/timer on completion or disposal. Regression tests reproduce each lifecycle failure. These changes neither activate logind nor update any live installation during tests.
+
+The portrait music workspace now reserves room for the player and transport above bottom navigation in the initial 480×800 viewport; the library scrolls internally. At 1920×1080, artwork expands into the available columns, card actions grow to 60px, transport targets to 72px, and the current-art thumbnail to 96px. Browser assertions check initial portrait non-overlap and large-screen cover/target sizes. The fixture has six tracks, so unused collection space is legitimate rather than fabricated content.
+
+Verification: **559 Node tests passed**, build and socket fixture passed, all four production browser suites and the generated-artwork MP3 suite passed. Evidence: `evidence/offline-recovery/`.
+
+### Explicit remaining gates
+
+- **Hardware/runtime:** physical HDMI/touch/glare, audio output to HELIX, phone/MFi/ARM64 native CarPlay, standalone Bluetooth, camera, microphone/echo cancellation, real motion/headlight inputs and independent instrumentation acceptance. Bluetooth/calls/contacts/maps and sensor delivery still need implementation, not merely a successful test.
+- **Authorization/deployment:** installing/enabling reviewed desktop and UI services, changing the actual update channel, installing the return shortcut, VNC restart configuration, and controlled reboot/power testing require a separately authorized Pi deployment. None was performed.
+- **Environment policy:** direct file-origin profile continuity remains blocked by `ERR_BLOCKED_BY_ADMINISTRATOR`; it was not retried. Library reference bytes remain unavailable here; design follows the independent review.
+- **Credentials:** no new credentials are required for the tested offline features or current public weather provider. No paid map/service provider has been selected or integrated; its future authentication requirements cannot be assumed. GitHub publication for this branch/PR is already authorized.

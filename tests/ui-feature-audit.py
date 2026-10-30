@@ -28,6 +28,9 @@ with sync_playwright() as p:
  page.on('console',lambda m:csp.append(m.text) if 'Content Security Policy' in m.text else None)
  page.add_init_script(bridge);page.goto(os.environ.get('HEADUNIT_TEST_BASE_URL','http://127.0.0.1:8095')+'/production.html')
  def nav(route):page.locator(f'aside [data-action={route}]').click()
+ nav('bluetooth');page.get_by_role('button',name='Open local audio',exact=True).click();expect(page.locator('main')).to_have_attribute('data-screen','audio')
+ nav('projection');page.get_by_role('button',name='Open local audio',exact=True).click();expect(page.locator('main')).to_have_attribute('data-screen','audio')
+ nav('home')
  expect(page.locator('.weather-reading')).to_contain_text('17°C')
  nav('settings')
  page.mouse.move(650,350);page.mouse.wheel(0,650);page.wait_for_timeout(300)
@@ -61,6 +64,8 @@ with sync_playwright() as p:
  page.evaluate("testHost.emit({connected:true,route:'projection',front:'livi',projectionReady:false,phones:[]})")
  nav('projection')
  expect(page.get_by_role('heading',name='Waiting for a phone display')).to_be_visible()
+ page.evaluate("testHost.emit({connected:true,route:'projection',front:'livi',projectionReady:false,phones:[{id:'saved-phone',name:'Saved test phone',status:'available'}]})")
+ page.get_by_role('button',name='Choose phone',exact=True).click();expect(page.get_by_role('heading',name='Phones',exact=True)).to_be_visible();expect(page.get_by_role('button',name='Connect Saved test phone')).to_be_visible()
  # Geometry must work under unchanged production CSP; no inline-style exception.
  page.evaluate("testHost.emit({connected:true,route:'projection',front:'projection',projectionReady:true,picture:{width:800,height:480,insets:{top:24,bottom:0,left:80,right:0}},phones:[]})")
  expect(page.locator('.native-picture')).to_be_visible();box=page.locator('.native-picture').bounding_box();assert box['width']==800 and box['height']==480,box
