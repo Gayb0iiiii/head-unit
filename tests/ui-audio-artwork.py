@@ -46,5 +46,9 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
   page.screenshot(path=f'/tmp/audio-tagged-{width}x{height}.png')
   if width==480:
    page.locator('.local-list').scroll_into_view_if_needed();page.screenshot(path='/tmp/audio-tagged-portrait-library.png')
+ page.set_viewport_size({'width':1280,'height':720});page.locator('.local-tools summary').click();page.locator('[data-local-search]').fill('After the Rain');page.keyboard.press('Escape')
+ expect(page.locator('.local-track')).to_have_count(1);assert page.locator('.local-cover').bounding_box()['width']<=220
+ title=page.locator('.local-track').bounding_box();listing=page.locator('.local-list').bounding_box();assert title['y']+title['height']<=listing['y']+listing['height'], (title,listing)
+ page.screenshot(path='/tmp/audio-tagged-single-track.png')
  page.reload();page.locator('aside [data-action=audio]').click();expect(page.locator('.local-art img')).to_be_visible();expect(page.get_by_role('button',name='Play local audio',exact=True)).to_be_visible()
- print(json.dumps({'passed':True,'fixtures':'six original covers + silent MP3s','checks':['ID3 title/artist/album','embedded PNG decode','MP3 duration','paused restart with artwork','four viewport captures','bottom player in landscape viewport','separate right playback controls','touch targets and contained library']}));browser.close()
+ print(json.dumps({'passed':True,'fixtures':'six original covers + silent MP3s','checks':['ID3 title/artist/album','embedded PNG decode','MP3 duration','paused restart with artwork','four viewport captures','bottom player in landscape viewport','separate right playback controls','touch targets and contained library','single filtered track cover width bounded']}));browser.close()

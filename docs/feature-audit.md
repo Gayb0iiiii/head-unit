@@ -111,3 +111,7 @@ Verification: **559 Node tests passed**, build and socket fixture passed, all fo
 - **Authorization/deployment:** installing/enabling reviewed desktop and UI services, changing the actual update channel, installing the return shortcut, VNC restart configuration, and controlled reboot/power testing require a separately authorized Pi deployment. None was performed.
 - **Environment policy:** direct file-origin profile continuity remains blocked by `ERR_BLOCKED_BY_ADMINISTRATOR`; it was not retried. Library reference bytes remain unavailable here; design follows the independent review.
 - **Credentials:** no new credentials are required for the tested offline features or current public weather provider. No paid map/service provider has been selected or integrated; its future authentication requirements cannot be assumed. GitHub publication for this branch/PR is already authorized.
+
+### Sparse library and options follow-up
+
+Filtered single-track collections now cap artwork width instead of stretching one cover across the entire grid. A regression checks the full card, including its actions, fits the 1280×720 library viewport. Search keeps Library options open during immediate input; detached details toggle events cannot overwrite current UI state. Choosing a browse category closes options so the collection underneath is immediately tappable. Production browser journeys exercise category selection, search, Escape, persistence and playback with these transitions.

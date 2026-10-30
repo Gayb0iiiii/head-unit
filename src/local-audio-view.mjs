@@ -32,8 +32,11 @@ export function bindLocalAudio(root,audio,view,refresh,getMoving){
  root.querySelectorAll('[data-local-tab]').forEach(el=>el.onclick=()=>{view.tab=el.dataset.localTab;refresh();});
  root.querySelectorAll('[data-local-files]').forEach(el=>el.onchange=()=>{if(!getMoving())run(()=>audio.importFiles([...el.files]));});
  root.querySelectorAll('[data-local-group-value]').forEach(el=>el.onclick=()=>{if(getMoving())return;view.groupValue=el.dataset.localGroupValue;refresh();});
- const group=root.querySelector('[data-local-group]');if(group)group.onchange=()=>{if(getMoving())return;view.group=group.value;view.groupValue='';refresh();};
+ const group=root.querySelector('[data-local-group]');if(group)group.onchange=()=>{if(getMoving())return;view.group=group.value;view.groupValue='';view.toolsOpen=false;refresh();};
  const search=root.querySelector('[data-local-search]');if(search)search.oninput=()=>{if(getMoving())return;view.query=search.value;refresh('local-search');};
- const tools=root.querySelector('.local-tools');if(tools)tools.ontoggle=()=>{view.toolsOpen=tools.open;};
+ const tools=root.querySelector('.local-tools');if(tools){
+   tools.ontoggle=()=>{if(tools.isConnected!==false)view.toolsOpen=tools.open;};
+   const summary=tools.querySelector('summary');if(summary)summary.onclick=()=>{view.toolsOpen=!tools.open;};
+ }
  const seek=root.querySelector('#local-seek');if(seek)seek.oninput=()=>audio.seek(Number(seek.value));
 }

@@ -868,3 +868,6 @@ html[data-mode=production] .local-driver-controls .local-modes button{font-size:
  html[data-mode=production] .local-library .local-list{min-height:0;max-height:none}
  .local-artwork-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+/* Sparse libraries retain readable cover/title proportions. */
+.local-artwork-grid>li{width:100%;max-width:320px;min-width:0}
+@media(min-width:650px) and (max-width:1599px){.local-artwork-grid>li{max-width:220px}}
