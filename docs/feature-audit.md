@@ -221,3 +221,9 @@ Independent review reproduced source verification exceptions preventing previous
 ## Release build ancestor integrity
 
 Fixed independent review's staged `dist` symlink escape. The build path now requires a canonical real root/directory/file with no symlink component, and staged verification rechecks device/inode identities after Git verification. Source first boot uses the same validation. **704 tests**, **33 focused release tests**, build and Unix-socket fixture pass with no local skips. Evidence: `evidence/release-path-integrity/`. Real-filesystem fixtures cover outside/in-release symlinks, ancestor substitution, in-verification mutation and valid rollback. No live Pi, user data, deployment or blocked action changed.
+
+## Supervised Electron readiness responder
+
+Wired the existing private owned-child responder to trusted renderer acknowledgement, shown/non-destroyed window and current lifecycle state. Only supervised connected parent IPC receives replies. Cleanup, renderer loss and main-document replacement revoke the proof and suppress in-flight responses; the release activation ready message remains unchanged. No public renderer IPC or cross-session aggregation is added.
+
+**712 tests**, **34 focused application/readiness tests**, build and Unix-socket fixture pass; evidence is in `evidence/renderer-readiness/`. Fake-Electron lifecycle cases cover repeated probes, loss during a pending response, navigation, shutdown and unsupervised launches. No new browser pixel test was needed for this host-only change. Parent-side aggregation/correlation remains unwired, joint boot remains blocked, and physical/deployment gates are listed in `docs/boot-readiness.md` and the current inventory. No Pi, service, permission, merge, deployment or blocked-operation change occurred.

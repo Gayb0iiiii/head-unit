@@ -1,6 +1,6 @@
 # Owned-child readiness transport and process evidence
 
-These host modules are implemented and tested but **not wired into production entrypoints**. They do not enable boot coordination, create sockets, change logind policy, install services, spawn production processes or create persistent credentials.
+The child responder is now wired to supervised Electron lifecycle state over its existing connected parent IPC channel. Parent-side evidence/correlation and the coordinator remain unwired. This does not enable boot coordination, create sockets, change logind policy, install services, spawn production processes or create persistent credentials.
 
 ## Implemented boundary
 
@@ -22,13 +22,13 @@ The new instance is **per process**, while the coordinator requires a consistent
 
 Missing pieces before activation:
 
-1. Bind the responder to the owned Electron lifecycle and revoke it on renderer loss; do not alter current release-ready behavior speculatively.
+1. Child-side lifecycle binding is implemented below. The owning supervisor still needs a reviewed query/correlation integration; the release-ready protocol remains unchanged.
 2. Define and verify a real desktop readiness source, not a constant true or just the existence of plasmashell.
 3. Implement/review cross-session aggregation with authenticated peer identity (for example, a reviewed Linux peer-credential transport) or a genuinely common owned parent. No dependency or privilege exemption is added here to manufacture that capability.
 4. Correlate process proofs with logind session/seat/VT evidence and connected-display state; test process/session replacement end-to-end.
 5. Verify the coordinator's actual logind activation authorization, explicit foreground/readback and fallback on the Pi under separate installation authorization.
 
-No services import these modules, and boot enablement remains blocked. SSH, remote LXQt, desktop services, credentials and Pi settings are untouched.
+No service starts a coordinator or aggregator, and boot enablement remains blocked. SSH, remote LXQt, desktop services, credentials and Pi settings are untouched.
 
 ## Verification
 
@@ -39,3 +39,14 @@ Coordinator review gaps are covered: future readiness timestamps, foreign sessio
 ### Correlation and freshness follow-up
 
 The [read-only session correlator](session-correlation.md) now maps an authenticated process proof to a separately verified common logind leader instance. It does not authorize a role reporter or relay readiness across sessions. The aggregator decision and remaining registration/desktop-readiness gates are documented there. The transport now preserves probe-start time and rejects evidence older than two seconds after identity validation, fixing the independent review's freshness defect; it never renews readiness merely because validation completed.
+
+
+## Supervised Electron responder wiring
+
+`application.mjs` attaches the responder only after single-instance ownership and only when `HEADUNIT_SUPERVISED=1` and the inherited parent IPC channel is connected. Readiness requires the existing trusted renderer acknowledgement and completed window-show step, a non-destroyed window/webContents, visibility when observable, and no shutdown/revocation. It adds no public socket, renderer IPC method, command, service or permission.
+
+Shutdown, renderer death/unresponsiveness and webContents destruction detach the responder and suppress in-flight replies. A replacement main document after window show revokes the old document's proof; same-document/subframe navigation does not. Revocation is permanent for that application instance: restart is required to re-attest, rather than reusing the one-shot renderer acknowledgement. The existing release activation `ready` message, SHA, timing and one-shot behavior are unchanged and regression-tested.
+
+Fake-Electron tests cover pre-ready, renderer-ready-before-show, ready, hidden, destroyed, late renderer callbacks, SIGTERM/before-quit/crash/unresponsive disposal, in-flight loss, navigation and unsupervised/disconnected launch. **712 tests**, **34 focused application/readiness tests**, build and Unix-socket fixture pass. Evidence: `evidence/renderer-readiness/`. The tests do not launch Electron, switch VTs or prove visible physical pixels.
+
+Remaining acceptance gates: authenticated cross-session role registration/aggregation; a real desktop readiness source; parent-side correlation integration; actual logind authorization; persistent local desktop and Return shortcut installation; physical display/touch/audio/phone validation; foreground/readback/hotplug and controlled reboot/power-loss acceptance. Boot remains blocked, and this wiring does not satisfy those gates.

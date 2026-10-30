@@ -3,6 +3,7 @@ import {attachCompositorWindow} from './compositor-window.mjs';
 import {headunitWindowOptions} from './host.mjs';
 import {createGlassRuntime} from './glass-runtime.mjs';
 import {createHostUpdateService} from './update-host.mjs';
+import {attachReadinessResponder} from './boot-readiness.mjs';
 
 /** Main-process owner. Does not spawn LIVI or alter services; updates use a fixed, supervised request. */
 export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,signals=process,env=process.env,screen,platform=process.platform,
@@ -24,6 +25,10 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
   let stopping=false,runtime,window,detachWindow;
   const updateService=createHostUpdateService({env,channel:signals});
   let sentReady=false,rendererReady=false,windowShown=false;
+  let readinessRevoked=false;
+  const detachReadiness=env.HEADUNIT_SUPERVISED==='1'&&signals.connected===true&&typeof signals.send==='function'
+    ?attachReadinessResponder({channel:signals,isReady:()=>!stopping&&!readinessRevoked&&rendererReady&&windowShown&&window?.isDestroyed?.()!==true&&window?.webContents?.isDestroyed?.()!==true&&window?.isVisible?.()!==false})
+    :()=>{};
   function maybeSignalReady(){
     if(sentReady||!rendererReady||!windowShown||stopping||env.HEADUNIT_SUPERVISED!=='1'||typeof signals.send!=='function')return;
     sentReady=true;signals.send({kind:'ready',sha:env.HEADUNIT_ACTIVE_SHA});
@@ -31,6 +36,8 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
   const listeners=[];
   const on=(target,event,fn)=>{target.on(event,fn);listeners.push([target,event,fn]);};
   function cleanup() {
+    readinessRevoked=true;
+    detachReadiness();
     for(const [target,event,fn] of listeners.splice(0))target.removeListener(event,fn);
     detachWindow?.();
     runtime?.dispose();
@@ -57,6 +64,14 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
     on(window,'unresponsive',()=>shutdown(1));
     on(window,'closed',()=>{if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: window closed');shutdown();});
     on(window.webContents,'render-process-gone',(_event,details)=>{console.error('Headunit renderer exited:',details);shutdown(1);});
+    on(window.webContents,'destroyed',()=>{readinessRevoked=true;detachReadiness();});
+    // A replacement main document cannot inherit the old document's proof.
+    // Keep the existing release-ready protocol unchanged; restart to re-attest.
+    on(window.webContents,'did-start-navigation',(details,_url,sameDocument,isMainFrame)=>{
+      if(windowShown&&(details?.isMainFrame??isMainFrame)&&!(details?.isSameDocument??sameDocument)){
+        readinessRevoked=true;detachReadiness();
+      }
+    });
     runtime=createRuntime({ipcMain,trustedWindow:window,trustedUrl:pageURL,socketPath,
       ...(compositor&&env.HEADUNIT_SECONDARY_WINDOWS==='1'?{secondary:{BrowserWindow,screen}}:{}),
       preferencePath:path.join(app.getPath('userData'),'headunit-preferences.json'),

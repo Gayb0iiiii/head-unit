@@ -122,3 +122,37 @@ test('unresponsive renderer exits unsuccessfully for supervised recovery',async(
  f.windows[0].emit('unresponsive');assert.deepEqual(f.events.slice(-2),['dispose',['exit',1]]);
  owner.shutdown();assert.equal(f.events.filter(e=>e==='dispose').length,1);
 });
+
+test('owned parent readiness reflects trusted renderer and shown-window lifecycle without changing release signal',async()=>{
+ const sha='a'.repeat(40),f=fixture({env:{HEADUNIT_SUPERVISED:'1',HEADUNIT_ACTIVE_SHA:sha}}),sent=[];
+ f.signals.connected=true;f.signals.send=(value,callback)=>{sent.push(value);callback?.();};
+ const owner=f.start();let serial=0;
+ const probe=async()=>{const nonce=(++serial).toString(16).padStart(48,'0');f.signals.emit('message',{kind:'boot-readiness-probe',nonce});await new Promise(setImmediate);return sent.find(m=>m.kind==='boot-readiness'&&m.nonce===nonce);};
+ assert.equal((await probe()).ready,false);f.ready.resolve();await Promise.resolve();f.runtimeConfig.onRendererReady();assert.equal((await probe()).ready,false);
+ f.load.resolve();await owner.ready;assert.equal((await probe()).ready,true);assert.deepEqual(sent.filter(m=>m.kind==='ready'),[{kind:'ready',sha}]);
+ f.windows[0].isVisible=()=>false;assert.equal((await probe()).ready,false);f.windows[0].isVisible=()=>true;
+ f.windows[0].webContents.emit('destroyed');assert.equal(await probe(),undefined);f.runtimeConfig.onRendererReady();assert.equal(await probe(),undefined);
+ owner.shutdown();assert.equal(await probe(),undefined);assert.equal(f.signals.listenerCount('message'),0);assert.equal(f.signals.listenerCount('disconnect'),0);
+});
+for(const event of ['SIGTERM','before-quit','render-process-gone','unresponsive','destroyed'])test(`readiness responder is removed on ${event} and cannot reply after shutdown`,async()=>{
+ const f=fixture({env:{HEADUNIT_SUPERVISED:'1'}}),sent=[];f.signals.connected=true;f.signals.send=(value,callback)=>{sent.push(value);callback?.();};
+ const owner=f.start();f.ready.resolve();await Promise.resolve();f.runtimeConfig.onRendererReady();f.load.resolve();await owner.ready;
+ assert.equal(f.signals.listenerCount('message'),1);
+ // Probe and lose the renderer/owner before the responder's asynchronous check settles.
+ f.signals.emit('message',{kind:'boot-readiness-probe',nonce:'c'.repeat(48)});
+ if(event==='SIGTERM')f.signals.emit(event);else if(event==='before-quit')f.app.emit(event);else if(event==='unresponsive')f.windows[0].emit(event);else f.windows[0].webContents.emit(event);
+ await new Promise(setImmediate);assert.equal(sent.some(m=>m.kind==='boot-readiness'),false);assert.equal(f.signals.listenerCount('message'),0);owner.shutdown();
+});
+test('unsupervised or disconnected launch does not register a parent readiness responder',async()=>{
+ for(const env of [{},{HEADUNIT_SUPERVISED:'1'}]){const f=fixture({env});f.signals.connected=env.HEADUNIT_SUPERVISED!=='1';f.signals.send=()=>{};const owner=f.start();assert.equal(f.signals.listenerCount('message'),0);owner.shutdown();f.ready.resolve();await owner.ready;}
+});
+
+test('a new main document revokes readiness without resending release activation readiness',async()=>{
+ const f=fixture({env:{HEADUNIT_SUPERVISED:'1',HEADUNIT_ACTIVE_SHA:'a'.repeat(40)}}),sent=[];f.signals.connected=true;f.signals.send=(value,callback)=>{sent.push(value);callback?.();};const owner=f.start();
+ f.ready.resolve();await Promise.resolve();f.windows[0].webContents.emit('did-start-navigation',{},'file:///tmp/headunit/index.html',false,true);
+ f.runtimeConfig.onRendererReady();f.load.resolve();await owner.ready;assert.equal(f.signals.listenerCount('message'),1);
+ f.windows[0].webContents.emit('did-start-navigation',{isMainFrame:false,isSameDocument:false});assert.equal(f.signals.listenerCount('message'),1);
+ f.windows[0].webContents.emit('did-start-navigation',{isMainFrame:true,isSameDocument:true});assert.equal(f.signals.listenerCount('message'),1);
+ f.windows[0].webContents.emit('did-start-navigation',{isMainFrame:true,isSameDocument:false});assert.equal(f.signals.listenerCount('message'),0);
+ f.runtimeConfig.onRendererReady();assert.equal(sent.filter(m=>m.kind==='ready').length,1);owner.shutdown();
+});
