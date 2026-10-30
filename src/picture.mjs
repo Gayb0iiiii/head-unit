@@ -1,3 +1,7 @@
+// Protocol 8 session presence is not evidence of decoded frames or audible output.
+export function hasProjectionSession(session){
+  return session?.ready===true&&['carplay','androidauto'].includes(session.state?.sessions?.active);
+}
 // Configured projection geometry, not a live-frame size or calibrated input rectangle.
 const own=(value,key)=>value&&typeof value==='object'?Object.getOwnPropertyDescriptor(value,key)?.value:undefined;
 const integer=(value,min,max)=>Number.isInteger(value)&&value>=min&&value<=max;
@@ -10,7 +14,7 @@ export function filterPicture(value,connected,front) {
   return {width,height,insets:valid?{top,bottom,left,right}:null};
 }
 export function configuredPicture(session) {
-  if(session?.ready!==true||session.state?.front?.main!=='projection'||!['carplay','androidauto'].includes(session.state?.sessions?.active))return null;
+  if(!hasProjectionSession(session)||session.state?.front?.main!=='projection')return null;
   const config=session.state.config;
   return filterPicture({width:own(config,'projectionWidth'),height:own(config,'projectionHeight'),insets:{top:own(config,'projectionViewAreaTop'),bottom:own(config,'projectionViewAreaBottom'),left:own(config,'projectionViewAreaLeft'),right:own(config,'projectionViewAreaRight')}},true,'projection');
 }

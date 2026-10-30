@@ -115,3 +115,9 @@ Verification: **559 Node tests passed**, build and socket fixture passed, all fo
 ### Sparse library and options follow-up
 
 Filtered single-track collections now cap artwork width instead of stretching one cover across the entire grid. A regression checks the full card, including its actions, fits the 1280×720 library viewport. Search keeps Library options open during immediate input; detached details toggle events cannot overwrite current UI state. Choosing a browse category closes options so the collection underneath is immediately tappable. Production browser journeys exercise category selection, search, Escape, persistence and playback with these transitions.
+
+## Phone integration audit
+
+The controller now rejects unknown session types before advertising projection readiness or requesting manual/saved projection activation. Protocol-accurate fixtures replace old invented session values; an invalid-object case is tested through the session/controller/IPC/preload chain. This improves the existing integration boundary without enabling Bluetooth or claiming decoded frames. [Phone integration next steps](phone-integration-next.md) records exact host interfaces, profile ownership, native prerequisites and remaining low-height layout issues. No native process, device configuration or live Pi service changed.
+
+Verification for this checkpoint: **563 Node tests passed**, production build and socket fixture passed, and all four production browser suites passed. Failure-before-fix and final logs are retained in `evidence/phone-integration/`. Native CI compilation is separate from target hardware acceptance.

@@ -324,7 +324,7 @@ test('trusted host lifecycle cancels held native touches on navigation, crash, d
   const {HeadunitController}=await import('../src/controller.mjs');
   for (const reason of ['did-start-navigation','render-process-gone','destroyed','detach']) {
     const f=fixture(); const pointers=[];
-    const session={ready:true,state:{front:{main:'projection'},sessions:{active:'cp'},devices:[],config:{}},pointer:points=>pointers.push(points),action:()=>1,path:()=>{}};
+    const session={ready:true,state:{front:{main:'projection'},sessions:{active:'carplay'},devices:[],config:{}},pointer:points=>pointers.push(points),action:()=>1,path:()=>{}};
     const transport={session,subscribe(listener){listener();return ()=>{};}};
     const controller=new HeadunitController(transport);
     const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,controller});
@@ -364,7 +364,7 @@ test('glass runtime attaches before an explicit local socket start and disposes 
   runtime.start();
   assert.equal(created,1);
   socket.emit('connect');
-  socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},sessions:{active:'cp'},devices:[{id:'one',name:'Driver',status:'active'},{id:'two',name:'Passenger',status:'available'}],config:{huVolume:0.5}}}));
+  socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},sessions:{active:'carplay'},devices:[{id:'one',name:'Driver',status:'active'},{id:'two',name:'Passenger',status:'available'}],config:{huVolume:0.5}}}));
   assert.deepEqual((await f.call(channels.getView)).phones.map(p=>p.id),['one','two']);
   const selection=f.call(channels.selectPhone,['two']);
   const request=socket.writes.at(-1);
