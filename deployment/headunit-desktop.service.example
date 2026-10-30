@@ -1,0 +1,30 @@
+# NOT INSTALLED. Review local Plasma paths, seat authorization and VT2 first.
+[Unit]
+Description=Persistent local Plasma maintenance desktop
+After=systemd-user-sessions.service
+Conflicts=getty@tty2.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+OnFailure=getty@tty2.service
+
+[Service]
+Type=simple
+User=cruiser
+PAMName=login
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_SESSION_DESKTOP=KDE
+Environment=XDG_CURRENT_DESKTOP=KDE
+WorkingDirectory=/home/cruiser
+ExecStart=/usr/bin/dbus-run-session -- /usr/bin/startplasma-wayland
+TTYPath=/dev/tty2
+StandardInput=tty-force
+TTYReset=yes
+TTYVHangup=yes
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

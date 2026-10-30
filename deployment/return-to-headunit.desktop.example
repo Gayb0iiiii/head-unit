@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Return to Head Unit
+Comment=Switch to the running local head-unit session
+Exec=/usr/bin/node /home/cruiser/head-unit/deployment/return-to-headunit.mjs
+TryExec=/usr/bin/node
+Icon=applications-multimedia
+Terminal=false
+Categories=Utility;
+StartupNotify=false

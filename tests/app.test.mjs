@@ -39,6 +39,7 @@ async function launch(data = new Map(), host = null, mode = null) {
     addEventListener(type,listener) { listeners.set(type,listener); },
     getElementById: id => id === 'app' ? root : elements.find(element => element.id === id),
     querySelectorAll(selector) {
+      if(selector==='.local-list,.dock-apps')return [];
       const [,tag,keyName] = selector.match(/^(button)?\[data-([\w-]+)\]$/);
       const key = keyName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
       return [...elements,doc.body].filter(element => (!tag || element.tag === tag) && key in element.dataset);
@@ -575,7 +576,7 @@ test('native picture geometry replaces the content-column placeholder and clears
  let publish;const ui=await launch(new Map(),{onView:fn=>{publish=fn;return()=>{};},getView:async()=>({connected:false}),navigate:async()=>({accepted:true})});
  const projection={connected:true,projectionReady:true,front:'projection',route:'projection',phones:[],picture:{width:800,height:480,insets:{top:10,bottom:0,left:0,right:0}}};
  for(let i=0;i<2;i++){
-  publish(projection);assert.match(ui.root.innerHTML,/100cqh \* 800 \/ 480/);assert.match(ui.root.innerHTML,/native-picture-mask/);
+  publish(projection);assert.match(ui.root.innerHTML,/class="native-picture"/);assert.match(ui.root.innerHTML,/native-picture-mask/);
   publish({...projection,front:'camera',route:'camera'});assert.match(ui.root.innerHTML,/Camera unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|Display in use/);
   publish({...projection,picture:null});assert.match(ui.root.innerHTML,/Phone display size unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask/);
   publish({connected:false,route:'disconnected',picture:projection.picture});assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|100cqh/);

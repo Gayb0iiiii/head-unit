@@ -117,3 +117,8 @@ test('secondary ownership is passed to runtime only with explicit opt-in and com
   if(enabled)assert.equal(typeof f.runtimeConfig.secondary.BrowserWindow,'function');f.load.resolve();await owner.ready;owner.shutdown();
  }
 });
+test('unresponsive renderer exits unsuccessfully for supervised recovery',async()=>{
+ const f=fixture(),owner=f.start();f.ready.resolve();await Promise.resolve();f.load.resolve();await owner.ready;
+ f.windows[0].emit('unresponsive');assert.deepEqual(f.events.slice(-2),['dispose',['exit',1]]);
+ owner.shutdown();assert.equal(f.events.filter(e=>e==='dispose').length,1);
+});

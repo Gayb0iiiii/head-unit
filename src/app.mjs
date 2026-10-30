@@ -1,6 +1,6 @@
 import {LocalAudio} from './local-audio.mjs';
 import {renderLocalAudio,bindLocalAudio,audioTime} from './local-audio-view.mjs';
-import {pictureMarkup} from './picture.mjs';
+import {pictureMarkup,applyPictureGeometry} from './picture.mjs';
 import {connectionPresentation} from './connection-status.mjs';
 import {startClock,formatClock} from './clock.mjs';
 import {weatherLabel,weatherAge} from './weather-presentation.mjs';
@@ -175,7 +175,7 @@ ${renderWeatherSettings(s)}${renderClockSettings(s)}${renderUpdateSettings(s)}
 <div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop session unavailable'}</small></span><b>›</b></button><p class="settings-note">Head-unit remains the boot interface. Return to it from the desktop session.</p></section></div>
 <details class="settings-advanced"${settingsAdvancedOpen?' open':''}><summary>Units & sensor rules</summary><section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section></details>`;}
 
-function render(focusKey=document.activeElement?.dataset?.focusKey){if(localAudio?.playing&&native&&(model.state.front!=='livi'||model.state.homeStatus?.media?.playing===true))localAudio.pause();const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':s.screen==='dashboard'?'home':s.screen;if(lastRenderedScreen==='settings'&&screen!=='settings')updateArmed=false;lastRenderedScreen=screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
+function render(focusKey=document.activeElement?.dataset?.focusKey){const previousScreen=lastRenderedScreen;const scrollPositions=[...document.querySelectorAll('.local-list,.dock-apps')].map(el=>({selector:el.classList.contains('local-list')?'.local-list':'.dock-apps',top:el.scrollTop,left:el.scrollLeft}));if(localAudio?.playing&&native&&(model.state.front!=='livi'||model.state.homeStatus?.media?.playing===true))localAudio.pause();const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':s.screen==='dashboard'?'home':s.screen;if(lastRenderedScreen==='settings'&&screen!=='settings')updateArmed=false;lastRenderedScreen=screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
 if(screen==='home'&&native)content=renderNativeHome(s);
 else if(screen==='home')content=`
 <header class="home-header"><div>${native?'': '<p class="eyebrow">Your drive, connected</p>'}<h1>${native?'Home':s.homeMode==='dashboard'?'Your dashboard.':'Good to go.'}</h1></div><div class="connection"><i class="${active?'on':''}"></i>${active?escapeHtml(active.name):'Choose a phone'}</div></header>
@@ -311,9 +311,11 @@ document.querySelectorAll('[data-glass-strength]').forEach(el=>el.oninput=()=>{
   document.getElementById('glass-value').textContent=`${s.glassStrength}%`;
   document.getElementById('save-status').textContent=saveNotice();
 });
+if(screen==='projection')applyPictureGeometry(document.getElementById('app'),s.picture);
 if(screen==='audio'&&document.getElementById('app').querySelectorAll)bindLocalAudio(document.getElementById('app'),localAudio,audioView,render,()=>model.state.motionState==='moving');
 if(screen==='settings')sensorSettingsBinding=bindSensorSettings(document.getElementById('sensor-settings'),{storage,snapshot:sensorSettingsSnapshot,getMoving:()=>model.state.motionState==='unknown'?null:model.state.motionState==='moving'});
-if(focusKey){[...document.querySelectorAll('[data-focus-key]')].find(el=>el.dataset.focusKey===focusKey&&!el.disabled)?.focus();}
+if(focusKey){[...document.querySelectorAll('[data-focus-key]')].find(el=>el.dataset.focusKey===focusKey&&!el.disabled)?.focus({preventScroll:previousScreen===screen});}
+if(previousScreen===screen)for(const position of scrollPositions){const el=document.querySelector(position.selector);if(el){el.scrollTop=position.top;el.scrollLeft=position.left;}}
 }
 // Integration entry point for a real vehicle host. This preview has no source;
 // its default remains unknown, and there is deliberately no fake motion toggle.

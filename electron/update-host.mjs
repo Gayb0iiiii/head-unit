@@ -20,5 +20,5 @@ export function createHostUpdateService({env=process.env,channel=process,prepare
     channel.on('message',message);
     try{channel.send({kind:'activate',id,sha},error=>{if(error){clean();reject(error);}});}catch(error){clean();reject(error);}
   });
-  return createUpdateService({prepare:signal=>prepare({sourceRoot,releasesRoot,activeRoot,activeSha,signal}),activate,initialPhase:env.HEADUNIT_UPDATE_RECOVERED==='1'?'failed':'idle'});
+  return createUpdateService({prepare:signal=>prepare({sourceRoot,releasesRoot,activeRoot,activeSha,signal,branch:env.HEADUNIT_UPDATE_BRANCH}),activate,initialPhase:env.HEADUNIT_UPDATE_RECOVERED==='1'?'failed':'idle'});
 }

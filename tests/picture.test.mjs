@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {configuredPicture,filterPicture,pictureMarkup} from '../src/picture.mjs';
+import {configuredPicture,filterPicture,pictureMarkup,applyPictureGeometry} from '../src/picture.mjs';
 const session=(config,front='projection')=>({ready:true,state:{front:{main:front},sessions:{active:'carplay'},config}});
 const cfg={projectionWidth:1920,projectionHeight:1080,projectionViewAreaTop:10,projectionViewAreaBottom:20,projectionViewAreaLeft:30,projectionViewAreaRight:40,wifiPassword:'private',cameraId:'private-camera'};
 test('only synchronized active main projection supplies bounded configured picture metadata',()=>{
@@ -16,9 +16,15 @@ test('public geometry is filtered again without leaked extras or inherited value
  const p=filterPicture({...configuredPicture(session(cfg)),cameraId:'secret',insets:{top:10,bottom:20,left:30,right:40,secret:true}},true,'projection');assert.deepEqual(p,configuredPicture(session(cfg)));
  assert.equal(filterPicture(p,false,'projection'),null);assert.equal(filterPicture(p,true,'camera'),null);assert.equal(filterPicture(Object.create(p),true,'projection'),null);
 });
-test('projection layout uses the pinned centered contain formula and bounded view-area masks',()=>{
- const html=pictureMarkup(configuredPicture(session(cfg)));
- assert.match(html,/min\(100cqw, calc\(100cqh \* 1920 \/ 1080\)\)/);assert.match(html,/min\(100cqh, calc\(100cqw \* 1080 \/ 1920\)\)/);assert.match(html,/native-picture-mask/);
- assert.doesNotMatch(pictureMarkup(null),/native-picture-mask|min\(100cq/);assert.match(pictureMarkup(null),/Phone display size unavailable/);
- const portrait=pictureMarkup({width:600,height:1000,insets:null});assert.match(portrait,/100cqh \* 600 \/ 1000/);assert.doesNotMatch(portrait,/native-picture-mask/);
+test('projection sizing uses validated DOM properties rather than CSP-blocked style attributes',()=>{
+ const nodes=Object.fromEntries(['.native-picture',...['top','bottom','left','right'].map(side=>`.native-picture-mask.${side}`)].map(selector=>[selector,{style:{}}]));
+ const root={querySelector:selector=>nodes[selector]};
+ applyPictureGeometry(root,{width:800,height:480,insets:{top:24,bottom:0,left:80,right:0}});
+ assert.equal(nodes['.native-picture'].style.width,'min(100cqw, calc(100cqh * 800 / 480))');
+ assert.equal(nodes['.native-picture'].style.height,'min(100cqh, calc(100cqw * 480 / 800))');
+ assert.equal(nodes['.native-picture-mask.top'].style.height,'5%');
+ assert.equal(nodes['.native-picture-mask.left'].style.width,'10%');
+ const html=pictureMarkup(configuredPicture(session(cfg)));assert.doesNotMatch(html,/style=/);assert.match(html,/native-picture-mask/);
+ assert.match(pictureMarkup(null),/Phone display size unavailable/);
+ const unchanged=JSON.stringify(nodes);applyPictureGeometry(root,{width:'bad',height:480});assert.equal(JSON.stringify(nodes),unchanged);
 });

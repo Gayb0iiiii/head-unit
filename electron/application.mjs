@@ -54,6 +54,7 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
     if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: Electron ready; creating window');
     Menu?.setApplicationMenu(null);
     window=new BrowserWindow({...headunitWindowOptions({compositor}),show:false});
+    on(window,'unresponsive',()=>shutdown(1));
     on(window,'closed',()=>{if(env.HEADUNIT_DEBUG==='1')console.error('Headunit: window closed');shutdown();});
     on(window.webContents,'render-process-gone',(_event,details)=>{console.error('Headunit renderer exited:',details);shutdown(1);});
     runtime=createRuntime({ipcMain,trustedWindow:window,trustedUrl:pageURL,socketPath,

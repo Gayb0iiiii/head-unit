@@ -10,7 +10,7 @@ Browse tracks, albums, artists or folders; search title, artist, album and folde
 
 Select a track to replace the queue and play; **+** appends without interrupting playback. Queue supports explicit selection, earlier/later, remove and clear. Favourites, shuffle, repeat off/all/one, previous/next, pause and seeking are supported. Manual Next advances even with repeat-one enabled. At the end of a queue with repeat off, playback stops. A decode/missing-file error stops and invites another track; it does not spin through a broken queue.
 
-Queue, current item, favourites, shuffle/repeat and approximate position persist. Position is checkpointed about every five seconds and on pause. Restart is always paused and loads the current file only after explicit Play. There is no automatic resume after native takeover. Manage/Delete removes only the imported copy, not the source file. Known moving state hides browsing and blocks import/queue/file management. Unknown motion is not treated as a verified parked state; manage music only when safely parked.
+Queue, current item, favourites, shuffle/repeat and approximate position persist. Position is checkpointed about every five seconds and on pause. Restart is always paused and loads the current file only after explicit Play. There is no automatic resume after native takeover. Manage/Delete names the track and asks for confirmation before removing the imported copy; Cancel is focused first. It never deletes the source file. Known moving state hides browsing and blocks import/queue/file management. Unknown motion is not treated as a verified parked state; manage music only when safely parked.
 
 ## Output and source ownership
 

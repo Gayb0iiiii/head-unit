@@ -1,6 +1,6 @@
 import {execFile as callback} from 'node:child_process';
 import {promisify} from 'node:util';
-import {lstat,mkdir,readFile,realpath,rename,rm,writeFile} from 'node:fs/promises';
+import {lstat,mkdir,open,readFile,realpath,rename,rm} from 'node:fs/promises';
 import path from 'node:path';
 
 const execFile=promisify(callback);
@@ -51,7 +51,13 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
     if(!validSha(active)||pending!==null&&!validSha(pending)||previous!==null&&!validSha(previous))throw TypeError('Invalid release manifest');
     const value=JSON.stringify({version:1,active,pending,previous});
     const temporary=path.join(statePath,`release-${process.pid}-${Math.random().toString(16).slice(2)}.tmp`);
-    try{await writeFile(temporary,value,{mode:0o600,flag:'wx'});await rename(temporary,manifestPath);}
+    try{
+      const file=await open(temporary,'wx',0o600);
+      try{await file.writeFile(value);await file.sync();}finally{await file.close();}
+      await rename(temporary,manifestPath);
+      const directory=await open(statePath,'r');
+      try{await directory.sync();}finally{await directory.close();}
+    }
     finally{await rm(temporary,{force:true});}
   }
   let initial,recovered=false;

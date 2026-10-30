@@ -171,3 +171,12 @@ test('opening local audio from projection asks the native host to return its sur
  model.navigate('audio');assert.deepEqual(host.calls,[['navigate','audio']]);
  host.emit({connected:true,front:'livi',route:'audio',phones:[]});assert.equal(model.state.screen,'audio');model.stop();
 });
+
+test('Apps and Bluetooth return the native projection surface without sending unsupported routes',async()=>{
+ const host=bridge(),model=new NativeHeadunit(undefined,host);await model.start();
+ for(const route of ['apps','bluetooth']){
+  host.emit({connected:true,front:'projection',route:'projection',phones:[]});model.navigate(route);
+  host.emit({connected:true,front:'livi',route:'home',phones:[]});assert.equal(model.state.screen,route);
+ }
+ assert.deepEqual(host.calls,[['navigate','home'],['navigate','home']]);model.stop();
+});

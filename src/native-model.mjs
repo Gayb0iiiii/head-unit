@@ -146,7 +146,7 @@ export class NativeHeadunit extends Headunit {
     this.cancelSelection();
     this.state.commandError = false;
     this.localRoute=localRoutes.has(route)?route:null;
-    if(this.localRoute){this.state.screen=this.localRoute;if(route==='audio'&&this.state.connected&&this.state.front==='projection')this.command('navigate','audio');this.onChange();return;}
+    if(this.localRoute){this.state.screen=this.localRoute;if(this.state.connected&&this.state.front==='projection')this.command('navigate',route==='audio'?'audio':'home');this.onChange();return;}
     if(!this.state.connected){
       this.state.screen=['settings','projection'].includes(route)?route:'home';
       this.onChange();

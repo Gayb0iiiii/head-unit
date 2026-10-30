@@ -22,3 +22,8 @@ test('denied supervisor activation reports failure and unsupported direct launch
  assert.equal(createHostUpdateService({env:{...env,HEADUNIT_SUPERVISED:'0'},channel}),null);
  assert.equal(createHostUpdateService({env,channel:new EventEmitter()}),null);
 });
+test('update channel comes only from host environment',async()=>{
+ const channel=new EventEmitter();channel.send=()=>{};let branch;
+ const service=createHostUpdateService({env:{...env,HEADUNIT_UPDATE_BRANCH:'codex/weather-pi-network'},channel,prepare:async value=>{branch=value.branch;return {status:'current',sha:old};}});
+ service.start(true);await tick();assert.equal(branch,'codex/weather-pi-network');assert.equal(service.snapshot().phase,'current');service.dispose();
+});

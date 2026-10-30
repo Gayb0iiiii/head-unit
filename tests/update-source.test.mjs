@@ -98,3 +98,14 @@ test('Git expands insteadOf when reading the effective origin endpoint',async()=
    assert.equal(effective.stdout.trim(),'https://example.invalid/Gayb0iiiii/head-unit.git');
  }finally{await rm(root,{recursive:true,force:true});}
 });
+test('host-selected reviewed channel fetches that exact branch, while default still rejects another checkout',async()=>{
+ const branch='codex/weather-pi-network',f=await fixture({branch});try{
+  const result=await prepareHeadunitUpdate({sourceRoot:f.sourceRoot,releasesRoot:f.releasesRoot,activeSha:old,run:f.run,branch});
+  assert.equal(result.status,'ready');assert.ok(f.calls.some(c=>c.args.includes('refs/heads/'+branch)));
+ }finally{await f.close();}
+});
+test('invalid host update ref is rejected before any command',async()=>{
+ for(const branch of ['--upload-pack=bad','x..y','x\nmain','HEAD','x.lock','x//y']){
+  let called=false;await assert.rejects(()=>prepareHeadunitUpdate({sourceRoot:'/source',releasesRoot:'/releases',activeSha:old,branch,run:()=>{called=true;}}));assert.equal(called,false);
+ }
+});
