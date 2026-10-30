@@ -1,0 +1,48 @@
+✔ import retains playable files, deduplicates and reports unsupported input without autoplay (5.983627ms)
+✔ queue follows explicit order, repeats only when requested, and stops at its end (1.556246ms)
+✔ queue reorder/remove preserve current item and previous restarts after three seconds (1.998301ms)
+✔ saved queue and favourites restore paused without loading media (0.797472ms)
+✔ removing current file stops playback and removes all queue references (0.622082ms)
+✔ seek clamps to real duration and playback errors are actionable (1.738406ms)
+✔ late file load cannot restart after pause or replace a newer selection (0.53314ms)
+✔ shuffle selects a different track and storage failure is visible (0.570635ms)
+✔ saved position restores only after an explicit play and loaded metadata (0.549243ms)
+✔ import waits for initial library restore so existing tracks cannot be lost (5.482605ms)
+✔ native ownership denies playback including a takeover during file loading (0.400614ms)
+✔ a duplicate queued file starts at the beginning when selected (0.245725ms)
+✔ paused seeks save immediately for restart continuity (0.305273ms)
+✔ reimport repairs a missing stored blob without losing favourites or queue (0.330179ms)
+✔ offline restore preserves the selected queue occurrence when earlier files disappear (0.38451ms)
+✔ offline restore does not apply a missing selected tracks position to another file (0.224082ms)
+✔ source pause during asynchronous restore cannot overwrite saved playback preferences (0.267987ms)
+✔ removing an unrelated library track preserves selected duplicate queue occurrence (0.301627ms)
+✖ failed library restoration never replaces saved preferences with empty defaults on pause (0.999611ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 18
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 105.872981
+
+✖ failing tests:
+
+test at tests/local-audio.test.mjs:120:1
+✖ failed library restoration never replaces saved preferences with empty defaults on pause (0.999611ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '{"queue":[],"index":-1,"favourites":[],"repeat":"off","shuffle":false,"position":0}'
+  - '{"queue":["A"],"index":0,"position":42}'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/local-audio.test.mjs:123:41)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '{"queue":[],"index":-1,"favourites":[],"repeat":"off","shuffle":false,"position":0}',
+    expected: '{"queue":["A"],"index":0,"position":42}',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

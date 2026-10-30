@@ -582,3 +582,12 @@ test('native picture geometry replaces the content-column placeholder and clears
   publish({connected:false,route:'disconnected',picture:projection.picture});assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|100cqh/);
  }
 });
+
+test('weather UI ignores out-of-order search replies and rejected selection cannot claim saved',async()=>{
+ const pending=[];const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),searchWeather:()=>new Promise(resolve=>pending.push(resolve)),selectWeather:async()=>({accepted:false}),getWeather:async()=>({status:'unavailable',location:{id:1,label:'Albany'}})};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);ui.click('action','settings');
+ ui.input('weatherSearch','Albany');ui.click('action','search-weather');ui.input('weatherSearch','Perth');ui.click('action','search-weather');
+ pending[1]([{id:2,label:'Perth'}]);await new Promise(setImmediate);pending[0]([{id:1,label:'Albany'}]);await new Promise(setImmediate);
+ assert.match(ui.root.innerHTML,/data-weather-city="2"/);assert.doesNotMatch(ui.root.innerHTML,/data-weather-city="1"/);
+ ui.click('weatherCity','2');await new Promise(setImmediate);assert.doesNotMatch(ui.root.innerHTML,/Location saved/);assert.match(ui.root.innerHTML,/Unable to use that city/);
+});

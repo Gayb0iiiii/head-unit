@@ -1,0 +1,66 @@
+✔ import retains playable files, deduplicates and reports unsupported input without autoplay (5.849849ms)
+✔ queue follows explicit order, repeats only when requested, and stops at its end (1.231696ms)
+✔ queue reorder/remove preserve current item and previous restarts after three seconds (1.265706ms)
+✔ saved queue and favourites restore paused without loading media (0.742801ms)
+✔ removing current file stops playback and removes all queue references (3.819091ms)
+✔ seek clamps to real duration and playback errors are actionable (1.844834ms)
+✔ late file load cannot restart after pause or replace a newer selection (0.466091ms)
+✔ shuffle selects a different track and storage failure is visible (0.659458ms)
+✔ saved position restores only after an explicit play and loaded metadata (0.532329ms)
+✔ import waits for initial library restore so existing tracks cannot be lost (7.316954ms)
+✔ native ownership denies playback including a takeover during file loading (0.504838ms)
+✔ a duplicate queued file starts at the beginning when selected (0.301958ms)
+✔ paused seeks save immediately for restart continuity (0.192805ms)
+✔ reimport repairs a missing stored blob without losing favourites or queue (0.422707ms)
+✔ offline restore preserves the selected queue occurrence when earlier files disappear (0.193226ms)
+✔ offline restore does not apply a missing selected tracks position to another file (0.171094ms)
+✖ source pause during asynchronous restore cannot overwrite saved playback preferences (1.121922ms)
+✖ removing an unrelated library track preserves selected duplicate queue occurrence (0.588242ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 16
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97.478413
+
+✖ failing tests:
+
+test at tests/local-audio.test.mjs:106:1
+✖ source pause during asynchronous restore cannot overwrite saved playback preferences (1.121922ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/local-audio.test.mjs:109:37)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/local-audio.test.mjs:113:1
+✖ removing an unrelated library track preserves selected duplicate queue occurrence (0.588242ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/local-audio.test.mjs:116:47)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

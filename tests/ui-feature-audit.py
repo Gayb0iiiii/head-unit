@@ -12,7 +12,7 @@ window.testHost={calls:[],emit(patch){Object.assign(state,patch);listener?.(stru
 window.headunit={getView:async()=>structuredClone(state),onView:fn=>{listener=fn;return()=>{};},
  navigate:async route=>{testHost.calls.push(['navigate',route]);testHost.emit({route,front:route==='projection'?'projection':'livi'});},
  exitToDesktop:async()=>{testHost.calls.push(['desktop']);return {accepted:true};},
- getWeather:async()=>weather,searchWeather:async query=>[{id:2,label:'Perth'}],selectWeather:async id=>{testHost.calls.push(['weather',id]);weather.location={id,label:'Perth'};},
+ getWeather:async()=>weather,searchWeather:async query=>[{id:2,label:'Perth'}],selectWeather:async id=>{testHost.calls.push(['weather',id]);weather.location={id,label:'Perth'};return {accepted:true};},
  getTimeStatus:async()=>({timezone:'Australia/Perth',ntpEnabled:true,synchronized:false,canNtp:true}),
  setNtp:async value=>{testHost.calls.push(['ntp',value]);return {changed:true};},
  setTimezone:async value=>{testHost.calls.push(['timezone',value]);return {changed:true};},
@@ -23,7 +23,7 @@ window.headunit={getView:async()=>structuredClone(state),onView:fn=>{listener=fn
 '''
 with sync_playwright() as p:
  b=p.chromium.launch(executable_path=os.environ.get('HEADUNIT_TEST_CHROMIUM','/usr/bin/chromium'),headless=True)
- page=b.new_page(viewport={'width':800,'height':480});errors=[];csp=[]
+ page=b.new_page(viewport={'width':800,'height':480},has_touch=True);errors=[];csp=[]
  page.on('pageerror',lambda e:errors.append(str(e)))
  page.on('console',lambda m:csp.append(m.text) if 'Content Security Policy' in m.text else None)
  page.add_init_script(bridge);page.goto(os.environ.get('HEADUNIT_TEST_BASE_URL','http://127.0.0.1:8095')+'/production.html')
@@ -40,7 +40,19 @@ with sync_playwright() as p:
  page.locator('[data-weather-search]').fill('Perth');page.locator('[data-action=search-weather]').click();page.locator('[data-weather-city="2"]').click()
  expect(page.locator('.settings-weather')).to_contain_text('Location saved')
  nav('home');expect(page.locator('.weather-heading')).to_contain_text('Perth')
- nav('settings');page.locator('[data-clock-ntp=false]').click();expect(page.locator('.settings-clock')).to_contain_text('Automatic time setting updated')
+ nav('settings')
+ page.evaluate('''()=>{testHost.originalSearch=headunit.searchWeather;testHost.searches=[];headunit.searchWeather=query=>new Promise(resolve=>testHost.searches.push({query,resolve}));}''')
+ page.locator('[data-weather-search]').fill('Albany');page.locator('[data-action=search-weather]').tap()
+ page.locator('[data-weather-search]').fill('Perth');page.locator('[data-action=search-weather]').click()
+ page.evaluate("testHost.searches[1].resolve([{id:22,label:'New Perth result'}])")
+ expect(page.locator('[data-weather-city="22"]')).to_be_visible()
+ page.evaluate("testHost.searches[0].resolve([{id:11,label:'Old Albany result'}])")
+ page.wait_for_timeout(100);expect(page.locator('[data-weather-city="11"]')).to_have_count(0)
+ page.locator('[data-weather-search]').fill('Sydney');page.locator('[data-action=search-weather]').tap();nav('apps')
+ page.evaluate("testHost.searches[2].resolve([{id:33,label:'Interrupted result'}])");page.wait_for_timeout(100)
+ nav('settings');expect(page.locator('[data-weather-city="33"]')).to_have_count(0)
+ page.evaluate('headunit.searchWeather=testHost.originalSearch')
+ page.locator('[data-clock-ntp=false]').click();expect(page.locator('.settings-clock')).to_contain_text('Automatic time setting updated')
  page.locator('[data-clock-zone="Etc/UTC"]').click();expect(page.locator('.settings-clock')).to_contain_text('System time zone updated')
  page.locator('[data-manual-time]').fill('2026-10-30T15:00');page.locator('[data-action=apply-manual-time]').click();expect(page.locator('.settings-clock')).to_contain_text('System time updated')
  expect(page.locator('[data-action=exit-to-desktop]')).to_be_disabled()
@@ -75,5 +87,5 @@ with sync_playwright() as p:
  page.evaluate("testHost.emit({front:'cluster',route:'cluster'})");expect(page.get_by_role('heading',name='Display in use')).to_be_visible()
  page.evaluate("testHost.emit({connected:false,front:'livi',route:'home'})");expect(page.get_by_role('heading',name='Home')).to_be_visible()
  assert not errors,errors;assert not csp,csp
- print(json.dumps({'result':'passed','checks':['weather search/select','clock outcomes','update confirmation/cancel','wallpaper/accent persistence + reset','app reordering persistence','debug toggle','known-motion locks','CSP projection geometry + mask','projection return to Apps','camera/cluster/disconnect honesty'],'page_errors':errors,'csp_errors':csp}))
+ print(json.dumps({'result':'passed','checks':['weather search/select and out-of-order mouse/touch/interrupted searches','clock outcomes','update confirmation/cancel','wallpaper/accent persistence + reset','app reordering persistence','debug toggle','known-motion locks','CSP projection geometry + mask','projection return to Apps','camera/cluster/disconnect honesty'],'page_errors':errors,'csp_errors':csp}))
  b.close()
