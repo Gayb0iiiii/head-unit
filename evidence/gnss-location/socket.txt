@@ -2,7 +2,7 @@
 > livi-headunit-integration-prototype@0.1.0 test:electron:fixture
 > node --test tests/electron/fixture.test.mjs
 
-✔ fake Unix peer drives real transport/controller: state, native rejection and disconnect (76.293311ms)
+✔ fake Unix peer drives real transport/controller: state, native rejection and disconnect (79.986927ms)
 ℹ tests 1
 ℹ suites 0
 ℹ pass 1
@@ -10,4 +10,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 145.917594
+ℹ duration_ms 148.785173
