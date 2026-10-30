@@ -3,6 +3,20 @@
 const {contextBridge, ipcRenderer} = require('electron');
 const listeners = new Set();
 const api = Object.freeze({
+  getBluetooth:()=>ipcRenderer.invoke('headunit:get-bluetooth'),
+  discoverBluetooth:()=>ipcRenderer.invoke('headunit:discover-bluetooth'),
+  stopBluetoothDiscovery:()=>ipcRenderer.invoke('headunit:stop-bluetooth-discovery'),
+  pairBluetooth:id=>ipcRenderer.invoke('headunit:pair-bluetooth',id),
+  cancelBluetoothPairing:()=>ipcRenderer.invoke('headunit:cancel-bluetooth-pairing'),
+  confirmBluetooth:(token,value)=>ipcRenderer.invoke('headunit:confirm-bluetooth',token,value),
+  connectBluetoothMusic:id=>ipcRenderer.invoke('headunit:connect-bluetooth-music',id),
+  releaseBluetoothMusic:()=>ipcRenderer.invoke('headunit:release-bluetooth-music'),
+  acknowledgeBluetoothPause:(token,value)=>ipcRenderer.invoke('headunit:acknowledge-bluetooth-pause',token,value),
+  onBluetooth(callback){
+    if(typeof callback!=='function')throw new TypeError('Bluetooth callback required');
+    const listener=(_event,value)=>callback(value),entry={channel:'headunit:bluetooth',listener};listeners.add(entry);ipcRenderer.on(entry.channel,listener);
+    return()=>{ipcRenderer.removeListener(entry.channel,listener);listeners.delete(entry);};
+  },
   getView: () => ipcRenderer.invoke('headunit:get-view'),
   signalReady: () => ipcRenderer.invoke('headunit:renderer-ready'),
   getUpdateStatus: () => ipcRenderer.invoke('headunit:get-update-status'),

@@ -11,6 +11,7 @@ const boundaryPath = new URL('../electron/main-boundary.mjs', import.meta.url);
 const hostPath = new URL('../electron/host.mjs', import.meta.url);
 const runtimePath = new URL('../electron/glass-runtime.mjs', import.meta.url);
 const channels = {
+  getBluetooth:'headunit:get-bluetooth',discoverBluetooth:'headunit:discover-bluetooth',stopBluetoothDiscovery:'headunit:stop-bluetooth-discovery',pairBluetooth:'headunit:pair-bluetooth',confirmBluetooth:'headunit:confirm-bluetooth',cancelBluetoothPairing:'headunit:cancel-bluetooth-pairing',connectBluetoothMusic:'headunit:connect-bluetooth-music',releaseBluetoothMusic:'headunit:release-bluetooth-music',acknowledgeBluetoothPause:'headunit:acknowledge-bluetooth-pause',
   view: 'headunit:view', getView: 'headunit:get-view', navigate: 'headunit:navigate',
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
   touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media', metrics:'headunit:get-metrics', stopMetrics:'headunit:stop-metrics',
@@ -63,7 +64,7 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
   const calls=[];
   const {api, exposed} = await preload(async (...args) => {calls.push(copy(args)); return copy(expectedView);});
   assert.deepEqual([...exposed.keys()], ['headunit']);
-  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','cancelUpdate','exitToDesktop','getMetrics','getTimeStatus','getUpdateStatus','getView','getWeather','media','navigate','onUpdateStatus','onView','onWeather','openLocationAttribution','openWeatherAttribution','requestUpdate','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','signalReady','stopMetrics','touch']);
+  assert.deepEqual(Object.keys(api).sort(), ['acknowledgeBluetoothPause','cancelBluetoothPairing','confirmBluetooth','connectBluetoothMusic','discoverBluetooth','getBluetooth','onBluetooth','pairBluetooth','releaseBluetoothMusic','stopBluetoothDiscovery','cancelTouch','cancelUpdate','exitToDesktop','getMetrics','getTimeStatus','getUpdateStatus','getView','getWeather','media','navigate','onUpdateStatus','onView','onWeather','openLocationAttribution','openWeatherAttribution','requestUpdate','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','signalReady','stopMetrics','touch'].sort());
   assert.equal(Object.isFrozen(api), true);
   assert.deepEqual(await api.getView(), expectedView);
   await api.getMetrics();await api.stopMetrics();await api.exitToDesktop();await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
@@ -508,4 +509,26 @@ test('main IPC filters configured picture metadata and clears it on takeover or 
  const detach=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url});
  assert.deepEqual((await f.call(channels.getView)).picture,{width:800,height:480,insets:null});f.controller.state.front='camera';assert.equal((await f.call(channels.getView)).picture,undefined);
  f.controller.state.front='projection';f.controller.state.connected=false;assert.equal((await f.call(channels.getView)).picture,undefined);detach();
+});
+
+test('Bluetooth bridge authenticates, validates and filters all observations',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath),f=fixture();let listener,confirmed,stopped=0;
+ const id='11111111-1111-1111-1111-111111111111';
+ const bluetooth={snapshot:()=>({availability:'available',parked:true,secret:'private',devices:[{id,name:'Phone',paired:true,address:'hidden'}]}),subscribe:fn=>{listener=fn;return()=>{};},confirm:async(...args)=>{confirmed=args;},suspend:async()=>{stopped++;}};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,bluetooth});
+ const value=await f.call('headunit:get-bluetooth');assert.equal(value.devices[0].name,'Phone');assert.doesNotMatch(JSON.stringify(value),/private|hidden|address/);
+ await assert.rejects(f.call('headunit:confirm-bluetooth',[id,true],{...f.event,sender:{}}),/Untrusted/);
+ await assert.rejects(f.call('headunit:confirm-bluetooth',['/org/bluez/device',true]),/arguments/);
+ await f.call('headunit:confirm-bluetooth',[id,false]);assert.deepEqual(confirmed,[id,false]);
+ listener({availability:'available',confirmation:{token:id,deviceId:id,passkey:'123456'},raw:'private'});assert.equal(f.wc.sent.at(-1)[0],'headunit:bluetooth');assert.doesNotMatch(JSON.stringify(f.wc.sent.at(-1)),/private/);
+ f.window.emit('blur');await assert.rejects(f.call('headunit:confirm-bluetooth',[id,true]),/unavailable/);assert.equal(stopped,1);dispose();
+});
+test('projection actions wait for Bluetooth release and fail closed on cleanup failure',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath),f=fixture();let finish;
+ const bluetooth={releaseMusic:()=>new Promise(resolve=>{finish=resolve;}),suspend:async()=>{}};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,bluetooth});const pending=f.call(channels.navigate,['projection']);assert.equal(f.controller.calls.some(c=>c[0]==='intent'),false);finish();await pending;assert.equal(f.controller.calls.at(-1)[1].route,'projection');
+ bluetooth.releaseMusic=async()=>{throw Error('cleanup failed');};await assert.rejects(f.call(channels.selectPhone,['phone-1']),/unavailable/);dispose();
+});
+test('Bluetooth preload strips IPC event and exposes only fixed commands',async()=>{
+ const calls=[],{api,ipc,lifecycle}=await preload(async(...args)=>{calls.push(copy(args));});let received;api.onBluetooth(value=>{received=value;});ipc.emit('headunit:bluetooth',{secret:'event'},{availability:'available'});assert.deepEqual(received,{availability:'available'});await api.confirmBluetooth('token',false);await api.acknowledgeBluetoothPause('token',true);assert.deepEqual(calls,[['headunit:confirm-bluetooth','token',false],['headunit:acknowledge-bluetooth-pause','token',true]]);lifecycle.emit('unload');assert.equal(ipc.listenerCount('headunit:bluetooth'),0);
 });

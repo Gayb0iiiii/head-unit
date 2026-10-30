@@ -13,6 +13,17 @@ jobs:
       - run: npm test
       - run: npm run test:electron:fixture
       - run: npm run build
+  bluetooth-bus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm --prefix electron/bluetooth-deps ci --ignore-scripts --omit=optional
+      - run: npm --prefix electron/bluetooth-deps audit --omit=optional --audit-level=high
+      - run: node tests/bluez-private-bus.mjs
   native-input:
     runs-on: ubuntu-24.04
     steps:

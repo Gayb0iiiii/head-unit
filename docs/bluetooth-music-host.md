@@ -1,54 +1,59 @@
-# Bluetooth music host component
+# Bluetooth music integration — inactive by default
 
-`electron/bluetooth-music-host.mjs` implements an opt-in, dependency-injected host service. Importing it performs no I/O. It is **not attached to the application, preload or renderer**. Existing Bluetooth UI remains unavailable. No D-Bus package, service, pairing, device trust, adapter power, PipeWire configuration or network change was installed or performed.
+The repository now contains a persistent BlueZ binding, host component, read-only PipeWire monitor, conservative focus provider, authenticated preload bridge and an opt-in pairing screen. None is enabled in the default application. No system bus, Pi services, real phone or hardware audio was used during implementation.
 
-## Implemented behavior
+## Composition and activation boundary
 
-- Host-selected adapter only; bounded discovery acquires/releases the application's discovery session without setting power, discoverability, filters or trust.
-- Numeric-comparison pairing uses an application-local `DisplayYesNo` Agent1. It does not request default-agent ownership. Confirmations contain a random request token, opaque device ID and six-digit passkey. Reject, cancel, timeout, adapter loss and service-owner replacement invalidate the prompt. Unsupported PIN entry, passkey display and authorization modes reject explicitly; this is not support for all pairing methods.
-- A2DP connection requires an observed paired device advertising the remote Audio Source UUID, verified host sink availability and an exclusive revocable audio lease. It calls `Device1.ConnectProfile` for that UUID, never generic `Connect`. Existing observed A2DP transports are not taken over. It does not implement HFP, calls, contacts or AVRCP controls.
-- Method completion does not claim audible playback. The public snapshot reports observed transport state independently from device connection, with `audible: null`. There is no stereo-to-multichannel processing or HELIX tuning.
-- Source revocation releases only the requested A2DP profile. No global device disconnect or projection command is used. The focus provider must preserve CarPlay ownership and deliberate local pause.
-- Late discovery acquisition is released after timeout/disposal. Late audio leases cannot initiate a connection. A timed-out operation blocks overlapping operations while its underlying bus request is still unresolved, avoiding ambiguous ownership. No canceled operation is automatically retried.
+`createGlassRuntime` accepts a privileged `bluetoothOptions` object. Omitting it leaves the integration inactive. The options require `enabled: true`, a reviewed `/org/bluez/hciN` adapter, a reviewed PipeWire output node name, and an `isParked()` provider returning true from actual host evidence. This is a code composition seam; there is no renderer setting or environment switch that can enable it. Current entrypoints do not pass the opt-in.
 
-## Private bus adapter contract — still required
+`electron/bluetooth-runtime.mjs` owns and disposes the bus, host, PipeWire monitor and focus provider. Missing dependencies, adapters, permissions, roles or ownership evidence result in unavailable/blocked operations. Defaults do not install or configure anything. The existing unavailable Bluetooth screen and offline-audio route remain when the service is absent.
 
-The `bluez` dependency must use **one persistent application connection** to the system bus, not one subprocess/connection per method. Agent registration and discovery ownership are connection-scoped. It must provide:
+## Persistent BlueZ binding
 
-```js
-watch(callback) // returns unsubscribe; callback({owner, objects})
-call({destination, path, interface, member, signature, args}) // Promise
-exportAgent(path, methods) // returns unexport function
+`electron/bluez-bus.mjs` uses one application bus connection for ObjectManager, discovery, Agent1 and method calls. It subscribes before reading the snapshot, reconciles queued signals, unwraps variants, handles invalidated properties and discards old objects on unique-owner changes. Only the current BlueZ owner may invoke Agent1 or provide object signals. Pairing callbacks validate their exact signatures. Malformed/oversized state fails closed.
+
+A fixed host allowlist permits Start/StopDiscovery, application Register/UnregisterAgent, Pair/CancelPairing and A2DP Connect/DisconnectProfile. It excludes generic Connect, Set, RemoveDevice, trust changes, default-agent takeover and arbitrary service/method arguments. Requests have bounded deadlines; a method timeout closes the owned connection rather than leaving an ambiguous discovery session attached. Normal BlueZ owner changes rebuild state; a lost client bus connection stays unavailable until host recovery rather than reconnecting silently.
+
+The optional host dependency is isolated in `electron/bluetooth-deps/`: `dbus-next` **0.10.2**, with lockfile and an explicit `xml2js` **0.6.2** override. Installation uses `--ignore-scripts --omit=optional`; native Unix-FD support is not needed because this code does not acquire audio transport FDs. The normal `npm test` and build remain dependency-free. The dependency audit in this checkpoint reports zero known production vulnerabilities; that is not a general security guarantee or a claim that the older client is actively maintained. The separate CI job installs the exact lockfile and exercises the private bus.
+
+Reproduce only in a development workspace:
+
+```sh
+npm --prefix electron/bluetooth-deps ci --ignore-scripts --omit=optional
+npm --prefix electron/bluetooth-deps audit --omit=optional --audit-level=high
+node tests/bluez-private-bus.mjs
 ```
 
-`watch` must subscribe before taking its ObjectManager snapshot, reconcile InterfacesAdded/Removed and PropertiesChanged without gaps, unwrap D-Bus variants to plain JS values, and deliver coherent full snapshots. `owner` is BlueZ's unique bus name (for example `:1.20`), or null when unavailable. On NameOwnerChanged it must discard old objects and reject pending calls to the retired owner. It must reject calls on a bounded transport deadline. Old replies/signals must not be attributed to the replacement daemon.
+That test starts a temporary private session bus and fake BlueZ service. It never opens the system bus, changes security policy or creates persistent credentials.
 
-`call` must preserve signatures (`os` for RegisterAgent; `o` for agent removal; `s` for ConnectProfile/DisconnectProfile). Calls address the captured unique owner, not an unverified replacement service. Errors retain their D-Bus error name privately for bounded classification. The adapter must not expose arbitrary methods, paths or arguments to the renderer.
+## Discovery, pairing and A2DP policy
 
-`exportAgent` must export `org.bluez.Agent1`, dispatch its exact method signatures, authenticate calls against the current BlueZ unique owner, and map rejected Promise errors to the supplied D-Bus error name. Unauthorized senders must never cause a confirmation prompt. It must support async replies while waiting for the user's decision. The component handles only numeric comparison; it deliberately rejects unsupported agent flows.
+`electron/bluetooth-music-host.mjs` retains adapter-scoped, bounded discovery. It registers an application-local DisplayYesNo agent only for an explicit pairing request. Confirmations carry a random token, opaque device ID and six-digit code. Confirmation, rejection, cancellation, timeout, adapter removal and owner replacement are handled. Unsupported PIN/passkey-entry and authorization modes reject explicitly; not every pairing method is implemented.
 
-No concrete D-Bus adapter is supplied in this checkpoint. The repository has no persistent D-Bus client dependency. Using existing one-shot command execution would fail the agent/discovery ownership requirement. Choosing and pinning a maintained client, implementing snapshot reconciliation and exercising it against an isolated test bus are the next software steps. They are not a reason to enable the UI prematurely.
+A music request requires an observed paired device advertising the remote Audio Source UUID, sink evidence and an exclusive audio lease. It uses ConnectProfile for that UUID, never all-profile Connect. Existing observed A2DP transports are not taken over. Late operations cannot activate after timeout/disposal. Focus cleanup waits for an outstanding connection and successful profile disconnect before releasing ownership. Failed cleanup keeps the lease blocked. Service loss with uncertain audio outcome is presented as uncertain and requires host recovery; it does not claim the sound stopped.
 
-## Audio and parked-state contract — still required
+## PipeWire and focus integration
 
-The host supplies an explicit `adapterPath`, `isParked()` and:
+`electron/bluetooth-audio.mjs` runs only the fixed read-only `pw-dump` command, with a three-second timeout and two-megabyte output limit. It requires a live selected Audio/Sink node and observed `bluez5.roles` containing `a2dp_sink`. State expires; failed reads revoke availability. Some installed versions may not expose the role in their graph: that remains unavailable rather than assuming a role from package installation. No profiles, defaults, graph links, loopbacks, volumes or HELIX tuning are changed.
 
-```js
-audio.sinkReady() // true only from verified local A2DP sink configuration
-audio.acquire(deviceId) // Promise<lease|null>
-lease.valid() // current exclusive ownership
-lease.onLost(callback) // returns unsubscribe
-lease.release() // idempotent; no automatic resume
-```
+This is availability observation, **not audio routing completion**. A role and output node do not prove a working phone-to-output link. The component reports observed BlueZ transport state and keeps `audible: null`. Endpoint/link policy and actual audio acceptance still require the installed PipeWire/WirePlumber configuration and target testing.
 
-The lease provider must arbitrate with native projection and local audio, notify revocation before handing focus to another source, await the Promise returned by its onLost callback, and tolerate cleanup during shutdown. A pending profile connection must settle and its disconnect must succeed before focus is released. A cleanup timeout retains the lease and reports an error; the provider must not treat that as successful handoff. The persistent bus adapter must be shut down by its owner after service disposal. `sinkReady` must come from a real PipeWire/WirePlumber integration; it must not be hardcoded true in production. The component does not enable Bluetooth roles, register media endpoints, acquire transport audio FDs or establish the output graph. Its MediaTransport1 observation is evidence of BlueZ transport state, not proof of a valid PipeWire link or audible HELIX output.
+The focus provider requires synchronized native state, the LIVI front, no active projection session and no observed native playback. Unknown/disconnected native ownership blocks Bluetooth music, even if pairing is possible. It sends a bounded pause request through the authenticated bridge; the UI pauses its actual HTMLAudio element and acknowledges the matching token. Local playback stays gated while Bluetooth owns focus. Projection/phone-select/native-play requests wait for Bluetooth cleanup before dispatch. An external native takeover triggers revocation, but timing and physical audio overlap remain hardware acceptance gates; no JavaScript test proves zero overlap.
 
-Unknown motion fails closed for starting discovery/pairing/music connection and accepting a pairing prompt. The future host wiring must call stop/cancel when motion becomes unsafe while an operation is active. No physical motion source is assumed here.
+The privileged host must supply and update actual motion evidence. Pairing and connection start, and pairing confirmation, fail closed when `isParked()` is not true. Integration with real motion remains unimplemented; the default provider always refuses. A future enabled host must also stop/cancel active discovery/pairing when motion becomes unsafe.
 
-## Tests and remaining acceptance
+## Authenticated UI boundary
 
-`tests/bluetooth-music-host.test.mjs` uses an in-memory bus and audio lease, never the system bus. It exercises scoped discovery, numeric confirm/reject, unsupported agent requests, profile UUID selection, sink/focus refusal, bounded errors, service replacement, adapter loss, cancellation/timeouts, late completion, immediate disposal and revoked leases. These tests verify component logic; they do not verify D-Bus serialization, policy authorization, actual pairing or audio.
+The main-window/main-frame/exact-local-URL checks apply to every new channel. The renderer receives only bounded device names, opaque IDs, availability, observed transport state, confirmation and focus tokens. It gets no bus paths, addresses, raw errors, shell arguments or generic D-Bus method.
 
-Before enabling: implement the bus and audio providers, add authenticated main-process/preload operations with bounded arguments, add parked pairing UI, run isolated-bus integration tests, then perform separately authorized target tests with two phones and real audio. Device permissions, PipeWire role ownership, Bluetooth/CarPlay coexistence and physical reconnection remain target gates. Calls, contacts and general Bluetooth control remain unimplemented.
+Preload methods are fixed: get/subscribe, discover/stop, pair/cancel/confirm, connect/release music and acknowledge local pause. Unknown tokens, malformed IDs, extra arguments, unfocused windows and unresponsive renderers are rejected. Blur, navigation, crash and detach cancel pairing/discovery and request music cleanup. The opt-in screen escapes names and requires explicit Confirm or Reject; it never automatically accepts a code. Calls and contacts are labelled unavailable.
 
-API references: [BlueZ Agent](https://bluez.readthedocs.io/en/latest/agent-api/), [Adapter](https://bluez.readthedocs.io/en/latest/adapter-api/), [Device](https://bluez.readthedocs.io/en/latest/device-api/), [Media](https://bluez.readthedocs.io/en/latest/media-api/). The design above distinguishes documented bus calls from project-specific ownership requirements.
+## Evidence and remaining gates
+
+- Unit tests cover bus reconciliation/authentication, deadlines, component races, PipeWire observations, focus acknowledgement/revocation, composed runtime and IPC filtering.
+- `tests/bluez-private-bus.mjs` exercises actual D-Bus serialization, variants, discovery, an asynchronous Agent1 confirmation, spoofed-caller rejection and service loss against a private fake service.
+- `tests/ui-bluetooth.py` uses labelled injected host responses and a real local WAV/HTMLAudio element. It checks confirmation/rejection, missing sink/motion gates, pause acknowledgement and two viewport bounds. It does not pair a phone.
+- Hardware gates remain: actual system-bus permissions, installed BlueZ/PipeWire compatibility, role visibility, endpoint/link/output behavior, source handoff, physical touch, reconnection and audio. Enabling on the Pi requires a separately reviewed deployment; no service or security/network change occurred.
+- Calls, contacts, AVRCP controls, general device management, automatic reconnect and forget/unpair are not implemented. No source-channel expansion or DSP tuning is claimed.
+
+Primary references: [BlueZ Agent](https://bluez.readthedocs.io/en/latest/agent-api/), [Device](https://bluez.readthedocs.io/en/latest/device-api/), [Media](https://bluez.readthedocs.io/en/latest/media-api/), [WirePlumber Bluetooth configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/bluetooth.html), [dbus-next](https://github.com/dbusjs/node-dbus-next).

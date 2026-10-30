@@ -1,3 +1,4 @@
+import {filterBluetoothView,renderBluetooth,bindBluetooth} from './bluetooth-view.mjs';
 import {LocalAudio} from './local-audio.mjs';
 import {renderLocalAudio,bindLocalAudio,audioTime} from './local-audio-view.mjs';
 import {pictureMarkup,applyPictureGeometry} from './picture.mjs';
@@ -18,8 +19,10 @@ const production=document.documentElement?.dataset?.mode==='production';
 const native=typeof window !== 'undefined' && window.headunit && typeof window.headunit.getView === 'function';
 const model=native?new NativeHeadunit(storage,window.headunit,()=>render()):production?null:new Headunit(storage);
 let localAudio;
+let bluetoothState=filterBluetoothView(null);
+let stopBluetooth=()=>{};
 const audioView={tab:'library',query:'',manage:false};
-const localAudioAllowed=()=>!native||(model.state.front==='livi'&&model.state.homeStatus?.media?.playing!==true);
+const localAudioAllowed=()=>!native||(!bluetoothState.audioOwned&&!bluetoothState.pauseRequest&&model.state.front==='livi'&&model.state.homeStatus?.media?.playing!==true);
 function ensureLocalAudio(){
  if(!localAudio)localAudio=new LocalAudio({media:typeof Audio==='function'?new Audio():null,storage,canPlay:localAudioAllowed,onChange:()=>{if(localAudio?.playing&&!localAudioAllowed())localAudio.pause();if(model?.state.screen==='audio'||model?.state.screen==='home')render();},onProgress:()=>{
   const seek=document.getElementById('local-seek');if(seek&&document.activeElement!==seek)seek.value=localAudio.media.currentTime;
@@ -187,7 +190,7 @@ ${s.dashboardOrder.filter(id=>!native||id==='music').map(id=>renderDashboardCard
 if(screen==='phones')content=native?`<header><h1>Phones</h1></header><div class="rows">${s.phones.map(p=>`<button class="row" data-phone="${escapeHtml(p.id)}" aria-label="Connect ${escapeHtml(p.name)}" ${!s.connected?'disabled':''}>${icon('phones')}<span><strong>${escapeHtml(p.name)}</strong><small>${p.active?'Active':p.status==='available'?'Available':'Offline'}</small></span><b>${p.active?'Open':'Connect'}</b></button>`).join('')}</div>${model.pendingPhone?'<p role="status">Switching phone…</p>':''}${!s.phones.length?'<p class="help">No saved phones.</p>':''}`:`<header><div><p class="eyebrow">Demo phones</p><h1>Phones</h1></div></header><p class="intro">Try switching between demo phones. No phone will connect.</p><div class="rows">${s.phones.map(p=>`<button class="row" data-phone="${escapeHtml(p.id)}" aria-label="Connect ${escapeHtml(p.name)}">${icon('phones')}<span><strong>${escapeHtml(p.name)}</strong><small>${p.active?'Active demo':'Saved demo phone'}</small></span><b>${p.active?'Open':'Connect'}</b></button>`).join('')}</div><p class="help">Adding and removing phones is unavailable.</p><section class="phone-capabilities" aria-label="Phone capabilities"><div class="actions"><button disabled title="Adding phones is unavailable">Add phone</button><button disabled title="Removing phones is unavailable">Remove saved phone</button></div><p>Connection options are unavailable.</p><p>Contacts are unavailable. No contacts have been accessed.</p><p>Separate phones for calls and music are unavailable.</p></section>`;
 if(screen==='projection')content=native?(!s.connected?`<header><h1>CarPlay</h1></header>${featureStage('projection','Phone system offline','CarPlay needs the phone system and a connected phone. Your imported music remains available offline.',button('Open local audio','audio','primary'))}`:!s.projectionReady?`<header><h1>CarPlay</h1></header>${featureStage('projection','Waiting for a phone display','The system is connected, but no phone display is ready.',s.phones.some(phone=>phone.status!=='offline')?button('Choose phone','phones','primary'):button('Open local audio','audio','primary'))}`:pictureMarkup(s.picture)):`<header><div><p class="eyebrow">${active?escapeHtml(active.name):'No phone selected'}</p><h1>CarPlay demo</h1></div><span class="pill">Simulated</span></header><div class="projection-placeholder">${icon('projection')}<h2>${active?'CarPlay is unavailable in demo mode':'Choose a demo phone'}</h2><p>Explore the controls with a demo phone. No video, audio or microphone is connected.</p>${button(active?'Switch phone':'Choose phone','phones','primary')}</div>`;
 if(screen==='radio')content=`<header><h1>Radio</h1></header>${featureStage('radio','Receiver not available','Radio needs a tuner before it can play.', '<div class="radio-formats" aria-label="Planned radio formats"><span>Digital</span><span>AM</span><span>FM</span></div>')}`;
-if(screen==='bluetooth')content=`<header><h1>Bluetooth</h1></header>${featureStage('bluetooth','Bluetooth not available','Bluetooth pairing and music playback are not available on this installation. Imported music works offline.',button('Open local audio','audio','primary'))}`;
+if(screen==='bluetooth')content=bluetoothState.availability!=='unavailable'?renderBluetooth(bluetoothState):`<header><h1>Bluetooth</h1></header>${featureStage('bluetooth','Bluetooth not available','Bluetooth pairing and music playback are not available on this installation. Imported music works offline.',button('Open local audio','audio','primary'))}`;
 if(screen==='apps')content=`<header><h1>Apps</h1><div class="layout-actions">${s.editingLayout?'<button class="text-button" data-action="reset-layout">Reset order</button><button class="done-button" data-action="done-layout">Done</button>':`<button class="text-button" data-action="edit-layout" ${s.motionState==='moving'?'disabled':''}>Edit apps</button>`}</div></header>${s.editingLayout?`<p class="motion-note">${motionNotice(s)}</p>`:''}${renderApps(s)}<p class="layout-status" role="status">${layoutMessage}</p>`;
 if(screen==='settings')content=native?renderNativeSettings(s):renderSettings(s);
 if(screen==='wallpapers')content=renderWallpaperGallery(s);
@@ -311,6 +314,7 @@ document.querySelectorAll('[data-glass-strength]').forEach(el=>el.oninput=()=>{
   document.getElementById('glass-value').textContent=`${s.glassStrength}%`;
   document.getElementById('save-status').textContent=saveNotice();
 });
+if(screen==='bluetooth'&&native)bindBluetooth(document.getElementById('app'),window.headunit,()=>{bluetoothState={...bluetoothState,error:'failed'};render();});
 if(screen==='projection')applyPictureGeometry(document.getElementById('app'),s.picture);
 if(screen==='audio'&&document.getElementById('app').querySelectorAll)bindLocalAudio(document.getElementById('app'),localAudio,audioView,render,()=>model.state.motionState==='moving');
 if(screen==='settings')sensorSettingsBinding=bindSensorSettings(document.getElementById('sensor-settings'),{storage,snapshot:sensorSettingsSnapshot,getMoving:()=>model.state.motionState==='unknown'?null:model.state.motionState==='moving'});
@@ -331,6 +335,15 @@ if(model){render();if(native)model.start();}
 else document.getElementById('app').innerHTML='<main class="system-unavailable" role="status"><h1>System unavailable</h1><p>Unable to load the head unit interface.</p></main>';
 
 let stopWeather=()=>{};
+if(native&&typeof window.headunit.getBluetooth==='function'){
+ let eventSeen=false,lastPause=null;
+ const receive=value=>{bluetoothState=filterBluetoothView(value);if(bluetoothState.audioOwned||bluetoothState.pauseRequest)localAudio?.pause();
+  if(bluetoothState.pauseRequest&&lastPause!==bluetoothState.pauseRequest){lastPause=bluetoothState.pauseRequest;void Promise.resolve(window.headunit.acknowledgeBluetoothPause(lastPause,!localAudio||localAudio.media?.paused===true)).catch(()=>{});}
+  if(model.state.screen==='bluetooth'||model.state.screen==='audio'||model.state.screen==='home')render();
+ };
+ stopBluetooth=window.headunit.onBluetooth?.(value=>{eventSeen=true;receive(value);})??(()=>{});
+ void Promise.resolve(window.headunit.getBluetooth()).then(value=>{if(!eventSeen)receive(value);}).catch(()=>{});
+}
 let timeStatusTimer;
 if(native){
   if(typeof window.headunit.onUpdateStatus==='function')window.headunit.onUpdateStatus(value=>{if(value&&typeof value.phase==='string'){
@@ -361,5 +374,5 @@ document.addEventListener?.('keydown',event=>{
 });
 
 const stopClock=startClock(date=>{const formatted=formatClock(date,timeStatus?.timezone);for(const id of ['headunit-clock','headunit-home-clock']){const node=document.getElementById(id);if(node)node.textContent=formatted.time;}const dateNode=document.getElementById('headunit-home-date');if(dateNode)dateNode.textContent=formatted.date;});
-window.addEventListener?.('unload',()=>{localAudio?.pause();localAudio?.release();stopClock();stopWeather();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});
+window.addEventListener?.('unload',()=>{localAudio?.pause();localAudio?.release();stopClock();stopWeather();stopBluetooth();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});
 if(native&&production&&model)void Promise.resolve(window.headunit.signalReady?.()).catch(()=>{});

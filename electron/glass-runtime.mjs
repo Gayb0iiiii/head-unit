@@ -1,3 +1,4 @@
+import {createBluetoothRuntime} from './bluetooth-runtime.mjs';
 import {createSecondaryWindows} from './secondary-windows.mjs';
 import {observeWindowConfig} from './window-config.mjs';
 import {watchParentLifeline} from './parent-lifeline.mjs';
@@ -13,7 +14,7 @@ import {createTimeService} from './time-service.mjs';
 import path from 'node:path';
 
 /** Attach the glass shell to a host-owned window. Only start() opens core.sock. */
-export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary,desktopHandoff,weather,timeService,updateService,onRendererReady,localServices=false,openWeatherAttribution,openLocationAttribution}) {
+export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary,desktopHandoff,weather,timeService,updateService,bluetoothOptions,onRendererReady,localServices=false,openWeatherAttribution,openLocationAttribution}) {
   const transport = new CoreTransport(socketPath,connectSocket);
   const preferences = new FilePreferences(preferencePath);
   const controller = new HeadunitController(transport,preferences);
@@ -21,12 +22,15 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
   const cache=localServices?weatherCache(path.join(path.dirname(preferencePath),'headunit-weather.json')):null;
   const weatherSource=weather??(localServices?createWeatherService({fetchJSON:fetchWeatherJSON,readCache:cache.read,writeCache:cache.write}):null);
   const clockSource=timeService??(localServices?createTimeService():null);
+  let bluetooth;
   let detach;
   try {
-    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics(),desktopHandoff:handoff,weather:weatherSource,timeService:clockSource,updateService,onRendererReady,openWeatherAttribution,openLocationAttribution});
+    bluetooth=createBluetoothRuntime({...bluetoothOptions,controller});
+    detach = attachHeadunitHost({ipcMain,trustedWindow,trustedUrl,controller,systemMetrics:createSystemMetrics(),desktopHandoff:handoff,weather:weatherSource,timeService:clockSource,updateService,bluetooth,onRendererReady,openWeatherAttribution,openLocationAttribution});
   } catch (error) {
     handoff?.dispose?.();
     weatherSource?.dispose?.();
+    void bluetooth?.dispose?.().catch(()=>{});
     controller.dispose();
     transport.stop();
     throw error;
@@ -48,6 +52,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
     detach();
     handoff?.dispose?.();
     weatherSource?.dispose?.();
+    void bluetooth?.dispose?.().catch(()=>{});
     controller.dispose();
     transport.stop();
   }
@@ -69,6 +74,7 @@ export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,
         }
         if(disposed){detachLifeline();return;}
         weatherSource?.start?.();
+        bluetooth?.start();
         transport.start();
       } catch(error) {dispose();throw error;}
     },

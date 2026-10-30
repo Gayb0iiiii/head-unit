@@ -1,0 +1,1 @@
+PASS: private D-Bus serialization, ObjectManager variants, discovery, Agent1 numeric confirmation, spoofed sender rejection and owner loss; no system bus or devices used.

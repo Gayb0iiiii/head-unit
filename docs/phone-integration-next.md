@@ -50,3 +50,5 @@ The 800×480 library still needs a composition pass: wide artwork is cropped and
 ## Follow-through: host component now implemented
 
 The subsequent [Bluetooth music host component](bluetooth-music-host.md) implements discovery, numeric confirmation pairing and profile-specific connection policy with mocked service tests. The persistent D-Bus binding, actual PipeWire/focus provider and authenticated UI integration are still absent. This advances the component implementation; it does not change the unavailable installation state described above.
+
+The later persistent-integration checkpoint now supplies the bus adapter, read-only PipeWire monitor, conservative focus provider and authenticated UI seam. They remain opt-in and inactive in default entrypoints. See the current [Bluetooth integration document](bluetooth-music-host.md) for tested interfaces and remaining target/routing gates; earlier statements about missing bindings describe the prior checkpoint.

@@ -871,3 +871,7 @@ html[data-mode=production] .local-driver-controls .local-modes button{font-size:
 /* Sparse libraries retain readable cover/title proportions. */
 .local-artwork-grid>li{width:100%;max-width:320px;min-width:0}
 @media(min-width:650px) and (max-width:1599px){.local-artwork-grid>li{max-width:220px}}
+
+.bluetooth-panel{padding:20px;max-width:1000px}.bluetooth-devices{list-style:none;padding:0;display:grid;gap:12px}.bluetooth-devices li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px;border-bottom:1px solid var(--surface-border)}.bluetooth-panel button{min-height:50px;min-width:50px;padding:10px 16px}.bluetooth-passkey{font-size:36px;letter-spacing:.2em;font-variant-numeric:tabular-nums}.bluetooth-panel [role=group]{padding:16px;border:1px solid var(--surface-border);border-radius:12px}
+
+.bluetooth-panel button{background:var(--control-background);color:var(--text-primary);border:1px solid var(--surface-border);border-radius:9px}.bluetooth-panel button[data-bt=confirm]{background:var(--selected-background);color:var(--selected-text)}

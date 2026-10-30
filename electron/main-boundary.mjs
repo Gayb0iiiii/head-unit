@@ -1,3 +1,4 @@
+import {filterBluetoothView} from '../src/bluetooth-view.mjs';
 import {filterPicture} from '../src/picture.mjs';
 import {filterConnectionPhase} from '../src/connection-status.mjs';
 import {filterHomeStatus} from '../src/home-status.mjs';
@@ -71,7 +72,7 @@ function pointsValid(points) {
 }
 
 /** One host window owns these channels. Call the returned function when detaching. */
-export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff, weather, timeService, updateService, onRendererReady, openWeatherAttribution, openLocationAttribution}) {
+export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff, weather, timeService, updateService, bluetooth, onRendererReady, openWeatherAttribution, openLocationAttribution}) {
   const url = trustedURL(trustedUrl);
   const contents = trustedWindow?.webContents;
   if (!contents || !controller || !['view','subscribe','intent'].every(key => typeof controller[key] === 'function')) throw new TypeError('Trusted window and controller required');
@@ -84,6 +85,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
   let unsubscribeDesktop;
   let unsubscribeWeather;
   let unsubscribeUpdate;
+  let unsubscribeBluetooth;
   let readySignalled=false;
   const registered = [];
   const lifecycle = [];
@@ -110,7 +112,9 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
   }
   function action(channel, validate, makeIntent, count = 1) {
     register(channel,count,validate,async (...args) => {
-      const result=controller.intent(makeIntent(...args));
+      const intent=makeIntent(...args);
+      if(bluetooth&&(intent.type==='selectPhone'||intent.type==='navigate'&&intent.route==='projection'||intent.type==='media'&&intent.control==='play')){await bluetooth?.releaseMusic?.();if(!pageTrusted())throw Error('Input owner unavailable');}
+      const result=controller.intent(intent);
       if(result?.completion && await result.completion !== true) throw new Error('Command failed');
       // Do not return arbitrary core replies, state, errors or request metadata.
       return {accepted:true};
@@ -132,8 +136,19 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     unsubscribeDesktop?.();
     unsubscribeWeather?.();
     unsubscribeUpdate?.();
+    unsubscribeBluetooth?.();
+    void bluetooth?.suspend?.().catch(()=>{});
   }
   try {
+    register('headunit:get-bluetooth',0,()=>true,()=>filterBluetoothView(bluetooth?.snapshot?.()));
+    const btId=value=>typeof value==='string'&&/^[a-f0-9-]{36}$/.test(value);
+    for(const [channel,method,count,validate] of [
+      ['discover-bluetooth','discover',0,()=>true],['stop-bluetooth-discovery','stopDiscovery',0,()=>true],
+      ['pair-bluetooth','pair',1,btId],['cancel-bluetooth-pairing','cancelPairing',0,()=>true],
+      ['connect-bluetooth-music','connectMusic',1,btId],['release-bluetooth-music','releaseMusic',0,()=>true],
+      ['confirm-bluetooth','confirm',2,(token,value)=>btId(token)&&typeof value==='boolean'],
+      ['acknowledge-bluetooth-pause','acknowledgePause',2,(token,value)=>btId(token)&&typeof value==='boolean']
+    ])register('headunit:'+channel,count,validate,async(...args)=>{if(!bluetooth||!focused||!responsive)throw Error('Bluetooth unavailable');await bluetooth[method](...args);return {accepted:true};});
     register('headunit:renderer-ready',0,()=>true,()=>{if(!readySignalled){readySignalled=true;onRendererReady?.();}return {accepted:true};});
     register('headunit:get-update-status',0,()=>true,()=>updateService?.snapshot?.()??{phase:'unavailable',sha:null});
     register('headunit:request-update',1,value=>value===true,()=>({accepted:updateService?.start(true)===true}));
@@ -185,13 +200,13 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     action('headunit:media',(control,phoneId) => (control === 'play' || control === 'pause') && text(phoneId,256),(control,phoneId) => ({type:'media',control,phoneId}),2);
     // Account for both current Event details and Electron's older positional API.
     on('did-start-navigation',(details,_url,_sameDocument,isMainFrame) => {
-      if (details?.isMainFrame ?? isMainFrame) { navigating = true; cancelContacts(); }
+      if (details?.isMainFrame ?? isMainFrame) { navigating = true; cancelContacts();void bluetooth?.suspend?.().catch(()=>{}); }
     });
     on('did-navigate',() => { navigating = false; });
     on('did-navigate-in-page',(_event,_url,isMainFrame) => { if (isMainFrame) navigating = false; });
-    onWindow('blur',()=>{focused=false;cancelContacts();});
+    onWindow('blur',()=>{focused=false;cancelContacts();void bluetooth?.suspend?.().catch(()=>{});});
     onWindow('focus',()=>{focused=true;});
-    onWindow('unresponsive',()=>{responsive=false;cancelContacts();});
+    onWindow('unresponsive',()=>{responsive=false;cancelContacts();void bluetooth?.suspend?.().catch(()=>{});});
     onWindow('responsive',()=>{responsive=true;});
     on('destroyed',dispose);
     on('render-process-gone',dispose);
@@ -207,6 +222,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     unsubscribeWeather=weather?.subscribe?.(snapshot=>{
       if(pageTrusted())try{contents.send('headunit:weather',cleanWeather(snapshot));}catch{}
     });
+    unsubscribeBluetooth=bluetooth?.subscribe?.(state=>{if(pageTrusted())try{contents.send('headunit:bluetooth',filterBluetoothView(state));}catch{}});
     unsubscribeUpdate=updateService?.subscribe?.(status=>{
       if(pageTrusted())try{contents.send('headunit:update-status',status);}catch{}
     });

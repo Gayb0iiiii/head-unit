@@ -1,0 +1,1 @@
+{"name":"headunit-optional-bluetooth-bus","version":"0.1.0","private":true,"description":"Optional host-only D-Bus binding; never loaded by default","dependencies":{"dbus-next":"0.10.2"},"overrides":{"xml2js":"0.6.2"}}
