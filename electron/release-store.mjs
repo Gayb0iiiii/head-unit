@@ -6,6 +6,18 @@ import path from 'node:path';
 const execFile=promisify(callback);
 const shaPattern=/^[0-9a-f]{40}$/;
 const validSha=value=>typeof value==='string'&&shaPattern.test(value);
+// Validate the full fixed build path, not just its final file. Canonical roots
+// also detect replacement of a previously validated release-directory ancestor.
+async function verifiedBuild(root){
+  const paths=[root,path.join(root,'dist'),path.join(root,'dist','production.html')];
+  const identities=[];
+  for(const [index,file] of paths.entries()){
+    const stat=await lstat(file);
+    if(stat.isSymbolicLink()||(index<2?!stat.isDirectory():!stat.isFile())||await realpath(file)!==file)return null;
+    identities.push(`${stat.dev}:${stat.ino}`);
+  }
+  return identities.join('/');
+}
 async function gitHead(root){
   const {stdout}=await execFile('git',['-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','-C',root,'rev-parse','HEAD'],{timeout:10000,maxBuffer:4096});
   return stdout.trim();
@@ -29,18 +41,15 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
     if(!validSha(sha))return null;
     const releasePath=path.join(releasesRoot,sha);
     try{
-      const stat=await lstat(releasePath);
-      if(!stat.isDirectory()||stat.isSymbolicLink())return null;
-      const build=await lstat(path.join(releasePath,'dist','production.html'));
-      if(!build.isFile()||build.isSymbolicLink()||await readHead(releasePath)!==sha)return null;
+      const build=await verifiedBuild(releasePath);
+      if(!build||await readHead(releasePath)!==sha||await verifiedBuild(releasePath)!==build)return null;
       return {sha,path:releasePath};
     }catch{return null;}
   }
   async function sourceRelease(){
     const sha=await readHead(sourcePath);
     if(!validSha(sha))throw Error('Invalid source commit');
-    const build=await lstat(path.join(sourcePath,'dist','production.html'));
-    if(!build.isFile()||build.isSymbolicLink())throw Error('Source build unavailable');
+    if(!await verifiedBuild(sourcePath))throw Error('Source build unavailable');
     return {sha,path:sourcePath};
   }
   async function resolve(sha){

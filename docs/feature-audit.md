@@ -217,3 +217,7 @@ Fixed the independent readiness freshness defect: probe-start timestamps are pre
 Independent review reproduced source verification exceptions preventing previous-release resolution. The narrow source-verification catch now marks that candidate unavailable; manifest/root validation and persistence errors still propagate. Adversarial regressions cover broken Git, invalid SHA/build types, invalid previous candidates, recovery write denial and first-boot/untrusted-state failure. A real temporary Git fixture verifies staged previous recovery while the source has no repository.
 
 **699 tests**, **28 focused release-store/supervisor tests**, build and Unix-socket fixture passed; no tests skipped locally. Evidence: `evidence/source-recovery/`. No renderer change required a new browser run. Pi services, data, release state and all deployment/physical gates remain unchanged.
+
+## Release build ancestor integrity
+
+Fixed independent review's staged `dist` symlink escape. The build path now requires a canonical real root/directory/file with no symlink component, and staged verification rechecks device/inode identities after Git verification. Source first boot uses the same validation. **704 tests**, **33 focused release tests**, build and Unix-socket fixture pass with no local skips. Evidence: `evidence/release-path-integrity/`. Real-filesystem fixtures cover outside/in-release symlinks, ancestor substitution, in-verification mutation and valid rollback. No live Pi, user data, deployment or blocked action changed.

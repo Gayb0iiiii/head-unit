@@ -3,7 +3,7 @@ import {execFile as callback} from 'node:child_process';
 import {promisify} from 'node:util';
 const execFile=promisify(callback);
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,readFile,rm,symlink,chmod} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,rm,symlink,chmod,rename} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createReleaseStore} from '../electron/release-store.mjs';
@@ -126,5 +126,48 @@ test('untrusted manifest and first-boot source failures remain fatal without inv
   await assert.rejects(readFile(path.join(f.stateRoot,'release.json')),error=>error.code==='ENOENT');
   await writeFile(path.join(f.stateRoot,'release.json'),'not-json');let reads=0;
   await assert.rejects(createReleaseStore({...f,readHead:async()=>{reads++;return old;}}));assert.equal(reads,0);assert.equal(await readFile(path.join(f.stateRoot,'release.json'),'utf8'),'not-json');
+ }finally{await f.close();}
+});
+
+test('a staged dist symlink cannot supply a previous-release build from outside the release',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old});await store.saveState({active:next,previous:old});
+  const previous=path.join(store.releasesRoot,old),outside=path.join(f.root,'outside');await mkdir(previous);await mkdir(outside);await writeFile(path.join(outside,'production.html'),'outside build');await symlink(outside,path.join(previous,'dist'));
+  assert.equal(await store.verifyRelease(old),null);
+  const manifest=path.join(f.stateRoot,'release.json'),before=await readFile(manifest,'utf8');
+  await assert.rejects(createReleaseStore({...f,readHead:async root=>{if(root===f.sourceRoot)throw Error('source unavailable');return old;}}),/verified fallback unavailable/);
+  assert.equal(await readFile(manifest,'utf8'),before);
+ }finally{await f.close();}
+});
+test('source dist symlink is rejected on first boot without creating a manifest',async()=>{
+ const f=await fixture();try{
+  const outside=path.join(f.root,'outside');await mkdir(outside);await writeFile(path.join(outside,'production.html'),'outside build');await rm(path.join(f.sourceRoot,'dist'),{recursive:true});await symlink(outside,path.join(f.sourceRoot,'dist'));
+  await assert.rejects(createReleaseStore({...f,readHead:async()=>old}),/Source build unavailable/);
+  await assert.rejects(readFile(path.join(f.stateRoot,'release.json')),error=>error.code==='ENOENT');
+ }finally{await f.close();}
+});
+
+test('even an in-release dist symlink is rejected and a real directory remains valid',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old}),release=path.join(store.releasesRoot,old);
+  await mkdir(path.join(release,'build'),{recursive:true});await writeFile(path.join(release,'build','production.html'),'ready');await symlink('build',path.join(release,'dist'));
+  assert.equal(await store.verifyRelease(old),null);await rm(path.join(release,'dist'));await rename(path.join(release,'build'),path.join(release,'dist'));
+  assert.deepEqual(await store.verifyRelease(old),{sha:old,path:release});
+ }finally{await f.close();}
+});
+test('replacement of releases ancestor after store creation is rejected',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old}),release=path.join(store.releasesRoot,old);
+  await mkdir(path.join(release,'dist'),{recursive:true});await writeFile(path.join(release,'dist','production.html'),'ready');
+  const moved=path.join(f.root,'moved');await rename(store.releasesRoot,moved);await symlink(moved,store.releasesRoot);
+  assert.equal(await store.verifyRelease(old),null);
+ }finally{await f.close();}
+});
+test('build-path substitution during Git verification cannot be accepted',async()=>{
+ const f=await fixture();try{
+  const outside=path.join(f.root,'outside');await mkdir(outside);await writeFile(path.join(outside,'production.html'),'outside');let replace=false;
+  const store=await createReleaseStore({...f,readHead:async root=>{if(replace&&root!==f.sourceRoot){await rm(path.join(root,'dist'),{recursive:true});await symlink(outside,path.join(root,'dist'));}return old;}});
+  const release=path.join(store.releasesRoot,old);await mkdir(path.join(release,'dist'),{recursive:true});await writeFile(path.join(release,'dist','production.html'),'ready');replace=true;
+  assert.equal(await store.verifyRelease(old),null);
  }finally{await f.close();}
 });
