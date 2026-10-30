@@ -1,0 +1,148 @@
+✖ simultaneous startup coalesces callers, selects UI and stops after observed activation (2.291356ms)
+✖ delayed renderer readiness waits and does not activate just because Cage exists (1.232868ms)
+✖ missing UI readiness falls back only to verified desktop (0.246926ms)
+✔ missing display never activates a local VT and preserves independent recovery (0.600731ms)
+✖ unknown, remote, stale and ambiguous evidence never activates UI (0.764353ms)
+✖ restart between discovery and activation rejects stale instance and uses desktop (0.235539ms)
+✖ explicit activation rejection uses verified desktop; uncertain timeout cannot race fallback (0.304682ms)
+✔ unobserved or competing active session cannot report a foreground success (0.220777ms)
+✖ hung discovery is bounded and disposal cancels without late activation (0.361386ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 2
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 82.583678
+
+✖ failing tests:
+
+test at tests/boot-coordinator.test.mjs:16:1
+✖ simultaneous startup coalesces callers, selects UI and stops after observed activation (2.291356ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be reference-equal to "expected":
+  + actual - expected
+  
+    Promise {
+  +   Symbol(async_id_symbol): 75,
+  -   Symbol(async_id_symbol): 76,
+      Symbol(trigger_async_id_symbol): 17,
+      {
+        status: 'recovery-required'
+      }
+    }
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-coordinator.test.mjs:17:77)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Promise],
+    expected: [Promise],
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/boot-coordinator.test.mjs:20:1
+✖ delayed renderer readiness waits and does not activate just because Cage exists (1.232868ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'recovery-required'
+  - 'headunit'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-coordinator.test.mjs:23:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'recovery-required',
+    expected: 'headunit',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/boot-coordinator.test.mjs:25:1
+✖ missing UI readiness falls back only to verified desktop (0.246926ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'recovery-required'
+  - 'desktop'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-coordinator.test.mjs:26:66)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'recovery-required',
+    expected: 'desktop',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/boot-coordinator.test.mjs:31:1
+✖ unknown, remote, stale and ambiguous evidence never activates UI (0.764353ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'recovery-required'
+  - 'desktop'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-coordinator.test.mjs:33:43)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'recovery-required',
+    expected: 'desktop',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/boot-coordinator.test.mjs:36:1
+✖ restart between discovery and activation rejects stale instance and uses desktop (0.235539ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'recovery-required'
+  - 'desktop'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-coordinator.test.mjs:39:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'recovery-required',
+    expected: 'desktop',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/boot-coordinator.test.mjs:41:1
+✖ explicit activation rejection uses verified desktop; uncertain timeout cannot race fallback (0.304682ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'recovery-required'
+  - 'desktop'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-coordinator.test.mjs:44:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'recovery-required',
+    expected: 'desktop',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/boot-coordinator.test.mjs:53:1
+✖ hung discovery is bounded and disposal cancels without late activation (0.361386ms)
+  TypeError: resolve is not a function
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-coordinator.test.mjs:55:151)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

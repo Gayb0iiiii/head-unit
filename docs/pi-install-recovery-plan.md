@@ -51,3 +51,7 @@ Required acceptance before joint enablement:
 4. Validate cold boot, either service failing, absent HDMI, display reconnect and Exit/Return. Prove which session is foreground after each case before enabling the pair. A permanent desktop remains the product goal; the present templates alone do not fulfill deterministic foreground ownership.
 
 Reference semantics: [systemd.service](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html) documents restart suppression and Type=simple; [systemd.unit](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html) documents conditions, conflicts, ordering and failure dependencies. Actual Pi service execution remains untested; no unit was installed or changed by this audit.
+
+### Coordinator implementation checkpoint
+
+A bounded inactive coordinator component now exists; see [boot-coordinator.md](boot-coordinator.md) for the executable policy, required discovery/readiness/activation contract and tests. It is not wired into launchers or units. The instance-bound authenticated readiness providers and actual logind authorization remain missing, so the joint boot gate above is unchanged. Fake-session results are not physical foreground or power-loss acceptance.
