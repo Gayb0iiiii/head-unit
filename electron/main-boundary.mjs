@@ -1,3 +1,4 @@
+import {filterLocationStatus} from '../src/location-status.mjs';
 import {filterBluetoothView} from '../src/bluetooth-view.mjs';
 import {filterPicture} from '../src/picture.mjs';
 import {filterConnectionPhase} from '../src/connection-status.mjs';
@@ -46,6 +47,7 @@ function rendererView(value,desktopAvailable=false) {
   return {
     ...(picture?{picture}:{}),
     connectionPhase:filterConnectionPhase(source.connectionPhase,source.connected),
+    location:filterLocationStatus(source.location,source.connected===true),
     homeStatus:filterHomeStatus(source.homeStatus,source.connected===true,active.length===1?active[0].id:null),
     connected: source.connected === true,
     projectionReady: source.connected === true && source.projectionReady === true,

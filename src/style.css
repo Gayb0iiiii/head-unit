@@ -923,3 +923,5 @@ html[data-mode=production] .local-library .local-list{scrollbar-gutter:stable;sc
  html[data-mode=production] body:has(main[data-screen=audio]) main>header{position:absolute;width:1px;height:1px;min-height:0;margin:0;padding:0;overflow:hidden;clip-path:inset(50%)}
  html[data-mode=production] .local-audio{height:calc(100dvh * var(--ui-scale-inverse,1) - 92px)}
 }
+
+.settings-location .location-coordinate{font-variant-numeric:tabular-nums;font-size:clamp(16px,2vw,22px);overflow-wrap:anywhere}.settings-location .settings-note{overflow-wrap:anywhere}

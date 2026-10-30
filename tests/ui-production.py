@@ -11,6 +11,6 @@ server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
 env={**os.environ,'HEADUNIT_TEST_BASE_URL':f'http://127.0.0.1:{server.server_port}'}
 try:
-    for script in ['ui-comfort.py','ui-feature-audit.py','local-audio-browser.py','ui-scroll.py','ui-bluetooth.py','ui-audio-artwork.py']:
+    for script in ['ui-comfort.py','ui-feature-audit.py','local-audio-browser.py','ui-scroll.py','ui-bluetooth.py','ui-audio-artwork.py','ui-location.py']:
         subprocess.run([sys.executable,str(root/'tests'/script)],env=env,check=True)
 finally:server.shutdown()

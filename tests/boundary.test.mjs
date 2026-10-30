@@ -1,3 +1,4 @@
+import {emptyLocation} from '../src/location-status.mjs';
 import {emptyHomeStatus} from '../src/home-status.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,7 +24,7 @@ const channels = {
   locationSource:'headunit:open-location-source',
   rendererReady:'headunit:renderer-ready',updateStatus:'headunit:update-status',getUpdateStatus:'headunit:get-update-status',requestUpdate:'headunit:request-update',cancelUpdate:'headunit:cancel-update',
 };
-const expectedView = {connectionPhase:'ready',homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null,desktopAvailable:false};
+const expectedView = {connectionPhase:'ready',location:emptyLocation(),homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null,desktopAvailable:false};
 const copy = value => JSON.parse(JSON.stringify(value));
 async function moduleAt(path) {
   assert.ok(existsSync(path), `${path.pathname.split('/').at(-1)} must implement the isolated boundary`);
@@ -540,4 +541,13 @@ test('AVRCP and forget bridge reject arbitrary controls, paths, extra arguments 
  for(const args of [[id,'seek'],['/org/bluez/player','play'],[id,'play','extra']])await assert.rejects(f.call('headunit:control-bluetooth-media',args),/arguments/);
  await assert.rejects(f.call('headunit:confirm-bluetooth-forget',[id,'yes']),/arguments/);await assert.rejects(f.call('headunit:request-bluetooth-forget',[id],{...f.event,senderFrame:{url:f.url}}),/Untrusted/);
  await f.call('headunit:control-bluetooth-media',[id,'pause']);await f.call('headunit:request-bluetooth-forget',[id]);await f.call('headunit:confirm-bluetooth-forget',[id,false]);assert.deepEqual(calls,[[id,'pause'],[id],[id,false]]);dispose();
+});
+test('existing authenticated view exposes only bounded GNSS fields with no receiver controls',async()=>{
+ const f=fixture();const {attachHeadunitBoundary}=await moduleAt(boundaryPath);const detach=attachHeadunitBoundary({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,controller:f.controller});
+ try{
+  f.controller.state.location={status:'current',latitude:0,longitude:0,sampledAt:1800000000000,fixQuality:'gps',fixMode:'3d',freshForMs:1000,device:'/dev/private',error:'private path',raw:'secret'};
+  const view=await f.call(channels.getView);assert.equal(view.location.latitude,0);assert.equal(view.location.device,undefined);assert.doesNotMatch(JSON.stringify(view),/private|secret/);
+  f.controller.state.location.longitude=181;assert.equal((await f.call(channels.getView)).location.latitude,null);
+  assert.equal([...f.handlers.keys()].some(key=>/gnss|gps/.test(key)),false);
+ }finally{detach();}
 });

@@ -161,3 +161,11 @@ Verification: **627 Node tests**, production build, Unix-socket and private-D-Bu
 ## ARM64 native build path
 
 Added a separate architecture-native ARM64 CI job preserving existing x86 jobs and source/compiler/Cargo pins. Explicit target selection requires matching rustc host identity; static ELF checks prevent x86 outputs from being labelled ARM. Build reports distinguish compilation from engine/phone/hardware readiness and record actual system dependency versions without claiming a snapshot-pinned Ubuntu environment. Local guards pass, but this x86 workspace lacks native build prerequisites; exact-head CI must establish ARM compilation and reviewed Rust test results. See `docs/arm64-build.md` and `evidence/arm64-path/`. No native engine, Pi configuration or hardware operation was run.
+
+## GNSS status and offline coordinates
+
+Added a read-only Settings card using existing native telemetry through the private core bridge. Receiver and positional timestamps must be independently fresh; retained last-known fields, stale/no-fix/simulated data and disconnects cannot appear as a current coordinate. Renderer timers expire silent feeds. No receiver control, location history, online location request, weather-location change, parking inference or cluster dependency is introduced. The audit and exact limitations are documented in `docs/gnss-location.md`.
+
+ARM64 provenance clarification: PR integration run 41104184250 associated with head `96c54005d388838afb8420fbae0af5088c28a38e` checked out merge SHA `5b0f9a708147776bb3ea2f2655eca8fe1cfc40d5`. All five jobs passed; ARM64 logs report 40 reviewed engine and 21 input tests. Artifact upload was verified in logs, but local retrieval was proxy-blocked and the retained report was not independently inspected. This is not Pi ABI/startup/hardware acceptance.
+
+GNSS verification: **640 Node tests**, production build and the encoded Unix-socket fixture passed. All **seven production browser suites** passed; the GNSS suite was rerun after the final copy/fixture-timestamp adjustment. Three viewport screenshots use injected data, not a real receiver. Evidence: `evidence/gnss-location/`.

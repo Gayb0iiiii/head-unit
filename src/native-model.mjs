@@ -1,3 +1,4 @@
+import {emptyLocation,filterLocationStatus} from './location-status.mjs';
 import {filterPicture} from './picture.mjs';
 import {filterConnectionPhase} from './connection-status.mjs';
 import {emptyHomeStatus,filterHomeStatus} from './home-status.mjs';
@@ -14,6 +15,7 @@ export class NativeHeadunit extends Headunit {
     this.clock = clock;
     this.mediaGeneration = 0;
     this.state.homeStatus = emptyHomeStatus('disconnected');
+    this.state.location = emptyLocation('disconnected');
     this.state.mediaPending = false;
     this.bridge = bridge;
     this.onChange = onChange;
@@ -64,6 +66,7 @@ export class NativeHeadunit extends Headunit {
     this.state.projectionReady = connected && view.projectionReady === true;
     this.state.picture=filterPicture(view?.picture,this.state.projectionReady,view?.front);
     this.state.connected = connected;
+    this.state.location=filterLocationStatus(view?.location,connected);
     this.state.desktopAvailable=view?.desktopAvailable===true&&typeof this.bridge.exitToDesktop==='function';
     if(!connected)this.state.commandError=false;
     this.state.connectionPhase = filterConnectionPhase(view?.connectionPhase,connected);
@@ -109,12 +112,14 @@ export class NativeHeadunit extends Headunit {
 
   scheduleExpiry() {
     this.clock.clearTimeout(this.expiryTimer);
+    this.locationExpiry=this.clock.now()+this.state.location.freshForMs;
     this.expiries=Object.fromEntries(['phone','media'].map(key=>[key,this.clock.now()+this.state.homeStatus[key].freshForMs]));
     this.expireStatus();
   }
 
   expireStatus() {
     const delays=[];
+    if(this.state.location.freshForMs>0){const remaining=this.locationExpiry-this.clock.now();if(remaining<=0)this.state.location=emptyLocation('stale');else delays.push(remaining);}
     for(const key of ['phone','media']) {
       const value=this.state.homeStatus[key];
       if(value.status!=='available')continue;
