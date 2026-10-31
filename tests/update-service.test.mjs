@@ -29,3 +29,7 @@ test('restored old release reports a failed update until the next explicit check
  const service=createUpdateService({prepare:async()=>({status:'current',sha:'a'.repeat(40)}),activate:async()=>{},initialPhase:'failed'});
  assert.equal(service.snapshot().phase,'failed');service.dispose();
 });
+test('accepted activation remains locked until the old process exits',async()=>{
+ let checks=0;const service=createUpdateService({prepare:async()=>{checks++;return {status:'ready',sha:'b'.repeat(40)};},activate:async()=>{}});
+ service.start(true);await tick();assert.equal(service.snapshot().phase,'restarting');assert.equal(service.start(true),false);assert.equal(checks,1);service.dispose();
+});

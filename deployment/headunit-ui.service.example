@@ -1,8 +1,8 @@
+# NOT BOOT-ACCEPTED: see docs/pi-install-recovery-plan.md foreground gate.
 [Unit]
 Description=Headunit Wayland system interface
 After=systemd-user-sessions.service
 Conflicts=getty@tty1.service
-ConditionPathExistsGlob=/dev/dri/card*
 StartLimitIntervalSec=60
 StartLimitBurst=3
 OnFailure=getty@tty1.service
@@ -22,6 +22,7 @@ TTYVHangup=yes
 StandardOutput=journal
 StandardError=journal
 Restart=always
+RestartPreventExitStatus=78
 RestartSec=3
 TimeoutStopSec=10
 

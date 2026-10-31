@@ -20,10 +20,10 @@ export function selectTargetSession({sessions,processes,currentId,uid,target}) {
 
 export function createDesktopHandoff({target,currentId,uid,discover,activate,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))}) {
   if(!['desktop','headunit'].includes(target)||typeof currentId!=='string'||!Number.isInteger(uid)||typeof discover!=='function'||typeof activate!=='function')throw TypeError('Desktop handoff dependencies required');
-  let available=false,disposed=false,inFlight=null;
+  let available=false,disposed=false,inFlight=null,refreshPending=null;
   const listeners=new Set();
   const choose=async()=>selectTargetSession({...await discover(),currentId,uid,target});
-  async function refresh(){
+  async function refreshNow(){
     if(disposed)return false;
     let candidate=null;
     try{candidate=await choose();}catch{}
@@ -32,6 +32,11 @@ export function createDesktopHandoff({target,currentId,uid,discover,activate,wai
     if(available!==next){available=next;for(const listener of listeners){try{listener(next);}catch{}}}
     return next;
   }
+  const refresh=()=>{
+    if(disposed)return Promise.resolve(false);
+    if(!refreshPending)refreshPending=refreshNow().finally(()=>{refreshPending=null;});
+    return refreshPending;
+  };
   async function perform(){
     if(disposed)return false;
     let candidate;
@@ -41,6 +46,7 @@ export function createDesktopHandoff({target,currentId,uid,discover,activate,wai
     for(let attempt=0;attempt<5&&!disposed;attempt++){
       let observed;
       try{observed=await discover();}catch{return false;}
+      if(disposed)return false;
       if(selectTargetSession({...observed,currentId,uid,target})!==candidate)return false;
       if(observed.sessions.find(s=>s.id===candidate)?.active===true&&observed.sessions.find(s=>s.id===currentId)?.active===false)return true;
       if(attempt<4)await wait(250);

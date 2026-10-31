@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/glass-pixels-browser.py", line 27, in <module>
+    assert spread>6,(mode,'surface obscures patterned wallpaper',spread)
+           ^^^^^^^^
+AssertionError: ('day', 'surface obscures patterned wallpaper', 2.335170546399783)

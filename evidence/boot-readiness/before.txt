@@ -1,0 +1,64 @@
+✖ only matching current challenge and exact schema produce fresh identity-bound readiness (1.345304ms)
+✖ PID reuse and foreign parent never acquire readiness (0.40459ms)
+✖ timeout disconnect disposal and abort remove listeners and never cache a previous ready (0.275017ms)
+✖ responder reports only host-supplied readiness and removes handlers on disposal (7.132572ms)
+✖ real owned Node child exchanges readiness over inherited IPC without a public socket (44.409597ms)
+✔ process identity binds boot, PID, start ticks, owner and real cgroup session (2.90085ms)
+✔ PID reuse, changed UID, invalid pid and ambiguous sessions fail closed (0.435856ms)
+✔ actual Linux current-process identity is read without inventing a login session (8.456415ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 3
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 121.920552
+
+✖ failing tests:
+
+test at tests/boot-readiness.test.mjs:5:1
+✖ only matching current challenge and exact schema produce fresh identity-bound readiness (1.345304ms)
+  TypeError: Cannot read properties of null (reading 'probe')
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-readiness.test.mjs:6:58)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at tests/boot-readiness.test.mjs:10:1
+✖ PID reuse and foreign parent never acquire readiness (0.40459ms)
+  TypeError: Cannot read properties of null (reading 'probe')
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-readiness.test.mjs:12:110)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/boot-readiness.test.mjs:14:1
+✖ timeout disconnect disposal and abort remove listeners and never cache a previous ready (0.275017ms)
+  TypeError: Cannot read properties of null (reading 'probe')
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-readiness.test.mjs:15:159)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/boot-readiness.test.mjs:18:1
+✖ responder reports only host-supplied readiness and removes handlers on disposal (7.132572ms)
+  TypeError: Cannot read properties of undefined (reading 'ready')
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-readiness.test.mjs:21:119)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests/boot-readiness.test.mjs:24:1
+✖ real owned Node child exchanges readiness over inherited IPC without a public socket (44.409597ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(probe)
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-readiness.test.mjs:27:128)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

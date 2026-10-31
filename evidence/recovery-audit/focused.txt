@@ -1,0 +1,37 @@
+✔ import retains playable files, deduplicates and reports unsupported input without autoplay (6.807722ms)
+✔ queue follows explicit order, repeats only when requested, and stops at its end (1.786158ms)
+✔ queue reorder/remove preserve current item and previous restarts after three seconds (1.582135ms)
+✔ saved queue and favourites restore paused without loading media (0.825403ms)
+✔ removing current file stops playback and removes all queue references (0.760858ms)
+✔ seek clamps to real duration and playback errors are actionable (0.720068ms)
+✔ late file load cannot restart after pause or replace a newer selection (1.650756ms)
+✔ shuffle selects a different track and storage failure is visible (0.737673ms)
+✔ saved position restores only after an explicit play and loaded metadata (0.666688ms)
+✔ import waits for initial library restore so existing tracks cannot be lost (6.117989ms)
+✔ native ownership denies playback including a takeover during file loading (0.503747ms)
+✔ a duplicate queued file starts at the beginning when selected (0.324961ms)
+✔ paused seeks save immediately for restart continuity (0.271843ms)
+✔ reimport repairs a missing stored blob without losing favourites or queue (0.513761ms)
+✔ offline restore preserves the selected queue occurrence when earlier files disappear (0.250931ms)
+✔ offline restore does not apply a missing selected tracks position to another file (0.231142ms)
+✔ candidate is activated only after renderer readiness; failed startup rolls back while Cage owner stays (5.320927ms)
+✔ a healthy promoted release can request another update without restarting Cage (1.75433ms)
+✔ healthy candidate commits and becomes active only after matching readiness (0.632528ms)
+✔ candidate exit during the health window restores the previous release (0.561463ms)
+✔ unverified, concurrent, or pre-ready activation is rejected without stopping old UI (0.510207ms)
+✔ candidate readiness timeout rolls back; repeated active failures become fatal (0.884351ms)
+✔ active release that reports ready then exits repeatedly still reaches the failure limit (0.378121ms)
+✔ a stable active release clears transient failures after its health interval (0.35044ms)
+✔ shutdown during asynchronous launch stops the late child instead of orphaning it (1.376129ms)
+✔ shutdown while verification waits cannot persist or activate a candidate (0.954885ms)
+✔ starting twice cannot create competing child owners (0.274878ms)
+✔ real child ignoring graceful shutdown is killed within the shutdown deadline (86.704013ms)
+✔ candidate launch rejection immediately restores the verified previous release (1.260879ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 157.83703

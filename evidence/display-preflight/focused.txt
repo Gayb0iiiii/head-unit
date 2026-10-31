@@ -1,0 +1,11 @@
+✔ display selection uses connected connectors and rejects ambiguity (21.241491ms)
+✔ headless UI launch exits with non-restarting display status before starting Cage (8.831137ms)
+✔ disconnected, unknown and writeback-only outputs never select a DRM device (5.636797ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.771779

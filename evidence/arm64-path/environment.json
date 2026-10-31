@@ -1,0 +1,37 @@
+{
+  "machine": "x86_64",
+  "tools": {
+    "rustc": null,
+    "rustup": null,
+    "cargo": null,
+    "aarch64-linux-gnu-gcc": null,
+    "qemu-aarch64": null,
+    "cmake": null,
+    "pkg-config": "/usr/bin/pkg-config",
+    "cc": "/usr/bin/cc"
+  },
+  "packages": {
+    "openssl": {
+      "status": 0,
+      "version": "3.5.7"
+    },
+    "gstreamer-1.0": {
+      "status": 1,
+      "version": null
+    },
+    "glib-2.0": {
+      "status": 1,
+      "version": null
+    },
+    "wayland-client": {
+      "status": 1,
+      "version": null
+    },
+    "xkbcommon": {
+      "status": 1,
+      "version": null
+    }
+  },
+  "native_engine_run": false,
+  "system_modified": false
+}

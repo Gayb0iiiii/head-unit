@@ -7,7 +7,7 @@ export function createUpdateService({prepare,activate,initialPhase='idle'}){
   const listeners=new Set();
   const emit=(phase,sha=null)=>{state={phase,sha};for(const listener of listeners)try{listener({...state});}catch{}};
   function start(parkedConfirmed){
-    if(disposed||parkedConfirmed!==true||controller)return false;
+    if(disposed||parkedConfirmed!==true||controller||['activating','restarting'].includes(state.phase))return false;
     const operation=new AbortController();controller=operation;emit('checking');
     void (async()=>{
       try{

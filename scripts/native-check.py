@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify/apply the repository's exact LIVI patch and run reviewed test targets only."""
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -9,6 +10,28 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
+TARGET_MACHINES = {'x86_64-unknown-linux-gnu': 62, 'aarch64-unknown-linux-gnu': 183}
+
+
+def select_target(manifest, target):
+    selected = copy.deepcopy(manifest)
+    target = target or manifest['rustc']['host']
+    if target not in TARGET_MACHINES:
+        raise ValueError('unsupported native Linux target: ' + target)
+    # Same upstream compiler release/commit; only its architecture may vary.
+    # check_toolchain requires an architecture-native compiler, never a cross label.
+    selected['rustc']['host'] = target
+    return selected
+
+
+def verify_elf(path, target):
+    with path.open('rb') as binary:
+        header = binary.read(64)
+    if (len(header) != 64 or header[:7] != b'\x7fELF\x02\x01\x01'
+            or int.from_bytes(header[18:20], 'little') != TARGET_MACHINES[target]):
+        raise ValueError('ELF architecture does not match ' + target + ': ' + str(path))
+    return {'class': 'ELF64', 'endian': 'little', 'machine': TARGET_MACHINES[target]}
+
 
 
 def run(args, cwd, capture=True):
@@ -80,13 +103,14 @@ def license_inventory(metadata):
             for package in metadata['packages']]
 
 
-def engine_artifacts(target):
+def engine_artifacts(target, architecture='x86_64-unknown-linux-gnu'):
     result = {}
     for name in ENGINE_BINARIES:
         path = target / 'release' / name
         if not path.is_file():
             raise ValueError('missing full-engine build artifact: ' + str(path))
-        result[name] = {'sha256': digest(path), 'bytes': path.stat().st_size,
+        identity = verify_elf(path, architecture)
+        result[name] = {'sha256': digest(path), 'bytes': path.stat().st_size, 'identity': identity,
                         'elf': run(['readelf', '-h', '-d', str(path)], target)}
     return result
 
@@ -125,7 +149,9 @@ def engine_compile_checked(source, manifest, record):
               'packages': run(['dpkg-query', '-W', '-f=${binary:Package}\t${Version}\t${Architecture}\n'], source).splitlines(),
               'licenses': license_inventory(metadata),
               'license_scope': 'Workspace metadata, including packages not selected for compilation; not a distribution clearance.',
-              'status': 'in_progress', 'target': manifest['rustc']['host'], 'artifacts': None}
+              'status': 'in_progress', 'target': manifest['rustc']['host'], 'artifacts': None,
+              'capabilities': {'engine_started': False, 'phone_tested': False, 'hardware_validated': False,
+                               'cross_compiled': False, 'system_packages_version_locked': False}}
     package_names = (ROOT / 'native/ubuntu24-build-packages.txt').read_text().split()
     report['system_copyrights'] = {}
     for name in package_names:
@@ -139,7 +165,7 @@ def engine_compile_checked(source, manifest, record):
     # Fixed build metadata; no native executable is invoked here.
     subprocess.run(command, cwd=source, check=True, env={**os.environ, **BUILD_METADATA})
     verify_source(source, manifest, True)
-    report['artifacts'] = engine_artifacts(Path(metadata['target_directory']) / manifest['rustc']['host'])
+    report['artifacts'] = engine_artifacts(Path(metadata['target_directory']) / manifest['rustc']['host'], manifest['rustc']['host'])
     report['status'] = 'success'
     record.write_text(json.dumps(report, indent=2) + '\n')
 
@@ -197,9 +223,9 @@ def execute_checked(mode, source, manifest, patch, report_dir):
     if mode in ('compile', 'test'):
         check_toolchain(manifest, source)
         if mode == 'compile':
-            run(['cargo', 'build', '--manifest-path', 'native/Cargo.toml', '--locked', '-p', 'livi-core'], source, capture=False)
+            run(['cargo', 'build', '--manifest-path', 'native/Cargo.toml', '--locked', '--target', manifest['rustc']['host'], '-p', 'livi-core'], source, capture=False)
         command = ['cargo', 'test', '--manifest-path', 'native/Cargo.toml',
-                   '--locked' if mode == 'compile' else '--frozen',
+                   '--locked' if mode == 'compile' else '--frozen', '--target', manifest['rustc']['host'],
                    '-p', 'livi-core', '-p', 'livi-aa-stack']
         if mode == 'compile':
             command += ['--no-run']
@@ -214,8 +240,10 @@ def main():
     parser.add_argument('mode', choices=['apply', 'check', 'compile', 'test', 'engine-compile', 'engine-test'])
     parser.add_argument('source', type=Path)
     parser.add_argument('--report-dir', type=Path)
+    parser.add_argument('--target', choices=sorted(TARGET_MACHINES),
+                        help='Native compiler host required; this does not enable cross-compilation')
     args = parser.parse_args()
-    manifest = json.loads((ROOT / 'native/manifest.json').read_text())
+    manifest = select_target(json.loads((ROOT / 'native/manifest.json').read_text()), args.target)
     execute(args.mode, args.source.resolve(), manifest, ROOT / 'native' / manifest['patch'], args.report_dir)
 
 

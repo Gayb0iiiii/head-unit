@@ -1,4 +1,8 @@
-import {pictureMarkup} from './picture.mjs';
+import {renderLocationStatus} from './location-status.mjs';
+import {filterBluetoothView,renderBluetooth,bindBluetooth} from './bluetooth-view.mjs';
+import {LocalAudio} from './local-audio.mjs';
+import {renderLocalAudio,bindLocalAudio,audioTime} from './local-audio-view.mjs';
+import {pictureMarkup,applyPictureGeometry} from './picture.mjs';
 import {connectionPresentation} from './connection-status.mjs';
 import {startClock,formatClock} from './clock.mjs';
 import {weatherLabel,weatherAge} from './weather-presentation.mjs';
@@ -15,6 +19,18 @@ let storage;try{storage=localStorage;}catch{}
 const production=document.documentElement?.dataset?.mode==='production';
 const native=typeof window !== 'undefined' && window.headunit && typeof window.headunit.getView === 'function';
 const model=native?new NativeHeadunit(storage,window.headunit,()=>render()):production?null:new Headunit(storage);
+let localAudio;
+let bluetoothState=filterBluetoothView(null);
+let stopBluetooth=()=>{};
+const audioView={tab:'library',query:'',manage:false};
+const localAudioAllowed=()=>!native||(!bluetoothState.audioOwned&&(!bluetoothState.pauseRequest||bluetoothState.pauseAutomatic&&localAudio?.media?.paused===false)&&model.state.front==='livi'&&model.state.homeStatus?.media?.playing!==true);
+function ensureLocalAudio(){
+ if(!localAudio)localAudio=new LocalAudio({media:typeof Audio==='function'?new Audio():null,storage,canPlay:localAudioAllowed,onChange:()=>{if(localAudio?.playing&&!localAudioAllowed())localAudio.pause();if(model?.state.screen==='audio'||model?.state.screen==='home')render();},onProgress:()=>{
+  const seek=document.getElementById('local-seek');if(seek&&document.activeElement!==seek)seek.value=localAudio.media.currentTime;
+  const elapsed=document.getElementById('local-elapsed');if(elapsed)elapsed.textContent=audioTime(localAudio.media.currentTime);
+ }});
+ return localAudio;
+}
 let diagnosticsOpen=false;
 let wallpaperGalleryOpen=false;
 let stopDebugOverlay;
@@ -25,6 +41,7 @@ let timeStatus=null;
 let weatherResults=[];
 let weatherQuery='';
 let weatherMessage='';
+let weatherSearchGeneration=0;
 let manualTimeValue='';
 let clockMessage='';
 let clockBusy=false;
@@ -69,14 +86,16 @@ function reorderControls(kind,id,s){
   return `<div class="reorder-controls" role="group" aria-label="Reorder ${itemName(id)}"><button data-move="${kind}:${id}:-1" data-focus-key="${kind}-${id}-earlier" aria-label="Move ${itemName(id)} earlier" aria-disabled="${position===0}"><span aria-hidden="true">←</span><span>Earlier</span></button><span class="item-position">${position+1}/${order.length}</span><button data-move="${kind}:${id}:1" data-focus-key="${kind}-${id}-later" aria-label="Move ${itemName(id)} later" aria-disabled="${position===order.length-1}"><span>Later</span><span aria-hidden="true">→</span></button></div>`;
 }
 function renderApps(s){
-  return `<div class="apps">${s.appOrder.filter(id=>!native||['radio','bluetooth','projection','settings'].includes(id)).map(id=>`<div class="app-entry" data-layout-id="${id}"><button class="tile ${appCatalog[id].color}" data-action="${id}" data-focus-key="app-${id}" ${s.editingLayout?'disabled':''}><span class="app-symbol">${icon(id)}</span><span>${appCatalog[id].name}</span></button>${s.editingLayout?reorderControls('apps',id,s):''}</div>`).join('')}</div>`;
+  return `<div class="apps">${s.appOrder.filter(id=>!native||['audio','bluetooth','projection','settings'].includes(id)).map(id=>`<div class="app-entry" data-layout-id="${id}"><button class="tile ${appCatalog[id].color}" data-action="${id}" data-focus-key="app-${id}" ${s.editingLayout?'disabled':''}><span class="app-symbol">${icon(id)}</span><span>${appCatalog[id].name}</span></button>${s.editingLayout?reorderControls('apps',id,s):''}</div>`).join('')}</div>`;
 }
 function renderNativeMedia(s){
+  if(localAudio?.current&&s.homeStatus.media.playing!==true)return `<section class="dashboard-card music-card native-media home-media"><h2>Local audio</h2><div class="home-media-content"><div class="home-media-symbol" aria-hidden="true">${icon('audio')}</div><div class="home-media-copy"><h3>${escapeHtml(localAudio.current.title)}</h3><p>${localAudio.playing?'Playing':'Paused'}</p></div></div>${button('Open player','audio','media-browse')}</section>`;
+
   const media=s.homeStatus.media;
   const available=media.status==='available';
   const message=media.status==='stale'?'Media update paused':media.status==='disconnected'?'No source connected':'Media unavailable';
   const enabled=available&&media.playing!==null&&!model.pendingPhone;
-  return `<section class="dashboard-card music-card native-media home-media" data-layout-id="music" aria-label="Now playing"><h2>Now playing</h2><div class="home-media-content"><div class="home-media-symbol" aria-hidden="true">${icon('audio')}</div><div class="home-media-copy">${available?`<h3>${escapeHtml(media.title??'Track unavailable')}</h3><p>${escapeHtml(media.artist??'Artist unavailable')}</p><p>${media.playing===null?'Playback state unavailable':media.playing?'Playing':'Paused'}</p>`:`<h3>${message}</h3>`}</div></div>${!available?button('Browse apps','apps','media-browse'):''}${enabled?`<div class="native-media-controls"><button data-media="${media.playing?'pause':'play'}" ${s.mediaPending?'disabled':''}>${media.playing?'Pause':'Play'}</button></div>`:''}${s.mediaPending?'<p role="status">Updating playback…</p>':''}${s.editingLayout&&s.homeMode==='dashboard'?reorderControls('dashboard','music',s):''}</section>`;
+  return `<section class="dashboard-card music-card native-media home-media" data-layout-id="music" aria-label="Now playing"><h2>Now playing</h2><div class="home-media-content"><div class="home-media-symbol" aria-hidden="true">${icon('audio')}</div><div class="home-media-copy">${available?`<h3>${escapeHtml(media.title??'Track unavailable')}</h3><p>${escapeHtml(media.artist??'Artist unavailable')}</p><p>${media.playing===null?'Playback state unavailable':media.playing?'Playing':'Paused'}</p>`:`<h3>${message}</h3>`}</div></div>${!available?button('Open local audio','audio','media-browse'):''}${enabled?`<div class="native-media-controls"><button data-media="${media.playing?'pause':'play'}" ${s.mediaPending?'disabled':''}>${media.playing?'Pause':'Play'}</button></div>`:''}${s.mediaPending?'<p role="status">Updating playback…</p>':''}${s.editingLayout&&s.homeMode==='dashboard'?reorderControls('dashboard','music',s):''}</section>`;
 }
 function clockStatusLabel(){
   if(!timeStatus)return 'Time sync status unavailable';
@@ -111,7 +130,7 @@ function homeConnectionLabel(s){
   if(model.everConnected&&s.connectionPhase==='backoff')return 'Reconnecting phone system';
   return 'Phone system offline';
 }
-function renderNativeHome(s){const connection=`<span class="connection-dot${s.connected?' connected':''}" aria-hidden="true"></span><span>${homeConnectionLabel(s)}</span>`;return `<header class="home-header"><h1>Home</h1>${renderHomeStatus(s)}<div class="compact-link-status" role="status">${connection}</div></header><div class="home-dashboard" data-media-status="${s.homeStatus.media.status==='available'?'available':'unavailable'}">${renderNativeMedia(s)}${renderHomeSummary()}<nav class="home-shortcuts" aria-label="Quick access">${button('Radio','radio','home-shortcut')}${button('Bluetooth','bluetooth','home-shortcut')}${button('CarPlay','projection','home-shortcut')}</nav><div class="home-link-status" role="status">${connection}</div></div>`;}
+function renderNativeHome(s){const connection=`<span class="connection-dot${s.connected?' connected':''}" aria-hidden="true"></span><span>${homeConnectionLabel(s)}</span>`;return `<header class="home-header"><h1>Home</h1>${renderHomeStatus(s)}<div class="compact-link-status" role="status">${connection}</div></header><div class="home-dashboard" data-media-status="${s.homeStatus.media.status==='available'?'available':'unavailable'}">${renderNativeMedia(s)}${renderHomeSummary()}<nav class="home-shortcuts" aria-label="Quick access">${button('Audio','audio','home-shortcut')}${button('Bluetooth','bluetooth','home-shortcut')}${button('CarPlay','projection','home-shortcut')}</nav><div class="home-link-status" role="status">${connection}</div></div>`;}
 function featureStage(symbol,title,detail,extra=''){return `<section class="feature-stage" role="status"><div class="feature-symbol" aria-hidden="true">${icon(symbol)}</div><div class="feature-copy"><h2>${title}</h2><p>${detail}</p>${extra}</div></section>`;}
 function renderHomeStatus(s){
   const phone=s.homeStatus.phone;
@@ -153,15 +172,15 @@ function renderNativeSettings(s){return `<header class="settings-header"><h1>Set
 <section class="settings-card settings-appearance"><h2>Day & night</h2><div class="appearance-modes" role="group" aria-label="Day and night appearance">${['auto','day','night'].map(mode=>`<button data-appearance="${mode}" data-focus-key="appearance-${mode}" aria-pressed="${s.appearancePreference===mode}" ${s.motionState==='moving'?'disabled':''}>${mode[0].toUpperCase()+mode.slice(1)}</button>`).join('')}</div><p class="settings-note" role="status">${s.appearance.source==='fallback'?`Headlight signal unavailable. Keeping ${s.appearance.mode} appearance.`:s.appearance.source==='manual'?`${s.appearance.mode==='day'?'Day':'Night'} mode selected.`:'Appearance follows the headlights.'}</p><p class="settings-note">Panel brightness unavailable; appearance changes colors only.</p></section>
 <section class="settings-card settings-wallpaper"><h2>Wallpaper</h2><div class="swatches">${['coast','dusk','graphite',...(s.customWallpaper?['custom']:[])].map(w=>`<button class="swatch ${w}" data-wallpaper="${w}" data-focus-key="wallpaper-${w}" aria-pressed="${s.wallpaper===w}" ${s.motionState==='moving'?'disabled':''}><span>${w[0].toUpperCase()+w.slice(1)}</span></button>`).join('')}</div><button class="text-button" data-action="wallpaper-gallery">Browse wallpapers</button><div class="wallpaper-import"><label class="file-button">Choose image<input type="file" data-wallpaper-file accept="image/png,image/jpeg,image/webp" ${s.motionState==='moving'?'disabled':''}></label>${s.customWallpaper?`<button class="text-button" data-reset-wallpaper ${s.motionState==='moving'?'disabled':''}>Reset image</button>`:''}</div><p class="settings-note" role="status">${wallpaperImportError||'Local PNG, JPEG or WebP · up to 1 MB'}</p></section>
 <section class="settings-card settings-glass"><div class="glass-heading"><h2>Glass strength</h2><output id="glass-value" for="glass-strength">${s.glassStrength}%</output></div><input id="glass-strength" type="range" min="0" max="100" step="1" value="${s.glassStrength}" data-glass-strength="true" data-focus-key="glass-strength" ${s.motionState==='moving'?'disabled':''} aria-label="Glass strength"><div class="range-endpoints"><span>Clear</span><span>Frosted</span></div><button class="text-button" data-action="reset-glass" ${s.motionState==='moving'?'disabled':''}>Reset glass strength</button></section>
-<section class="settings-card settings-dock"><h2>Dock position</h2><div class="dock-position" role="group" aria-label="Dock position">${['left','right'].map(side=>`<button data-dock-side="${side}" data-focus-key="dock-${side}" aria-pressed="${s.dockSide===side}" ${s.motionState==='moving'?'disabled':''}>${side==='left'?'Left':'Right'}</button>`).join('')}</div><p class="settings-note">The dock stays along the bottom on narrow displays.</p></section>
+
 <section class="settings-card settings-scale"><h2>UI scale</h2><label for="ui-scale">Controls and text</label><input id="ui-scale" type="range" min="90" max="115" step="5" value="${s.uiScale}" data-ui-scale aria-describedby="ui-scale-help" ${s.motionState==='moving'?'disabled':''}><output id="ui-scale-value" for="ui-scale">${s.uiScale}%</output><p id="ui-scale-help" class="settings-note">Adjust for your display and viewing distance.</p><button class="text-button" data-reset-ui-scale ${s.motionState==='moving'?'disabled':''}>Reset scale</button></section>
 <section class="settings-card debug-settings"><h2>Debug overlay</h2><p class="settings-note">UI frames, system CPU and RAM, active-network rates, and TCP connect latency to google.com. GPU use needs a supported counter.</p><div role="group" aria-label="Debug overlay">${[false,true].map(value=>`<button data-debug-overlay="${value}" aria-pressed="${s.debugOverlay===value}">${value?'On':'Off'}</button>`).join('')}</div></section>
-${renderWeatherSettings(s)}${renderClockSettings(s)}${renderUpdateSettings(s)}
+${renderWeatherSettings(s)}${native?renderLocationStatus(s.location):''}${renderClockSettings(s)}${renderUpdateSettings(s)}
 </div><p id="save-status" class="save-status" role="status">${saveNotice()}</p>
-<div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop session unavailable'}</small></span><b>›</b></button><p class="settings-note">Head-unit remains the boot interface. Return to it from the desktop session.</p></section></div>
+<div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop session unavailable'}</small></span><b>›</b></button><p class="settings-note">${s.desktopAvailable?'Switching sessions keeps the head-unit running. Use the installed desktop shortcut to return.':'Requires an installed local desktop session and a return shortcut.'}</p></section></div>
 <details class="settings-advanced"${settingsAdvancedOpen?' open':''}><summary>Units & sensor rules</summary><section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section></details>`;}
 
-function render(focusKey=document.activeElement?.dataset?.focusKey){const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':s.screen==='dashboard'?'home':s.screen;if(lastRenderedScreen==='settings'&&screen!=='settings')updateArmed=false;lastRenderedScreen=screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
+function render(focusKey=document.activeElement?.dataset?.focusKey){const previousScreen=lastRenderedScreen;const scrollPositions=[...document.querySelectorAll('.local-list,.dock-apps')].map(el=>({selector:el.classList.contains('local-list')?'.local-list':'.dock-apps',top:el.scrollTop,left:el.scrollLeft}));if(localAudio?.playing&&native&&(model.state.front!=='livi'||model.state.homeStatus?.media?.playing===true))localAudio.pause();const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':['dashboard','apps'].includes(s.screen)?'home':s.screen;if(lastRenderedScreen==='settings'&&screen!=='settings'){updateArmed=false;weatherSearchGeneration++;weatherResults=[];weatherMessage='';}lastRenderedScreen=screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
 if(screen==='home'&&native)content=renderNativeHome(s);
 else if(screen==='home')content=`
 <header class="home-header"><div>${native?'': '<p class="eyebrow">Your drive, connected</p>'}<h1>${native?'Home':s.homeMode==='dashboard'?'Your dashboard.':'Good to go.'}</h1></div><div class="connection"><i class="${active?'on':''}"></i>${active?escapeHtml(active.name):'Choose a phone'}</div></header>
@@ -171,19 +190,19 @@ ${s.homeMode==='apps'?`${renderApps(s)}${native?renderNativeMedia(s):''}`:`
 ${s.dashboardOrder.filter(id=>!native||id==='music').map(id=>renderDashboardCard(s,id)).join('')}
 </div><div class="dashboard-shortcuts">${button('CarPlay','projection','dashboard-shortcut carplay-shortcut')}${button('Switch phone','phones','dashboard-shortcut')}${button('Settings','settings','dashboard-shortcut')}</div>`}`;
 if(screen==='phones')content=native?`<header><h1>Phones</h1></header><div class="rows">${s.phones.map(p=>`<button class="row" data-phone="${escapeHtml(p.id)}" aria-label="Connect ${escapeHtml(p.name)}" ${!s.connected?'disabled':''}>${icon('phones')}<span><strong>${escapeHtml(p.name)}</strong><small>${p.active?'Active':p.status==='available'?'Available':'Offline'}</small></span><b>${p.active?'Open':'Connect'}</b></button>`).join('')}</div>${model.pendingPhone?'<p role="status">Switching phone…</p>':''}${!s.phones.length?'<p class="help">No saved phones.</p>':''}`:`<header><div><p class="eyebrow">Demo phones</p><h1>Phones</h1></div></header><p class="intro">Try switching between demo phones. No phone will connect.</p><div class="rows">${s.phones.map(p=>`<button class="row" data-phone="${escapeHtml(p.id)}" aria-label="Connect ${escapeHtml(p.name)}">${icon('phones')}<span><strong>${escapeHtml(p.name)}</strong><small>${p.active?'Active demo':'Saved demo phone'}</small></span><b>${p.active?'Open':'Connect'}</b></button>`).join('')}</div><p class="help">Adding and removing phones is unavailable.</p><section class="phone-capabilities" aria-label="Phone capabilities"><div class="actions"><button disabled title="Adding phones is unavailable">Add phone</button><button disabled title="Removing phones is unavailable">Remove saved phone</button></div><p>Connection options are unavailable.</p><p>Contacts are unavailable. No contacts have been accessed.</p><p>Separate phones for calls and music are unavailable.</p></section>`;
-if(screen==='projection')content=native?(!s.connected?`<header><h1>CarPlay</h1></header>${featureStage('projection','Phone system offline','CarPlay needs the native phone system and a connected phone.')}`:pictureMarkup(s.picture)):`<header><div><p class="eyebrow">${active?escapeHtml(active.name):'No phone selected'}</p><h1>CarPlay demo</h1></div><span class="pill">Simulated</span></header><div class="projection-placeholder">${icon('projection')}<h2>${active?'CarPlay is unavailable in demo mode':'Choose a demo phone'}</h2><p>Explore the controls with a demo phone. No video, audio or microphone is connected.</p>${button(active?'Switch phone':'Choose phone','phones','primary')}</div>`;
+if(screen==='projection')content=native?(!s.connected?`<header><h1>CarPlay</h1></header>${featureStage('projection','Phone system offline','CarPlay needs the phone system and a connected phone. Your imported music remains available offline.',button('Open local audio','audio','primary'))}`:!s.projectionReady?`<header><h1>CarPlay</h1></header>${featureStage('projection','Waiting for a phone display','The system is connected, but no phone display is ready.',s.phones.some(phone=>phone.status!=='offline')?button('Choose phone','phones','primary'):button('Open local audio','audio','primary'))}`:pictureMarkup(s.picture)):`<header><div><p class="eyebrow">${active?escapeHtml(active.name):'No phone selected'}</p><h1>CarPlay demo</h1></div><span class="pill">Simulated</span></header><div class="projection-placeholder">${icon('projection')}<h2>${active?'CarPlay is unavailable in demo mode':'Choose a demo phone'}</h2><p>Explore the controls with a demo phone. No video, audio or microphone is connected.</p>${button(active?'Switch phone':'Choose phone','phones','primary')}</div>`;
 if(screen==='radio')content=`<header><h1>Radio</h1></header>${featureStage('radio','Receiver not available','Radio needs a tuner before it can play.', '<div class="radio-formats" aria-label="Planned radio formats"><span>Digital</span><span>AM</span><span>FM</span></div>')}`;
-if(screen==='bluetooth')content=`<header><h1>Bluetooth</h1></header>${featureStage('bluetooth','Bluetooth not available','Pairing and audio need a Bluetooth service.')}`;
+if(screen==='bluetooth')content=bluetoothState.availability!=='unavailable'?renderBluetooth(bluetoothState):`<header><h1>Bluetooth</h1></header>${featureStage('bluetooth','Bluetooth not available','Bluetooth pairing and music playback are not available on this installation. Imported music works offline.',button('Open local audio','audio','primary'))}`;
 if(screen==='apps')content=`<header><h1>Apps</h1><div class="layout-actions">${s.editingLayout?'<button class="text-button" data-action="reset-layout">Reset order</button><button class="done-button" data-action="done-layout">Done</button>':`<button class="text-button" data-action="edit-layout" ${s.motionState==='moving'?'disabled':''}>Edit apps</button>`}</div></header>${s.editingLayout?`<p class="motion-note">${motionNotice(s)}</p>`:''}${renderApps(s)}<p class="layout-status" role="status">${layoutMessage}</p>`;
 if(screen==='settings')content=native?renderNativeSettings(s):renderSettings(s);
 if(screen==='wallpapers')content=renderWallpaperGallery(s);
 if(screen==='diagnostics')content=native?`<header>${button('Back','back','back')}<h1>Diagnostics</h1></header><div class="panel"><h2>System connection</h2><p>${s.connected?'Connected to LIVI':'Disconnected from LIVI'}</p><p>This status describes the system connection, not phone or audio availability.</p></div>`:`<header>${button('Back','back','back')}<h1>Diagnostics</h1></header><div class="panel"><h2>Demo mode</h2><p>Phone connections and playback are simulated.</p><p>No vehicle, camera, audio or microphone is connected.</p><div class="actions"><button data-action="disconnect">Simulate disconnect</button><button data-action="reconnect">Simulate reconnect</button></div></div>`;
 if(screen==='vehicle')content=`<header><h1>Vehicle</h1></header><div class="panel"><h2>Vehicle information unavailable</h2><p>No vehicle readings or controls are available.</p></div>`;
-if(screen==='audio')content=`<header><h1>Audio & microphone</h1></header><div class="panel"><h2>Audio settings unavailable</h2><p>Sound output and microphone settings cannot be changed here.</p>${native?'':'<p>Demo playback is silent. No microphone is used.</p>'}</div>`;
+if(screen==='audio')content=renderLocalAudio(ensureLocalAudio(),{...audioView,moving:s.motionState==='moving'});
 if(screen==='disconnected'){const status=connectionPresentation(s.connectionPhase,model.everConnected);content=`<header><h1>${status.title}</h1></header><div class="panel" role="status"><p>${status.detail}</p></div>`;}
 if(screen==='camera')content='<header><h1>Camera unavailable</h1></header><section class="panel" role="status"><p>No camera feed is available.</p></section>';
 if(screen==='cluster')content='<header><h1>Display in use</h1></header>';
-document.getElementById('app').innerHTML=`<aside aria-label="Dock">${native?'':`<output id="headunit-clock" class="time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})}</output>`}<div class="dock-apps" role="navigation" aria-label="Primary">${native?[...['Radio:radio','Bluetooth:bluetooth','CarPlay:projection','Settings:settings','Apps:apps']].map(item=>{const [name,key]=item.split(':');return dockButton(name,key,screen===key);}).join(''):`${button('CarPlay','projection','dock-button')}${button('Phones','phones','dock-button')}`}</div>${button('Home','home','dock-button home-button')}</aside><main data-screen="${screen}" data-editing="${s.editingLayout}">${content}${native&&s.notice?'<p role="status">Reconnecting to phone display…</p>':''}${native&&s.commandError?'<p role="alert">Unable to complete that action.</p>':''}${native?'':`<footer class="bottom-note"><span>Demo mode</span><span>Simulated phones · No live audio or vehicle data</span></footer>`}${native&&s.debugOverlay?'<output id="debug-overlay" class="debug-overlay" aria-label="System performance">UI FPS unavailable · CPU unavailable · GPU use unavailable · RAM unavailable · ↓ unavailable ↑ unavailable · Google TCP latency unavailable</output>':''}</main>`;
+document.getElementById('app').innerHTML=`<aside class="app-bar" aria-label="App bar">${native?'':`<output id="headunit-clock" class="time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})}</output>`}<div class="dock-apps" role="navigation" aria-label="Primary">${native?[...['Home:home','Audio:audio','Bluetooth:bluetooth','CarPlay:projection','Phones:phones','Settings:settings']].map(item=>{const [name,key]=item.split(':');return dockButton(name,key,(screen===key||key==='settings'&&['wallpapers','diagnostics'].includes(screen)));}).join(''):`${button('CarPlay','projection','dock-button')}${button('Phones','phones','dock-button')}`}</div>${native?'':button('Home','home','dock-button home-button')}</aside><main data-screen="${screen}" data-editing="${s.editingLayout}">${content}${native&&s.notice?'<p role="status">Reconnecting to phone display…</p>':''}${native&&s.commandError?'<p role="alert">Unable to complete that action.</p>':''}${native?'':`<footer class="bottom-note"><span>Demo mode</span><span>Simulated phones · Local files play on this device</span></footer>`}${native&&s.debugOverlay?'<output id="debug-overlay" class="debug-overlay" aria-label="System performance">UI FPS unavailable · CPU unavailable · GPU use unavailable · RAM unavailable · ↓ unavailable ↑ unavailable · Google TCP latency unavailable</output>':''}</main>`;
 if(native&&s.debugOverlay){
   if(!stopDebugOverlay)stopDebugOverlay=startDebugOverlay(window.headunit,()=>document.getElementById('debug-overlay'));
   else stopDebugOverlay.repaint?.();
@@ -191,6 +210,7 @@ if(native&&s.debugOverlay){
 if((!native||!s.debugOverlay)&&stopDebugOverlay){stopDebugOverlay();stopDebugOverlay=null;}
 document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
   const a=el.dataset.action;
+  if(['projection','bluetooth','phones'].includes(a))localAudio?.pause();
   if(native&&a==='arm-update'){updateArmed=true;render('confirm-update');return;}
   if(native&&a==='dismiss-update'){updateArmed=false;render('arm-update');return;}
   if(native&&a==='confirm-update'){
@@ -203,8 +223,8 @@ document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
   }
   if(native&&a==='cancel-update'){void Promise.resolve(window.headunit.cancelUpdate?.()).catch(()=>{});return;}
   if(a==='search-weather'&&native){
-    weatherMessage='Searching…';weatherResults=[];render();
-    Promise.resolve(window.headunit.searchWeather?.(weatherQuery)).then(results=>{weatherResults=Array.isArray(results)?results:[];weatherMessage=weatherResults.length?'Choose a city':'No matching city found';render();}).catch(()=>{weatherMessage='City search unavailable';render();});return;
+    const generation=++weatherSearchGeneration;weatherMessage='Searching…';weatherResults=[];render();
+    Promise.resolve(window.headunit.searchWeather?.(weatherQuery)).then(results=>{if(generation!==weatherSearchGeneration)return;weatherResults=Array.isArray(results)?results:[];weatherMessage=weatherResults.length?'Choose a city':'No matching city found';render();}).catch(()=>{if(generation!==weatherSearchGeneration)return;weatherMessage='City search unavailable';render();});return;
   }
   if(a==='apply-manual-time'&&native){
     clockBusy=true;clockMessage='Checking system authorization…';render();
@@ -245,7 +265,7 @@ document.querySelectorAll('[data-weather-search]').forEach(el=>el.oninput=()=>{w
 document.querySelectorAll('[data-weather-city]').forEach(el=>el.onclick=()=>{
   if(!native)return;
   weatherMessage='Loading selected city…';const id=Number(el.dataset.weatherCity);weatherResults=[];render();
-  Promise.resolve(window.headunit.selectWeather?.(id)).then(()=>window.headunit.getWeather?.()).then(value=>{if(value)weatherSnapshot=value;weatherMessage=value?.persistenceError?'Location selected for this session':'Location saved';render();}).catch(()=>{weatherMessage='Unable to use that city';render();});
+  Promise.resolve(window.headunit.selectWeather?.(id)).then(result=>{if(result?.accepted!==true)throw Error('Selection rejected');return window.headunit.getWeather?.();}).then(value=>{if(value?.location?.id!==id)throw Error('Selection not observed');weatherSnapshot=value;weatherMessage=value?.persistenceError?'Location selected for this session':'Location saved';render();}).catch(()=>{weatherMessage='Unable to use that city';render();});
 });
 document.querySelectorAll('[data-weather-attribution]').forEach(el=>el.onclick=event=>{event?.preventDefault?.();void Promise.resolve(window.headunit?.openWeatherAttribution?.()).catch(()=>{});});
 document.querySelectorAll('[data-location-attribution]').forEach(el=>el.onclick=event=>{event?.preventDefault?.();void Promise.resolve(window.headunit?.openLocationAttribution?.()).catch(()=>{});});
@@ -296,8 +316,12 @@ document.querySelectorAll('[data-glass-strength]').forEach(el=>el.oninput=()=>{
   document.getElementById('glass-value').textContent=`${s.glassStrength}%`;
   document.getElementById('save-status').textContent=saveNotice();
 });
+if(screen==='bluetooth'&&native)bindBluetooth(document.getElementById('app'),window.headunit,()=>{bluetoothState={...bluetoothState,error:'failed'};render();});
+if(screen==='projection')applyPictureGeometry(document.getElementById('app'),s.picture);
+if(screen==='audio'&&document.getElementById('app').querySelectorAll)bindLocalAudio(document.getElementById('app'),localAudio,audioView,render,()=>model.state.motionState==='moving');
 if(screen==='settings')sensorSettingsBinding=bindSensorSettings(document.getElementById('sensor-settings'),{storage,snapshot:sensorSettingsSnapshot,getMoving:()=>model.state.motionState==='unknown'?null:model.state.motionState==='moving'});
-if(focusKey){[...document.querySelectorAll('[data-focus-key]')].find(el=>el.dataset.focusKey===focusKey&&!el.disabled)?.focus();}
+if(focusKey){[...document.querySelectorAll('[data-focus-key]')].find(el=>el.dataset.focusKey===focusKey&&!el.disabled)?.focus({preventScroll:previousScreen===screen});}
+if(previousScreen===screen)for(const position of scrollPositions){const el=document.querySelector(position.selector);if(el){el.scrollTop=position.top;el.scrollLeft=position.left;}}
 }
 // Integration entry point for a real vehicle host. This preview has no source;
 // its default remains unknown, and there is deliberately no fake motion toggle.
@@ -313,6 +337,15 @@ if(model){render();if(native)model.start();}
 else document.getElementById('app').innerHTML='<main class="system-unavailable" role="status"><h1>System unavailable</h1><p>Unable to load the head unit interface.</p></main>';
 
 let stopWeather=()=>{};
+if(native&&typeof window.headunit.getBluetooth==='function'){
+ let eventSeen=false,lastPause=null;
+ const receive=value=>{bluetoothState=filterBluetoothView(value);if(bluetoothState.audioOwned||bluetoothState.pauseRequest&&!bluetoothState.pauseAutomatic)localAudio?.pause();
+  if(bluetoothState.pauseRequest&&lastPause!==bluetoothState.pauseRequest){lastPause=bluetoothState.pauseRequest;void Promise.resolve(window.headunit.acknowledgeBluetoothPause(lastPause,!localAudio||localAudio.media?.paused===true)).catch(()=>{});}
+  if(model.state.screen==='bluetooth'||model.state.screen==='audio'||model.state.screen==='home')render();
+ };
+ stopBluetooth=window.headunit.onBluetooth?.(value=>{eventSeen=true;receive(value);})??(()=>{});
+ void Promise.resolve(window.headunit.getBluetooth()).then(value=>{if(!eventSeen)receive(value);}).catch(()=>{});
+}
 let timeStatusTimer;
 if(native){
   if(typeof window.headunit.onUpdateStatus==='function')window.headunit.onUpdateStatus(value=>{if(value&&typeof value.phase==='string'){
@@ -333,7 +366,8 @@ if(native){
 
 document.addEventListener?.('keydown',event=>{
   if(!model||event.key!=='Escape'||event.altKey||event.ctrlKey||event.metaKey)return;
-  if(wallpaperGalleryOpen){wallpaperGalleryOpen=false;render();}
+  if(model.state.screen==='audio'&&audioView.toolsOpen){audioView.toolsOpen=false;render('local-tools');}
+  else if(wallpaperGalleryOpen){wallpaperGalleryOpen=false;render();}
   else if(diagnosticsOpen){diagnosticsOpen=false;render();}
   else if(model.state.editingLayout){model.endLayoutEdit();render();}
   else if(model.state.screen!=='home'){model.home();}
@@ -342,5 +376,5 @@ document.addEventListener?.('keydown',event=>{
 });
 
 const stopClock=startClock(date=>{const formatted=formatClock(date,timeStatus?.timezone);for(const id of ['headunit-clock','headunit-home-clock']){const node=document.getElementById(id);if(node)node.textContent=formatted.time;}const dateNode=document.getElementById('headunit-home-date');if(dateNode)dateNode.textContent=formatted.date;});
-window.addEventListener?.('unload',()=>{stopClock();stopWeather();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});
+window.addEventListener?.('unload',()=>{localAudio?.pause();localAudio?.release();stopClock();stopWeather();stopBluetooth();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});
 if(native&&production&&model)void Promise.resolve(window.headunit.signalReady?.()).catch(()=>{});

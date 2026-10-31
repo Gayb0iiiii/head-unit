@@ -9,7 +9,7 @@ const defaultOrders = Object.freeze({
   apps: Object.freeze(['projection', 'phones', 'vehicle', 'audio', 'settings']),
   dashboard: Object.freeze(['music', 'temperature'])
 });
-const nativeAppOrder=Object.freeze(['radio','bluetooth','projection','settings']);
+const nativeAppOrder=Object.freeze(['audio','bluetooth','projection','settings']);
 const orderKey = kind => kind === 'apps' ? 'appOrder' : 'dashboardOrder';
 const sanitizeOrder = (value, defaults) => [...new Set([
   ...(Array.isArray(value) ? value.filter(id => defaults.includes(id)) : []), ...defaults
@@ -26,7 +26,7 @@ export class Headunit {
     this.state = {
       screen: 'home', homeMode: 'apps', activePhone: null,
       appearancePreference: 'auto', appearance: resolveAppearance(),
-      vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
+      vehicleStatus: 'independent', wallpaper: simulation?'coast':'graphite', dockSide: simulation?'left':'right', demoPlaying: false,
       glassStrength: 55, uiScale:100, customWallpaper:null, accent:'sea',wallpaperBrightness:100,wallpaperDim:0,wallpaperBlur:0,debugOverlay:false, appOrder: [...this.orders.apps], dashboardOrder: [...defaultOrders.dashboard],
       editingLayout: false, motionState: 'unknown', persistenceError: false,
       phones: simulation ? [

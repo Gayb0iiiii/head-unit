@@ -1,0 +1,54 @@
+✖ current process proof correlates to a shared verified logind leader instance (2.932265ms)
+✔ remote foreign UID absent session and mismatched leader fail closed (0.477718ms)
+✔ leader or reporter replacement and session reassignment during read are rejected (0.157554ms)
+✔ missing permissions and hung readers settle unavailable within a bounded call (0.26256ms)
+✖ logind parser requires exact bounded leader and rejects duplicate identity properties (0.162782ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 3
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 87.432984
+
+✖ failing tests:
+
+test at tests/session-correlation.test.mjs:7:1
+✖ current process proof correlates to a shared verified logind leader instance (2.932265ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + null
+  - {
+  -   active: false,
+  -   instance: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  -   pid: 50,
+  -   processInstance: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  -   seat: 'seat0',
+  -   sessionId: 's2',
+  -   uid: 1000,
+  -   vt: 2
+  - }
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/session-correlation.test.mjs:8:63)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: { sessionId: 's2', instance: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', processInstance: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', pid: 50, uid: 1000, seat: 'seat0', vt: 2, active: false },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/session-correlation.test.mjs:25:1
+✖ logind parser requires exact bounded leader and rejects duplicate identity properties (0.162782ms)
+  TypeError: Cannot read properties of null (reading 'leader')
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/session-correlation.test.mjs:27:43)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

@@ -1,0 +1,49 @@
+EEEEE............
+======================================================================
+ERROR: test_arm_compiler_still_requires_exact_release_and_commit (test_setup.ArchitectureGuard.test_arm_compiler_still_requires_exact_release_and_commit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/native/test_setup.py", line 148, in test_arm_compiler_still_requires_exact_release_and_commit
+    selected = check.select_target(self.manifest(), 'aarch64-unknown-linux-gnu')
+               ^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'native_check' has no attribute 'select_target'
+
+======================================================================
+ERROR: test_arm_selection_preserves_pin_and_default (test_setup.ArchitectureGuard.test_arm_selection_preserves_pin_and_default)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/native/test_setup.py", line 133, in test_arm_selection_preserves_pin_and_default
+    selected = check.select_target(original, 'aarch64-unknown-linux-gnu')
+               ^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'native_check' has no attribute 'select_target'
+
+======================================================================
+ERROR: test_arm_target_rejects_x86_compiler_before_build (test_setup.ArchitectureGuard.test_arm_target_rejects_x86_compiler_before_build)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/native/test_setup.py", line 142, in test_arm_target_rejects_x86_compiler_before_build
+    selected = check.select_target(self.manifest(), 'aarch64-unknown-linux-gnu')
+               ^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'native_check' has no attribute 'select_target'
+
+======================================================================
+ERROR: test_static_elf_identity_accepts_both_supported_targets_and_rejects_mislabeling (test_setup.ArchitectureGuard.test_static_elf_identity_accepts_both_supported_targets_and_rejects_mislabeling)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/native/test_setup.py", line 160, in test_static_elf_identity_accepts_both_supported_targets_and_rejects_mislabeling
+    self.assertEqual(check.verify_elf(binary, target)['machine'], machine)
+                     ^^^^^^^^^^^^^^^^
+AttributeError: module 'native_check' has no attribute 'verify_elf'
+
+======================================================================
+ERROR: test_wrong_architecture_artifact_never_reaches_readelf_or_execution (test_setup.ArchitectureGuard.test_wrong_architecture_artifact_never_reaches_readelf_or_execution)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/native/test_setup.py", line 175, in test_wrong_architecture_artifact_never_reaches_readelf_or_execution
+    check.engine_artifacts(target, 'aarch64-unknown-linux-gnu')
+TypeError: engine_artifacts() takes 1 positional argument but 2 were given
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.104s
+
+FAILED (errors=5)

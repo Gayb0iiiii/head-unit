@@ -1,0 +1,31 @@
+✔ simultaneous startup coalesces callers, selects UI and stops after observed activation (3.936955ms)
+✔ delayed renderer readiness waits and does not activate just because Cage exists (5.568002ms)
+✔ missing UI readiness falls back only to verified desktop (3.452096ms)
+✔ missing display never activates a local VT and preserves independent recovery (0.277311ms)
+✔ unknown, remote, stale and ambiguous evidence never activates UI (10.940815ms)
+✔ restart between discovery and activation rejects stale instance and uses desktop (0.78288ms)
+✔ explicit activation rejection uses verified desktop; uncertain timeout cannot race fallback (31.577759ms)
+✔ unobserved or competing active session cannot report a foreground success (4.57423ms)
+✔ hung discovery is bounded and disposal cancels without late activation (123.900307ms)
+✖ malformed readiness timestamps fail closed without coercing provider objects (0.87013ms)
+✔ late activation completion after timeout never starts a competing fallback (30.401677ms)
+✔ missing readiness for both sessions never turns process presence into readiness (3.223307ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 277.717206
+
+✖ failing tests:
+
+test at tests/boot-coordinator.test.mjs:58:1
+✖ malformed readiness timestamps fail closed without coercing provider objects (0.87013ms)
+  TypeError: Cannot convert object to primitive value
+      at candidate (file:///workspace/head-unit/electron/boot-coordinator.mjs:12:69)
+      at perform (file:///workspace/head-unit/electron/boot-coordinator.mjs:57:13)
+      at async TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-coordinator.test.mjs:59:88)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

@@ -1,0 +1,7 @@
+..................
+----------------------------------------------------------------------
+Ran 18 tests in 0.113s
+
+OK
+Native compile: verified pinned source and patch; no engine startup performed.
+Native test: verified pinned source and patch; no engine startup performed.

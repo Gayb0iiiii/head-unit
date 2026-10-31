@@ -1,0 +1,48 @@
+✔ only matching current challenge and exact schema produce fresh identity-bound readiness (4.91163ms)
+✔ PID reuse and foreign parent never acquire readiness (0.803931ms)
+✔ timeout disconnect disposal and abort remove listeners and never cache a previous ready (23.500758ms)
+✔ responder reports only host-supplied readiness and removes handlers on disposal (0.742521ms)
+✔ real owned Node child exchanges readiness over inherited IPC without a public socket (43.331015ms)
+✔ previous valid response cannot satisfy a new challenge and child identity cannot assert another session (1.607993ms)
+✔ send failure, hung identity provider and concurrent probes are bounded (20.48574ms)
+✔ identity validation delay cannot freshen a readiness reply beyond the coordinator lifetime (0.900175ms)
+✔ accepted readiness retains probe-start time instead of post-validation time (0.730673ms)
+✔ supervisor composes owned IPC with session correlation and preserves original probe time (4.104844ms)
+✔ late correlation cannot freshen expired evidence or accept session reassignment (4.651825ms)
+✔ exit revokes pending supervisor readiness and cleans probe listeners (1.391924ms)
+✔ disconnect revokes pending supervisor readiness and cleans probe listeners (0.86291ms)
+✔ dispose revokes pending supervisor readiness and cleans probe listeners (0.987494ms)
+✔ replacement child cannot inherit late old-child correlation (1.105779ms)
+✔ query timeout and cancellation do not change release state or stop the child (50.9581ms)
+✔ activation invalidates in-flight query without changing update acknowledgement (1.195643ms)
+✔ disposal while creating a probe cleans the late handle without probing it (0.710964ms)
+✔ readiness queries coalesce only while pending and re-probe after completion (1.123956ms)
+✔ a changed session-leader binding permanently revokes readiness for that child (0.416938ms)
+✔ candidate is activated only after renderer readiness; failed startup rolls back while Cage owner stays (5.121301ms)
+✔ a healthy promoted release can request another update without restarting Cage (1.233298ms)
+✔ healthy candidate commits and becomes active only after matching readiness (0.986242ms)
+✔ candidate exit during the health window restores the previous release (0.594511ms)
+✔ unverified, concurrent, or pre-ready activation is rejected without stopping old UI (0.484538ms)
+✔ candidate readiness timeout rolls back; repeated active failures become fatal (0.805504ms)
+✔ active release that reports ready then exits repeatedly still reaches the failure limit (0.303821ms)
+✔ a stable active release clears transient failures after its health interval (0.484137ms)
+✔ shutdown during asynchronous launch stops the late child instead of orphaning it (0.832223ms)
+✔ shutdown while verification waits cannot persist or activate a candidate (0.835288ms)
+✔ starting twice cannot create competing child owners (0.207167ms)
+✔ real child ignoring graceful shutdown is killed within the shutdown deadline (80.313957ms)
+✔ candidate launch rejection immediately restores the verified previous release (0.946573ms)
+✔ current process proof correlates to a shared verified logind leader instance (1.936019ms)
+✔ remote foreign UID absent session and mismatched leader fail closed (1.209292ms)
+✔ leader or reporter replacement and session reassignment during read are rejected (0.338752ms)
+✔ missing permissions and hung readers settle unavailable within a bounded call (10.230304ms)
+✔ logind parser requires exact bounded leader and rejects duplicate identity properties (0.564857ms)
+✔ abort and late discovery cannot publish session evidence or continue probing (0.622793ms)
+✔ caller strings cannot become a loginctl target or a forged correlated identity (0.312333ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 204.872514

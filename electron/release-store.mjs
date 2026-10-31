@@ -1,11 +1,23 @@
 import {execFile as callback} from 'node:child_process';
 import {promisify} from 'node:util';
-import {lstat,mkdir,readFile,realpath,rename,rm,writeFile} from 'node:fs/promises';
+import {lstat,mkdir,open,readFile,realpath,rename,rm} from 'node:fs/promises';
 import path from 'node:path';
 
 const execFile=promisify(callback);
 const shaPattern=/^[0-9a-f]{40}$/;
 const validSha=value=>typeof value==='string'&&shaPattern.test(value);
+// Validate the full fixed build path, not just its final file. Canonical roots
+// also detect replacement of a previously validated release-directory ancestor.
+async function verifiedBuild(root){
+  const paths=[root,path.join(root,'dist'),path.join(root,'dist','production.html')];
+  const identities=[];
+  for(const [index,file] of paths.entries()){
+    const stat=await lstat(file);
+    if(stat.isSymbolicLink()||(index<2?!stat.isDirectory():!stat.isFile())||await realpath(file)!==file)return null;
+    identities.push(`${stat.dev}:${stat.ino}`);
+  }
+  return identities.join('/');
+}
 async function gitHead(root){
   const {stdout}=await execFile('git',['-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','-C',root,'rev-parse','HEAD'],{timeout:10000,maxBuffer:4096});
   return stdout.trim();
@@ -29,42 +41,53 @@ export async function createReleaseStore({sourceRoot,stateRoot,readHead=gitHead}
     if(!validSha(sha))return null;
     const releasePath=path.join(releasesRoot,sha);
     try{
-      const stat=await lstat(releasePath);
-      if(!stat.isDirectory()||stat.isSymbolicLink())return null;
-      const build=await lstat(path.join(releasePath,'dist','production.html'));
-      if(!build.isFile()||build.isSymbolicLink()||await readHead(releasePath)!==sha)return null;
+      const build=await verifiedBuild(releasePath);
+      if(!build||await readHead(releasePath)!==sha||await verifiedBuild(releasePath)!==build)return null;
       return {sha,path:releasePath};
     }catch{return null;}
   }
   async function sourceRelease(){
     const sha=await readHead(sourcePath);
     if(!validSha(sha))throw Error('Invalid source commit');
-    const build=await lstat(path.join(sourcePath,'dist','production.html'));
-    if(!build.isFile()||build.isSymbolicLink())throw Error('Source build unavailable');
+    if(!await verifiedBuild(sourcePath))throw Error('Source build unavailable');
     return {sha,path:sourcePath};
   }
   async function resolve(sha){
-    const source=await sourceRelease();
-    return sha===source.sha?source:await verifyRelease(sha);
+    const staged=await verifyRelease(sha);if(staged)return staged;
+    try{const source=await sourceRelease();return sha===source.sha?source:null;}
+    // This catch covers source verification only. A damaged checkout or invalid
+    // source build cannot prevent checking the manifest's verified previous SHA.
+    // Manifest validation and recovery-state writes remain outside this catch.
+    catch{return null;}
   }
   async function saveState({active,pending=null,previous=null}){
     if(!validSha(active)||pending!==null&&!validSha(pending)||previous!==null&&!validSha(previous))throw TypeError('Invalid release manifest');
     const value=JSON.stringify({version:1,active,pending,previous});
     const temporary=path.join(statePath,`release-${process.pid}-${Math.random().toString(16).slice(2)}.tmp`);
-    try{await writeFile(temporary,value,{mode:0o600,flag:'wx'});await rename(temporary,manifestPath);}
+    try{
+      const file=await open(temporary,'wx',0o600);
+      try{await file.writeFile(value);await file.sync();}finally{await file.close();}
+      await rename(temporary,manifestPath);
+      const directory=await open(statePath,'r');
+      try{await directory.sync();}finally{await directory.close();}
+    }
     finally{await rm(temporary,{force:true});}
   }
-  let initial,recovered=false;
+  let initial,recovered=false,manifestExists=false;
   try{
-    const stat=await lstat(manifestPath);
+    const stat=await lstat(manifestPath);manifestExists=true;
     if(!stat.isFile()||stat.isSymbolicLink())throw Error('Invalid release manifest');
     const manifest=JSON.parse(await readFile(manifestPath,'utf8'));
     if(manifest.version!==1||!validSha(manifest.active)||manifest.pending!==null&&!validSha(manifest.pending)||manifest.previous!==null&&!validSha(manifest.previous)||Object.keys(manifest).sort().join(',')!=='active,pending,previous,version')throw Error('Invalid release manifest');
     initial=await resolve(manifest.active);
-    if(!initial)throw Error('Recorded release unavailable');
-    if(manifest.pending!==null){recovered=true;await saveState({active:initial.sha,pending:null,previous:manifest.previous});}
+    if(!initial&&manifest.previous!==null&&manifest.previous!==manifest.active){
+      initial=await resolve(manifest.previous);
+      if(initial){recovered=true;await saveState({active:initial.sha,pending:null,previous:null});}
+    }
+    if(!initial)throw Error('Recorded release and verified fallback unavailable');
+    if(!recovered&&manifest.pending!==null){recovered=true;await saveState({active:initial.sha,pending:null,previous:manifest.previous});}
   }catch(error){
-    if(error?.code!=='ENOENT')throw error;
+    if(manifestExists||error?.code!=='ENOENT')throw error;
     initial=await sourceRelease();
     await saveState({active:initial.sha});
   }

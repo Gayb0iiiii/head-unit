@@ -99,3 +99,13 @@ test('a newly fetched three-hour-old observation is earlier weather, never curre
   assert.equal(service.snapshot().status,'stale');
   service.dispose();
 });
+
+test('late city search cannot replace newer selectable results or survive disposal',async()=>{
+ const pending=[];const service=createWeatherService({fetchJSON:()=>new Promise(resolve=>pending.push(resolve))});
+ const city=(id,name)=>({id,name,admin1:'Region',country_code:'AU',latitude:1,longitude:2});
+ const older=service.search('Albany'),newer=service.search('Perth');
+ pending[1]({results:[city(2,'Perth')]});assert.equal((await newer)[0].id,2);
+ pending[0]({results:[city(1,'Albany')]});assert.deepEqual(await older,[]);
+ await assert.rejects(service.select(1),/unavailable/);
+ const last=service.search('Sydney');service.dispose();pending[2]({results:[city(3,'Sydney')]});assert.deepEqual(await last,[]);
+});

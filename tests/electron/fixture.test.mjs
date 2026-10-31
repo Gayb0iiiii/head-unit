@@ -23,6 +23,13 @@ test('fake Unix peer drives real transport/controller: state, native rejection a
  assert.deepEqual(controller.view().phones.map(p=>p.id),['driver','passenger']);
  assert.equal(controller.view().homeStatus.media.title,'Fixture track');
  assert.equal(controller.view().homeStatus.phone.batteryPercent,73);
+ const stamp=Date.now();
+ core.patch([{op:'set',path:['telemetry'],value:{gnss:{connected:true,fixQuality:'gps',fixMode:'3d',updatedAt:stamp},gps:{lat:0,lng:0,fixTs:stamp}}}]);
+ await waitFor(()=>controller.view().location.status==='current');
+ assert.equal(controller.view().location.latitude,0);
+ core.patch([{op:'set',path:['telemetry','gnss'],value:{connected:true,fixQuality:'none',fixMode:'none',updatedAt:stamp}}]);
+ await waitFor(()=>controller.view().location.status==='no-fix');
+ assert.equal(controller.view().location.latitude,null);
  const pause=controller.intent({type:'media',control:'pause',phoneId:'driver'});
  assert.equal(await pause.completion,true);assert.equal(controller.resume,false);
  core.patch([{op:'set',path:['front','main'],value:'camera'}]);

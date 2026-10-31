@@ -1,0 +1,2 @@
+PASS day: unchanged graphite, upper/lower material intensity 30.99/21.31, opaque flat accessibility fallback
+PASS night: unchanged graphite, upper/lower material intensity 25.44/15.31, opaque flat accessibility fallback

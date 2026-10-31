@@ -81,3 +81,11 @@ test('desktop return reports success only after provider confirms activation',as
   assert.equal(await returnToHeadunit({refresh:async()=>false,available:false,request:async()=>{throw Error('must not activate');},dispose:()=>closed++}),false);
   assert.equal(closed,2);
 });
+test('availability refreshes share one discovery instead of racing stale results',async()=>{
+ let finish,calls=0;const handoff=createDesktopHandoff({target:'desktop',currentId:'3',uid:1000,discover:()=>{calls++;return new Promise(resolve=>{finish=resolve;});},activate:async()=>{}});
+ const first=handoff.refresh(),second=handoff.refresh();assert.equal(calls,1);finish({sessions:[headunit,plasma],processes});assert.equal(await first,true);assert.equal(await second,true);handoff.dispose();
+});
+test('disposal while activation verification waits cannot report success',async()=>{
+ let calls=0,finish;const handoff=createDesktopHandoff({target:'desktop',currentId:'3',uid:1000,discover:async()=>{if(++calls===1)return {sessions:[headunit,plasma],processes};return new Promise(resolve=>{finish=resolve;});},activate:async()=>{}});
+ const request=handoff.request();await new Promise(setImmediate);handoff.dispose();finish({sessions:[{...headunit,active:false},{...plasma,active:true}],processes});assert.equal(await request,false);
+});

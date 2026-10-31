@@ -1,0 +1,20 @@
+✔ candidate is activated only after renderer readiness; failed startup rolls back while Cage owner stays (6.246885ms)
+✔ a healthy promoted release can request another update without restarting Cage (1.986463ms)
+✔ healthy candidate commits and becomes active only after matching readiness (0.87088ms)
+✔ candidate exit during the health window restores the previous release (0.829919ms)
+✔ unverified, concurrent, or pre-ready activation is rejected without stopping old UI (0.501773ms)
+✔ candidate readiness timeout rolls back; repeated active failures become fatal (1.024998ms)
+✔ active release that reports ready then exits repeatedly still reaches the failure limit (0.309569ms)
+✔ a stable active release clears transient failures after its health interval (0.279684ms)
+✔ shutdown during asynchronous launch stops the late child instead of orphaning it (1.257202ms)
+✔ shutdown while verification waits cannot persist or activate a candidate (0.915586ms)
+✔ starting twice cannot create competing child owners (0.285113ms)
+✔ real child ignoring graceful shutdown is killed within the shutdown deadline (86.1912ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 161.313489

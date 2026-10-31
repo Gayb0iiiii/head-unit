@@ -47,3 +47,5 @@ Keep Ctrl+Alt+F1/F2 and SSH as maintenance paths. If activation fails, the comma
 ## Hardware acceptance still required
 
 Verify repeated switches, screen lock, a crashed desktop, Cage pause/resume, keyboard/mouse/touch mapping, return launcher, and head-unit default boot on the actual Orange Pi and TK1560. The source tests use labelled session fixtures; they do not prove logind authorization, compositor survival, or a real two-way switch on the Pi.
+
+Reviewable persistent Plasma and return-shortcut templates are now included; see [Pi installation/recovery plan](pi-install-recovery-plan.md). They remain uninstalled and require a local seat trial.

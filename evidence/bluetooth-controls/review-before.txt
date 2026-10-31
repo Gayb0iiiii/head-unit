@@ -1,0 +1,98 @@
+✔ PipeWire evidence requires observed A2DP sink role and the selected output (0.826084ms)
+✔ PipeWire monitor uses a fixed read-only command and clears failed evidence (0.932051ms)
+✔ Bluetooth focus requires authenticated pause acknowledgement and revokes on projection (1.031439ms)
+✔ unknown native ownership or rejected local pause denies Bluetooth focus (0.176772ms)
+✔ uncertain Bluetooth cleanup keeps local playback focus blocked (0.917931ms)
+✖ stale or missing native playback evidence never grants focus (1.045189ms)
+✔ discovery uses only selected adapter and releases its own session (4.760223ms)
+✔ unknown motion and powered-off adapters cannot start discovery (0.90445ms)
+✔ pairing requires explicit matching numeric confirmation without trusting device (4.124021ms)
+✔ rejected pairing clears prompt and reports bounded error (1.189994ms)
+✔ agent rejects unsolicited device and unsupported authorization (1.591779ms)
+✔ A2DP requests remote source profile only and reports observations, not audible success (0.764643ms)
+✔ no audio ownership or sink evidence means no connection attempt (0.767708ms)
+✔ service loss invalidates pending pairing and stale confirmations (1.05995ms)
+✔ permission errors are classified without raw error or device identifiers (0.687639ms)
+✔ disposal during discovery releases late acquired discovery and prevents resurrection (1.91687ms)
+✔ late discovery after timeout is released rather than becoming active (5.921154ms)
+✔ timed-out audio lease acquisition cannot connect a profile later (5.74936ms)
+✔ pairing service replacement never cancels a new daemon operation (0.648411ms)
+✔ timed-out request blocks overlapping operations until its late cleanup completes (5.886492ms)
+✔ revoked music ownership disconnects only the requested A2DP profile (0.608802ms)
+✔ adapter loss cancels a displayed pairing confirmation (0.476596ms)
+✔ immediate disposal prevents deferred discovery from calling BlueZ (0.301737ms)
+✔ synchronously revoked lease does not connect or disconnect an unrequested profile (0.305172ms)
+✔ timeout registering an agent does not cancel another client pairing operation (5.415755ms)
+✔ failed discovery stop retains owned session and exposes a bounded error (0.589123ms)
+✔ discovery deadline stops only this application discovery session (0.572949ms)
+✔ explicit pairing cancellation clears prompt and cancels only the requested device (0.549183ms)
+✔ revocation waits for an outstanding connect before disconnecting and releasing focus (1.361687ms)
+✖ stopDiscovery waits for pending acquisition cleanup and cannot leave a late scan active (1.259216ms)
+✖ releaseMusic waits for pending focus acquisition and blocks a late profile connect (1.19471ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 28
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15116.198654
+
+✖ failing tests:
+
+test at tests/bluetooth-audio.test.mjs:11:1
+✖ stale or missing native playback evidence never grants focus (1.045189ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'd6b61e60-b46d-4365-9a9d-409234e2fd7f'
+  - null
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/bluetooth-audio.test.mjs:12:229)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'd6b61e60-b46d-4365-9a9d-409234e2fd7f',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/bluetooth-music-host.test.mjs:107:1
+✖ stopDiscovery waits for pending acquisition cleanup and cannot leave a late scan active (1.259216ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/bluetooth-music-host.test.mjs:108:320)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/bluetooth-music-host.test.mjs:110:1
+✖ releaseMusic waits for pending focus acquisition and blocks a late profile connect (1.19471ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/bluetooth-music-host.test.mjs:111:405)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

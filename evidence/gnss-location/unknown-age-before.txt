@@ -1,0 +1,68 @@
+✔ fresh native GNSS fix exposes bounded coordinates and observation lifetime (3.101906ms)
+✔ stale welcome is not refreshed by receiving a new snapshot (0.223341ms)
+✖ future, missing and malformed fix times do not establish a current fix (1.302751ms)
+✔ unrelated updates and repeated source timestamps do not renew the fix lease (0.967203ms)
+✔ wall-clock rollback cannot extend a previously observed fix (0.187868ms)
+✔ receiver loss, no fix and simulated fixes never retain coordinates (0.783641ms)
+✔ invalid coordinate pair is rejected including nonfinite values, with zero coordinates valid (0.267056ms)
+✔ disabled, missing, resync and disconnect remain distinct and contain no location (1.254298ms)
+✔ renderer filter drops raw device/error/extra fields and never accepts invalid lifetime (1.555055ms)
+✔ receiver bytes alone cannot freshen an old positional sample (0.56043ms)
+✔ restored upstream last-known coordinates without live receiver evidence stay unavailable (0.188359ms)
+✖ missing receiver sample time means unknown freshness, not a known stale reading (0.264993ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 10
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.449638
+
+✖ failing tests:
+
+test at tests/location-status.test.mjs:8:1
+✖ future, missing and malformed fix times do not establish a current fix (1.302751ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'stale'
+  - 'unavailable'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/location-status.test.mjs:8:160)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'stale',
+    expected: 'unavailable',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/location-status.test.mjs:21:1
+✖ missing receiver sample time means unknown freshness, not a known stale reading (0.264993ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'stale'
+  - 'unavailable'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/location-status.test.mjs:21:181)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'stale',
+    expected: 'unavailable',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -39,6 +39,7 @@ async function launch(data = new Map(), host = null, mode = null) {
     addEventListener(type,listener) { listeners.set(type,listener); },
     getElementById: id => id === 'app' ? root : elements.find(element => element.id === id),
     querySelectorAll(selector) {
+      if(selector==='.local-list,.dock-apps')return [];
       const [,tag,keyName] = selector.match(/^(button)?\[data-([\w-]+)\]$/);
       const key = keyName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
       return [...elements,doc.body].filter(element => (!tag || element.tag === tag) && key in element.dataset);
@@ -132,9 +133,9 @@ test('offline Home keeps missing media and weather compact and offers a real loc
  assert.match(ui.root.innerHTML,/No source connected/);
  assert.match(ui.root.innerHTML,/Weather unavailable/);
  assert.doesNotMatch(ui.root.innerHTML,/Outdoor temperature unavailable|class="weather-empty"/);
- assert.match(ui.root.innerHTML,/<button class="media-browse" data-action="apps"[^>]*>[\s\S]*?<span>Browse apps<\/span>/);
- ui.click('action','apps');
- assert.match(ui.root.innerHTML,/<h1>Apps<\/h1>/);
+ assert.match(ui.root.innerHTML,/<button class="media-browse" data-action="audio"[^>]*>[\s\S]*?<span>Open local audio<\/span>/);
+ ui.click('action','audio');
+ assert.match(ui.root.innerHTML,/<h1>Local audio<\/h1>/);
 });
 
 test('production Home shows only observed weather with provider age and host clock zone',async()=>{
@@ -285,7 +286,7 @@ test('Home switches directly between app grid and a clearly simulated music/vehi
   assert.match(ui.root.innerHTML, /Unavailable/);
   assert.match(ui.root.innerHTML, /data-action="projection"/);
   assert.doesNotMatch(ui.root.innerHTML, /312|km\/h|Demo values|battery/i);
-  assert.match(ui.root.innerHTML, /Simulated phones · No live audio or vehicle data/);
+  assert.match(ui.root.innerHTML, /Simulated phones · Local files play on this device/);
   ui.click('homeMode', 'apps');
   assert.match(ui.root.innerHTML, /class="apps"/);
   assert.doesNotMatch(ui.root.innerHTML, /class="dashboard"/);
@@ -437,7 +438,7 @@ test('native Home renders verified media/battery safely and explicit controls pr
  assert.match(ui.root.innerHTML,/73%/);assert.doesNotMatch(ui.root.innerHTML,/Signal.*Unavailable/s);
  assert.match(ui.root.innerHTML,/&lt;img/);assert.doesNotMatch(ui.root.innerHTML,/<img src=x/);
  ui.click('media','pause');assert.deepEqual(calls,[['pause','a']]);assert.match(ui.root.innerHTML,/<h1>Home<\/h1>/);
- ui.click('action','apps');ui.click('action','edit-layout');assert.match(ui.root.innerHTML,/data-move="apps:/);
+ assert.doesNotMatch(ui.root.innerHTML,/data-action="apps"/);
  ui.click('action','home');
  publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{media:{status:'stale',phoneId:'a'}}});
  assert.match(ui.root.innerHTML,/Media update paused/);
@@ -479,7 +480,7 @@ test('production Settings groups local controls and keeps sensors secondary',asy
  assert.match(app.root.innerHTML,/data-wallpaper="coast"/);
  assert.match(app.root.innerHTML,/data-wallpaper-file/);
  assert.match(app.root.innerHTML,/data-ui-scale/);
- assert.match(app.root.innerHTML,/data-dock-side="right"/);
+ assert.doesNotMatch(app.root.innerHTML,/data-dock-side=/);
  assert.match(app.root.innerHTML,/data-debug-overlay="true"/);
  assert.match(app.root.innerHTML,/Exit to Desktop/);
  assert.match(app.root.innerHTML,/data-action="exit-to-desktop"[^>]*disabled/);
@@ -524,26 +525,25 @@ test('production route changes preserve the overlay sample and do not restart ho
   const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),getMetrics:async()=>{reads++;return {cpuPercent:42,ramUsedBytes:1073741824,ramTotalBytes:4294967296,pingMs:31};}};
   const app=await launch(new Map(),host,'production');app.click('action','settings');app.click('debugOverlay','true');
   assert.ok(overlayTick);await overlayTick();assert.equal(reads,1);
-  app.click('action','radio');assert.equal(reads,1);
+  app.click('action','audio');assert.equal(reads,1);
   assert.match(app.doc.getElementById('debug-overlay').textContent,/CPU 42\.0%/);
   app.click('action','home');assert.equal(reads,1);
   assert.match(app.doc.getElementById('debug-overlay').textContent,/Google TCP latency 31 ms/);
   app.click('action','settings');app.click('debugOverlay','false');
  }finally{globalThis.setInterval=original;}
 });
-test('production sidebar follows requested order and all destinations have honest screens',async()=>{
+test('production top bar follows requested order and all destinations have honest screens',async()=>{
  const calls=[];const host={onView:()=>()=>{},getView:async()=>({connected:false,route:'disconnected'}),navigate:route=>{calls.push(route);return Promise.resolve({accepted:true});}};
  const app=await launch(new Map(),host,'production');await new Promise(resolve=>setImmediate(resolve));
  const order=[...app.root.innerHTML.matchAll(/class="dock-button" data-action="([^"]+)"/g)].map(match=>match[1]);
- assert.deepEqual(order.slice(0,5),['radio','bluetooth','projection','settings','apps']);
- app.click('action','radio');assert.match(app.root.innerHTML,/<h1>Radio<\/h1>/);assert.match(app.root.innerHTML,/class="feature-stage"/);assert.match(app.root.innerHTML,/Digital.*AM.*FM/s);assert.doesNotMatch(app.root.innerHTML,/data-action="tune"/);
- assert.match(app.root.innerHTML,/data-action="radio"[^>]*aria-current="page"/);
+ assert.deepEqual(order,['home','audio','bluetooth','projection','phones','settings']);
+ app.click('action','audio');assert.match(app.root.innerHTML,/<h1>Local audio<\/h1>/);assert.match(app.root.innerHTML,/Add files/);assert.doesNotMatch(app.root.innerHTML,/data-action="tune"/);
+ assert.match(app.root.innerHTML,/data-action="audio"[^>]*aria-current="page"/);
  app.click('action','bluetooth');assert.match(app.root.innerHTML,/<h1>Bluetooth<\/h1>/);assert.match(app.root.innerHTML,/class="feature-stage"/);assert.doesNotMatch(app.root.innerHTML,/Pair now|Connected device/);
  app.click('action','projection');assert.match(app.root.innerHTML,/<h1>CarPlay<\/h1>/);
  app.click('action','settings');assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);
- app.click('action','apps');assert.match(app.root.innerHTML,/<h1>Apps<\/h1>/);
- assert.match(app.root.innerHTML,/data-action="edit-layout"/);
- app.click('action','edit-layout');assert.match(app.root.innerHTML,/data-move="apps:settings:-1"/);
+ app.click('action','phones');assert.match(app.root.innerHTML,/<h1>Phones<\/h1>/);
+ assert.doesNotMatch(app.root.innerHTML,/data-action="apps"/);
  app.click('action','home');assert.match(app.root.innerHTML,/<h1>Home<\/h1>/);
  assert.deepEqual(calls,[]);
 });
@@ -562,7 +562,7 @@ test('native connection screen explains retry, refusal and synchronization witho
  await new Promise(resolve=>setImmediate(resolve));assert.match(app.root.innerHTML,/<h1>Home<\/h1>/);assert.match(app.root.innerHTML,/Connecting phone system/);
  emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/Phone system offline/);assert.doesNotMatch(app.root.innerHTML,/reconnect automatically|Unable to complete that action/);
  assert.doesNotMatch(app.root.innerHTML,/data-phone=|data-media=/);
- app.click('action','settings');assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);assert.doesNotMatch(app.root.innerHTML,/data-action="audio"/);
+ app.click('action','settings');assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);assert.match(app.root.innerHTML,/data-action="audio"/);
  emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/<h1>Settings<\/h1>/);
  app.click('action','home');assert.match(app.root.innerHTML,/<h1>Home<\/h1>/);assert.match(app.root.innerHTML,/Phone system offline/);
  emit({connected:true,route:'home',front:'livi',phones:[]});
@@ -575,9 +575,18 @@ test('native picture geometry replaces the content-column placeholder and clears
  let publish;const ui=await launch(new Map(),{onView:fn=>{publish=fn;return()=>{};},getView:async()=>({connected:false}),navigate:async()=>({accepted:true})});
  const projection={connected:true,projectionReady:true,front:'projection',route:'projection',phones:[],picture:{width:800,height:480,insets:{top:10,bottom:0,left:0,right:0}}};
  for(let i=0;i<2;i++){
-  publish(projection);assert.match(ui.root.innerHTML,/100cqh \* 800 \/ 480/);assert.match(ui.root.innerHTML,/native-picture-mask/);
+  publish(projection);assert.match(ui.root.innerHTML,/class="native-picture"/);assert.match(ui.root.innerHTML,/native-picture-mask/);
   publish({...projection,front:'camera',route:'camera'});assert.match(ui.root.innerHTML,/Camera unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|Display in use/);
   publish({...projection,picture:null});assert.match(ui.root.innerHTML,/Phone display size unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask/);
   publish({connected:false,route:'disconnected',picture:projection.picture});assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|100cqh/);
  }
+});
+
+test('weather UI ignores out-of-order search replies and rejected selection cannot claim saved',async()=>{
+ const pending=[];const host={onView:()=>()=>{},getView:async()=>({connected:false,phones:[]}),searchWeather:()=>new Promise(resolve=>pending.push(resolve)),selectWeather:async()=>({accepted:false}),getWeather:async()=>({status:'unavailable',location:{id:1,label:'Albany'}})};
+ const ui=await launch(new Map(),host,'production');await new Promise(setImmediate);ui.click('action','settings');
+ ui.input('weatherSearch','Albany');ui.click('action','search-weather');ui.input('weatherSearch','Perth');ui.click('action','search-weather');
+ pending[1]([{id:2,label:'Perth'}]);await new Promise(setImmediate);pending[0]([{id:1,label:'Albany'}]);await new Promise(setImmediate);
+ assert.match(ui.root.innerHTML,/data-weather-city="2"/);assert.doesNotMatch(ui.root.innerHTML,/data-weather-city="1"/);
+ ui.click('weatherCity','2');await new Promise(setImmediate);assert.doesNotMatch(ui.root.innerHTML,/Location saved/);assert.match(ui.root.innerHTML,/Unable to use that city/);
 });

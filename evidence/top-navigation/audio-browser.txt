@@ -1,0 +1,1 @@
+{"result": "passed", "checks": ["import", "WAV decode + time progress", "pause", "next", "favourites", "queue reorder", "reload persistence without autoplay", "projection handoff pause", "folder browsing + search", "persistent removal", "no horizontal overflow at 1280x720, 800x480, 480x800"], "page_errors": []}

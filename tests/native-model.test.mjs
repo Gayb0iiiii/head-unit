@@ -48,9 +48,9 @@ test('a failed initial view read is not reported as a failed user action',async(
  const model=new NativeHeadunit(undefined,host);await model.start();
  assert.equal(model.state.commandError,false);assert.equal(model.state.screen,'home');model.stop();
 });
-test('local Radio Bluetooth and Apps routes never call the LIVI navigation bridge',async()=>{
+test('local Audio Bluetooth and Apps routes never call the LIVI navigation bridge',async()=>{
  const host=bridge();const model=new NativeHeadunit(undefined,host);await model.start();
- for(const route of ['radio','bluetooth','apps']){
+ for(const route of ['audio','bluetooth','apps']){
    model.navigate(route);assert.equal(model.state.screen,route);
    host.emit({connected:false,connectionPhase:'backoff'});assert.equal(model.state.screen,route);
  }
@@ -163,4 +163,29 @@ for (const interruption of [
   host.emit({connected:true,route:'home',front:'livi',phones:[]});
   assert.equal(model.state.editingLayout,false,'returning Home does not restore editing');
   model.stop();
+});
+
+test('opening local audio from projection asks the native host to return its surface',async()=>{
+ const host=bridge(),model=new NativeHeadunit(undefined,host);await model.start();
+ host.emit({connected:true,front:'projection',route:'projection',phones:[]});
+ model.navigate('audio');assert.deepEqual(host.calls,[['navigate','audio']]);
+ host.emit({connected:true,front:'livi',route:'audio',phones:[]});assert.equal(model.state.screen,'audio');model.stop();
+});
+
+test('Apps and Bluetooth return the native projection surface without sending unsupported routes',async()=>{
+ const host=bridge(),model=new NativeHeadunit(undefined,host);await model.start();
+ for(const route of ['apps','bluetooth']){
+  host.emit({connected:true,front:'projection',route:'projection',phones:[]});model.navigate(route);
+  host.emit({connected:true,front:'livi',route:'home',phones:[]});assert.equal(model.state.screen,route);
+ }
+ assert.deepEqual(host.calls,[['navigate','home'],['navigate','home']]);model.stop();
+});
+test('GNSS location expires without host traffic and never alters motion locks or preferences',async()=>{
+ let now=0,next=0;const timers=new Map(),saved=[];
+ const clock={now:()=>now,setTimeout:(fn,delay)=>{timers.set(++next,{fn,at:now+delay});return next;},clearTimeout:id=>timers.delete(id)};
+ const host=bridge();const model=new NativeHeadunit({getItem:()=>null,setItem:(k,v)=>saved.push([k,v])},host,()=>{},clock);await model.start();
+ host.emit({connected:true,route:'settings',front:'livi',location:{status:'current',latitude:-35.02,longitude:117.88,sampledAt:1800000000000,fixQuality:'gps',fixMode:'3d',freshForMs:10}});
+ assert.equal(model.state.location.status,'current');assert.equal(model.state.motionState,'unknown');assert.equal(JSON.stringify(saved).includes('117.88'),false);
+ now=10;for(const [id,timer] of [...timers])if(timer.at<=now){timers.delete(id);timer.fn();}
+ assert.equal(model.state.location.status,'stale');assert.equal(model.state.location.latitude,null);model.stop();assert.equal(timers.size,0);
 });

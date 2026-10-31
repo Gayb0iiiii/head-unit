@@ -1,0 +1,55 @@
+Headunit startup rejected: another instance holds the profile lock.
+Headunit renderer exited: undefined
+✔ kiosk clears the application menu before showing a window (2.005362ms)
+✔ entrypoint waits for Electron, attaches before load, and never activates on second launch (0.881086ms)
+✔ supervisor health signal waits for trusted renderer readiness and a shown window (0.861978ms)
+✔ duplicate supervised UI fails without socket, window or foreground action (0.900294ms)
+✔ SIGTERM before readiness cannot create an orphan window later (0.231873ms)
+✔ SIGTERM during page load disposes once and prevents a late window show (0.298433ms)
+✔ parent during page load disposes once and prevents a late window show (0.41797ms)
+✔ before-quit during page load disposes once and prevents a late window show (0.399943ms)
+✔ crash during page load disposes once and prevents a late window show (0.523265ms)
+✔ page load failure cleans up and reports the actual startup error (1.149885ms)
+✔ unsafe launch flags and untrusted connection/page configuration fail before window ownership (0.716242ms)
+✔ real runtime is disposed before application quit without a native engine launch (4.875147ms)
+✔ Linux identity is explicit before readiness and compositor dimensions remain unspecified (0.279484ms)
+✔ application owns compositor timers and cancels fullscreen when shutdown interrupts load (0.896048ms)
+✔ application attaches the privileged config consumer before runtime start and disposes it before quit (0.369668ms)
+✔ secondary ownership is passed to runtime only with explicit opt-in and compositor mode (0.399552ms)
+✔ unresponsive renderer exits unsuccessfully for supervised recovery (0.308247ms)
+✔ owned parent readiness reflects trusted renderer and shown-window lifecycle without changing release signal (8.228939ms)
+✔ readiness responder is removed on SIGTERM and cannot reply after shutdown (0.679388ms)
+Headunit renderer exited: undefined
+✔ readiness responder is removed on before-quit and cannot reply after shutdown (1.179338ms)
+✔ readiness responder is removed on render-process-gone and cannot reply after shutdown (0.523887ms)
+✔ readiness responder is removed on unresponsive and cannot reply after shutdown (0.493742ms)
+✔ readiness responder is removed on destroyed and cannot reply after shutdown (0.387945ms)
+✔ unsupervised or disconnected launch does not register a parent readiness responder (0.228249ms)
+✖ a new main document revokes readiness without resending release activation readiness (0.954756ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 24
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 110.752651
+
+✖ failing tests:
+
+test at tests/application.test.mjs:150:1
+✖ a new main document revokes readiness without resending release activation readiness (0.954756ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/application.test.mjs:156:103)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
