@@ -1,0 +1,74 @@
+✔ discovery uses only selected adapter and releases its own session (3.790717ms)
+✔ unknown motion and powered-off adapters cannot start discovery (1.657536ms)
+✔ pairing requires explicit matching numeric confirmation without trusting device (4.479778ms)
+✔ rejected pairing clears prompt and reports bounded error (1.075814ms)
+✔ agent rejects unsolicited device and unsupported authorization (0.770121ms)
+✔ A2DP requests remote source profile only and reports observations, not audible success (1.168531ms)
+✔ no audio ownership or sink evidence means no connection attempt (0.529715ms)
+✔ service loss invalidates pending pairing and stale confirmations (1.303742ms)
+✔ permission errors are classified without raw error or device identifiers (0.835388ms)
+✔ disposal during discovery releases late acquired discovery and prevents resurrection (1.180999ms)
+✖ late discovery after timeout is released rather than becoming active (6.778053ms)
+✖ timed-out audio lease acquisition cannot connect a profile later (6.381785ms)
+✖ pairing service replacement never cancels a new daemon operation (2.40288ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 10
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30098.854818
+
+✖ failing tests:
+
+test at tests/bluetooth-music-host.test.mjs:58:1
+✖ late discovery after timeout is released rather than becoming active (6.778053ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/bluetooth-music-host.test.mjs:60:71)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/bluetooth-music-host.test.mjs:62:1
+✖ timed-out audio lease acquisition cannot connect a profile later (6.381785ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/bluetooth-music-host.test.mjs:64:94)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/bluetooth-music-host.test.mjs:66:1
+✖ pairing service replacement never cancels a new daemon operation (2.40288ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/bluetooth-music-host.test.mjs:68:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

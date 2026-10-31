@@ -1,0 +1,20 @@
+✔ simultaneous startup coalesces callers, selects UI and stops after observed activation (3.303396ms)
+✔ delayed renderer readiness waits and does not activate just because Cage exists (4.725074ms)
+✔ missing UI readiness falls back only to verified desktop (2.844386ms)
+✔ missing display never activates a local VT and preserves independent recovery (0.266735ms)
+✔ unknown, remote, stale and ambiguous evidence never activates UI (10.994416ms)
+✔ restart between discovery and activation rejects stale instance and uses desktop (1.049736ms)
+✔ explicit activation rejection uses verified desktop; uncertain timeout cannot race fallback (30.370445ms)
+✔ unobserved or competing active session cannot report a foreground success (6.103416ms)
+✔ hung discovery is bounded and disposal cancels without late activation (124.624315ms)
+✔ malformed readiness timestamps fail closed without coercing provider objects (3.231879ms)
+✔ late activation completion after timeout never starts a competing fallback (31.194214ms)
+✔ missing readiness for both sessions never turns process presence into readiness (2.980748ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 274.442801

@@ -37,7 +37,7 @@ async function fixture(t,saved={route:'phones'}) {
  const actions=()=>messages.filter(m=>m.type==='action');
  const reply=(id,error)=>socket.emit('data',encode({type:'reply',id,...(error?{error}: {})}));
  const activate=()=>patch([{op:'set',path:['devices'],value:[{id:'a',status:'available'},{id:'b',status:'active'}]}]);
- const ready=()=>patch([{op:'set',path:['sessions','active'],value:{id:'session'}}]);
+ const ready=()=>patch([{op:'set',path:['sessions','active'],value:'carplay'}]);
  return {model,controller,transport,actions,reply,patch,activate,ready,results,api,preferences,window,inputs:()=>messages.filter(m=>m.type==='input')};
 }
 test('native reply failure crosses real session/controller/IPC/preload without leaking errors or stale selection',async t=>{
@@ -198,3 +198,10 @@ test('window input loss sends one full cancel frame through real transport and n
  f.window.emit('focus');assert.equal(f.inputs().length,count,'readiness cannot replay held input');
  await f.api.touch([{id:0,x:.2,y:.3,phase:'down'}]);assert.equal(f.inputs().length,count+1);
 });
+
+ test('unknown native session cannot open projection through IPC after an accepted selection',async t=>{
+ const f=await fixture(t);f.model.connect('b');f.reply(f.actions().at(-1).id);f.activate();
+ f.patch([{op:'set',path:['sessions','active'],value:{id:'session'}}]);await flush();
+ assert.equal(f.model.state.projectionReady,false);assert.equal(f.actions().filter(m=>m.action.kind==='show').length,0);
+ f.ready();await flush();assert.equal(f.actions().filter(m=>m.action.kind==='show'&&m.action.front==='projection').length,1);
+ });

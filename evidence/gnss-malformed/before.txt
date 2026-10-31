@@ -1,0 +1,148 @@
+✔ fresh native GNSS fix exposes bounded coordinates and observation lifetime (2.842602ms)
+✔ stale welcome is not refreshed by receiving a new snapshot (0.34465ms)
+✔ future, missing and malformed fix times do not establish a current fix (0.577686ms)
+✔ unrelated updates and repeated source timestamps do not renew the fix lease (0.659858ms)
+✔ wall-clock rollback cannot extend a previously observed fix (0.314766ms)
+✔ receiver loss, no fix and simulated fixes never retain coordinates (1.000252ms)
+✔ invalid coordinate pair is rejected including nonfinite values, with zero coordinates valid (0.470558ms)
+✔ disabled, missing, resync and disconnect remain distinct and contain no location (2.472924ms)
+✔ renderer filter drops raw device/error/extra fields and never accepts invalid lifetime (0.334305ms)
+✔ receiver bytes alone cannot freshen an old positional sample (0.442636ms)
+✔ restored upstream last-known coordinates without live receiver evidence stay unavailable (0.308538ms)
+✔ missing receiver sample time means unknown freshness, not a known stale reading (0.206686ms)
+✖ malformed object GNSS timestamps fail closed during welcome without losing synchronization (1.226387ms)
+✖ malformed object GNSS timestamps fail closed during patch without losing synchronization (0.669902ms)
+✔ local-only transport sends hello, receives state, and isolates old socket events (4.043191ms)
+✔ unsafe target and corrupt peer are rejected without exposing TCP (0.716021ms)
+✔ backpressure blocks further writes until drain (1.176123ms)
+✔ managed lifecycle is opt-in and connect deadline disables one-shot sessions (0.623013ms)
+✔ managed connection failures use capped exponential reconnect delays (1.912534ms)
+✔ handshake deadline starts at connection and a ready welcome cancels it (0.603935ms)
+✔ successful synchronization resets retry delay and a later disconnect retries fresh (0.487602ms)
+✔ action reply deadline reports unknown outcome, drops pending commands, and never replays (1.634763ms)
+✔ only a matching reply cancels an action deadline, including direct session actions (0.393683ms)
+✔ stop cancels retry, connection, handshake and action timers without stale callbacks (0.78278ms)
+✔ old generation timers, replies and disconnects cannot alter a replacement session (0.601812ms)
+✔ refusal and incompatible welcome end managed retry until explicitly restarted (0.586789ms)
+✔ resync invalidates pending deadlines and requires a bounded new snapshot (0.471448ms)
+✔ status subscribers receive detached snapshots and cannot break transport handling (0.75628ms)
+✔ synchronous socket creation and hello-write failures follow managed backoff (0.313565ms)
+✔ explicit connect and reconnect leave managed mode and cancel scheduled retry (0.264462ms)
+✔ lifecycle settings reject invalid durations and retry bounds before connecting (0.521373ms)
+✔ cleared deadlines cannot fire later within the same connection generation (0.29706ms)
+✔ a subscriber may stop a connecting lifecycle before socket creation (0.198654ms)
+✔ late cancellation callbacks cannot replace a newer action deadline (0.33079ms)
+✔ a synchronous action-write error disables readiness and schedules a fresh managed connection (0.659998ms)
+✔ a synchronous socket error during write cannot leave an action timer in a newer generation (0.473702ms)
+✔ explicitly managed retries keep a standalone process alive until stop (65.172281ms)
+✔ backpressure during revision-gap resync retries managed sessions without replaying the accepted action (0.860806ms)
+✔ backpressure during resync never opts a one-shot connection into retries (0.761128ms)
+✔ corrupt frames remain terminal in managed mode instead of reconnecting forever (0.257131ms)
+✔ one bounded cancellation frame may drain held touches during backpressure without replay (0.537867ms)
+✖ malformed GNSS welcome preserves managed transport and subsequent reconnect (1.394346ms)
+✖ malformed GNSS patch preserves managed transport and subsequent reconnect (0.60692ms)
+ℹ tests 43
+ℹ suites 0
+ℹ pass 39
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 190.845631
+
+✖ failing tests:
+
+test at tests/location-status.test.mjs:23:40
+✖ malformed object GNSS timestamps fail closed during welcome without losing synchronization (1.226387ms)
+  AssertionError [ERR_ASSERTION]: Got unwanted exception.
+  Actual message: "Cannot convert object to primitive value"
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/location-status.test.mjs:28:11)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: Cannot convert object to primitive value
+        at observeLocation (file:///workspace/head-unit/src/location-view.mjs:8:46)
+        at CoreSession.receive (file:///workspace/head-unit/src/session.mjs:21:441)
+        at file:///workspace/head-unit/tests/location-status.test.mjs:28:32
+        at getActual (node:assert:611:5)
+        at strict.doesNotThrow (node:assert:779:32)
+        at TestContext.<anonymous> (file:///workspace/head-unit/tests/location-status.test.mjs:28:11)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1382:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+        at Test.postRun (node:internal/test_runner/test:1522:19),
+    expected: undefined,
+    operator: 'doesNotThrow',
+    diff: 'simple'
+  }
+
+test at tests/location-status.test.mjs:23:40
+✖ malformed object GNSS timestamps fail closed during patch without losing synchronization (0.669902ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/location-status.test.mjs:30:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/transport.test.mjs:179:40
+✖ malformed GNSS welcome preserves managed transport and subsequent reconnect (1.394346ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'refused' !== 'ready'
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/transport.test.mjs:189:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'refused',
+    expected: 'ready',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/transport.test.mjs:179:40
+✖ malformed GNSS patch preserves managed transport and subsequent reconnect (0.60692ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'resyncing'
+  - 'ready'
+       ^
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/transport.test.mjs:189:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'resyncing',
+    expected: 'ready',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

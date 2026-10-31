@@ -1,3 +1,4 @@
+import {hasProjectionSession} from './picture.mjs';
 import {filterConnectionPhase} from './connection-status.mjs';
 import {activeDevice,homeView} from './home-view.mjs';
 import {publicView} from './view.mjs';
@@ -12,7 +13,7 @@ export class HeadunitController {
     if(!routes.has(this.preferred))this.preferred='home';
     this.unsubscribe=transport.subscribe(()=>this.sync());
   }
-  view() { return {...publicView(this.transport.session),connectionPhase:filterConnectionPhase(this.transport.status,this.transport.session.ready),projectionReady:this.transport.session.ready&&!!this.transport.session.state?.sessions?.active,route:this.route,preferredRoute:this.preferred,notice:this.projectionInterrupted?'projection-reconnecting':null}; }
+  view() { return {...publicView(this.transport.session),connectionPhase:filterConnectionPhase(this.transport.status,this.transport.session.ready),projectionReady:hasProjectionSession(this.transport.session),route:this.route,preferredRoute:this.preferred,notice:this.projectionInterrupted?'projection-reconnecting':null}; }
   subscribe(listener) {this.listeners.add(listener);listener(this.view());return ()=>this.listeners.delete(listener);}
   publish(){for(const listener of this.listeners)listener(this.view());}
   savePreferences(){const value={route:this.preferred,lastPhone:this.lastPhone,resume:this.resume};const encoded=JSON.stringify(value);if(encoded===this.lastSaved)return;try{this.preferences.save?.(value);this.lastSaved=encoded;}catch{}}
@@ -22,7 +23,7 @@ export class HeadunitController {
     const next=session.ready?session.state?.front?.main:null;
     if(next!=='projection'&&this.contacts.size)this.cancelTouch();
     if(!session.ready){this.wasReady=false;this.pendingChoice=null;this.lastReportedRoute=null;this.front=null;this.route='disconnected';this.contacts.clear();this.publish();return;}
-    if(this.front==='projection'&&next==='livi'&&!this.leavingProjection&&!session.state?.sessions?.active)this.projectionInterrupted=true;
+    if(this.front==='projection'&&next==='livi'&&!this.leavingProjection&&!hasProjectionSession(session))this.projectionInterrupted=true;
     if(next==='projection')this.projectionInterrupted=false;
     if(next!=='projection')this.leavingProjection=false;
     this.front=next;
@@ -46,7 +47,7 @@ export class HeadunitController {
     else if(next==='projection')this.route='projection';
     else this.route=this.projectionInterrupted||this.preferred==='projection'?'home':this.preferred;
     // Restore display preference separately from the authorized phone/media recovery policy.
-    if(!this.started&&next!=='camera'&&next!=='cluster'){if(next==='projection'||this.preferred!=='projection')this.started=true;else if(session.state?.sessions?.active&&next==='livi'){this.started=true;session.action({kind:'show',screen:'main',front:'projection'});}}
+    if(!this.started&&next!=='camera'&&next!=='cluster'){if(next==='projection'||this.preferred!=='projection')this.started=true;else if(hasProjectionSession(session)&&next==='livi'){this.started=true;session.action({kind:'show',screen:'main',front:'projection'});}}
     this.reportPath();
     this.publish();
   }
@@ -64,7 +65,7 @@ export class HeadunitController {
       if(this.front==='camera'||this.front==='cluster')return this.view();
       if(intent.route!=='projection')this.cancelTouch();
       if(intent.route==='projection'){
-        if(!session.state?.sessions?.active){this.route='phones';this.reportPath();this.publish();return this.view();}
+        if(!hasProjectionSession(session)){this.route='phones';this.reportPath();this.publish();return this.view();}
         if(this.front!=='projection'||this.leavingProjection)session.action({kind:'show',screen:'main',front:'projection'});
         this.leavingProjection=false;
       }else if(this.front==='projection'){session.action({kind:'show',screen:'main',front:'livi'});this.leavingProjection=true;}

@@ -1,6 +1,9 @@
 import test from 'node:test';
+import {execFile as callback} from 'node:child_process';
+import {promisify} from 'node:util';
+const execFile=promisify(callback);
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,readFile,rm,symlink} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,rm,symlink,chmod,rename} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createReleaseStore} from '../electron/release-store.mjs';
@@ -40,5 +43,131 @@ test('release symlink and malformed manifest fail closed',async()=>{
    assert.equal(await store.verifyRelease(next),null);
    await writeFile(path.join(f.stateRoot,'release.json'),'not json');
    await assert.rejects(()=>createReleaseStore({sourceRoot:f.sourceRoot,stateRoot:f.stateRoot,readHead:async()=>old}));
+ }finally{await f.close();}
+});
+test('valid staged active release boots even when source build is absent',async()=>{
+ const f=await fixture();try{
+  const readHead=async root=>root===f.sourceRoot?old:next;
+  const store=await createReleaseStore({...f,readHead});const release=path.join(store.releasesRoot,next);
+  await mkdir(path.join(release,'dist'),{recursive:true});await writeFile(path.join(release,'dist','production.html'),'ready');
+  await store.saveState({active:next,previous:old});await rm(path.join(f.sourceRoot,'dist'),{recursive:true});
+  const restarted=await createReleaseStore({...f,readHead});assert.deepEqual(restarted.initial,{sha:next,path:release});
+ }finally{await f.close();}
+});
+test('missing recorded release does not silently reset an existing manifest',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old});await store.saveState({active:next,previous:old});
+  const manifest=path.join(f.stateRoot,'release.json'),before=await readFile(manifest,'utf8');
+  await rm(path.join(f.sourceRoot,'dist'),{recursive:true});
+  await assert.rejects(()=>createReleaseStore({...f,readHead:async()=>old}));assert.equal(await readFile(manifest,'utf8'),before);
+ }finally{await f.close();}
+});
+test('unavailable active release recovers only to the recorded verified previous commit',async()=>{
+ const f=await fixture();try{
+  const readHead=async()=>old;const store=await createReleaseStore({...f,readHead});await store.saveState({active:next,previous:old});
+  const recovered=await createReleaseStore({...f,readHead});assert.equal(recovered.initial.sha,old);assert.equal(recovered.recovered,true);
+  assert.deepEqual(JSON.parse(await readFile(path.join(f.stateRoot,'release.json'),'utf8')),{version:1,active:old,pending:null,previous:null});
+ }finally{await f.close();}
+});
+test('a wrong-hash previous release cannot be promoted by recovery',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old});await store.saveState({active:next,previous:'c'.repeat(40)});
+  await assert.rejects(()=>createReleaseStore({...f,readHead:async()=>old}));
+  assert.equal(JSON.parse(await readFile(path.join(f.stateRoot,'release.json'),'utf8')).active,next);
+ }finally{await f.close();}
+});
+
+for(const failure of ['git-error','invalid-sha','directory-build','symlink-build'])test(`verified staged previous release survives source ${failure}`,async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old});await store.saveState({active:next,previous:old});
+  const previous=path.join(store.releasesRoot,old);await mkdir(path.join(previous,'dist'),{recursive:true});await writeFile(path.join(previous,'dist','production.html'),'verified previous');
+  const build=path.join(f.sourceRoot,'dist','production.html');
+  if(failure==='directory-build'){await rm(build);await mkdir(build);}
+  if(failure==='symlink-build'){await rm(build);await symlink(path.join(previous,'dist','production.html'),build);}
+  const readHead=async root=>{if(root===f.sourceRoot){if(failure==='git-error')throw Error('damaged .git');if(failure==='invalid-sha')return 'not a SHA';return next;}return old;};
+  const recovered=await createReleaseStore({...f,readHead});assert.deepEqual(recovered.initial,{sha:old,path:previous});assert.equal(recovered.recovered,true);
+  assert.deepEqual(JSON.parse(await readFile(path.join(f.stateRoot,'release.json'),'utf8')),{version:1,active:old,pending:null,previous:null});
+ }finally{await f.close();}
+});
+test('source failure never hides invalid previous build or rewrites its manifest',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old});await store.saveState({active:next,previous:old});
+  await symlink(f.sourceRoot,path.join(store.releasesRoot,old));
+  const manifest=path.join(f.stateRoot,'release.json'),before=await readFile(manifest,'utf8');
+  await assert.rejects(createReleaseStore({...f,readHead:async()=>{throw Error('broken git');}}),/verified fallback unavailable/);
+  assert.equal(await readFile(manifest,'utf8'),before);
+ }finally{await f.close();}
+});
+test('fallback state persistence failure is propagated instead of returning recovered success',async t=>{
+ if(process.getuid?.()===0){t.skip('requires unprivileged filesystem permissions');return;}
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old});await store.saveState({active:next,previous:old});
+  const previous=path.join(store.releasesRoot,old);await mkdir(path.join(previous,'dist'),{recursive:true});await writeFile(path.join(previous,'dist','production.html'),'ready');
+  const manifest=path.join(f.stateRoot,'release.json'),before=await readFile(manifest,'utf8');await chmod(f.stateRoot,0o500);
+  await assert.rejects(createReleaseStore({...f,readHead:async root=>{if(root===f.sourceRoot)throw Error('broken git');return old;}}),error=>error.code==='EACCES');
+  assert.equal(await readFile(manifest,'utf8'),before);
+ }finally{await chmod(f.stateRoot,0o700);await f.close();}
+});
+
+test('real git verification recovers a staged previous commit when source is not a repository',async()=>{
+ const f=await fixture();try{
+  const stage=path.join(f.root,'staged');await mkdir(path.join(stage,'dist'),{recursive:true});await writeFile(path.join(stage,'dist','production.html'),'previous');
+  const git=(...args)=>execFile('git',['-c','core.hooksPath=/dev/null','-c','commit.gpgSign=false','-C',stage,...args]);
+  await git('init','--quiet');await git('add','dist/production.html');await git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','local recovery fixture');
+  const previous=(await git('rev-parse','HEAD')).stdout.trim();
+  const store=await createReleaseStore({...f,readHead:async()=>old});
+  const {rename}=await import('node:fs/promises');await rename(stage,path.join(store.releasesRoot,previous));await store.saveState({active:next,previous});
+  const recovered=await createReleaseStore(f);assert.equal(recovered.initial.sha,previous);assert.equal(recovered.recovered,true);
+ }finally{await f.close();}
+});
+test('untrusted manifest and first-boot source failures remain fatal without inventing state',async()=>{
+ const f=await fixture();try{
+  await assert.rejects(createReleaseStore({...f,readHead:async()=>{throw Error('source verification failed');}}),/source verification failed/);
+  await assert.rejects(readFile(path.join(f.stateRoot,'release.json')),error=>error.code==='ENOENT');
+  await writeFile(path.join(f.stateRoot,'release.json'),'not-json');let reads=0;
+  await assert.rejects(createReleaseStore({...f,readHead:async()=>{reads++;return old;}}));assert.equal(reads,0);assert.equal(await readFile(path.join(f.stateRoot,'release.json'),'utf8'),'not-json');
+ }finally{await f.close();}
+});
+
+test('a staged dist symlink cannot supply a previous-release build from outside the release',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old});await store.saveState({active:next,previous:old});
+  const previous=path.join(store.releasesRoot,old),outside=path.join(f.root,'outside');await mkdir(previous);await mkdir(outside);await writeFile(path.join(outside,'production.html'),'outside build');await symlink(outside,path.join(previous,'dist'));
+  assert.equal(await store.verifyRelease(old),null);
+  const manifest=path.join(f.stateRoot,'release.json'),before=await readFile(manifest,'utf8');
+  await assert.rejects(createReleaseStore({...f,readHead:async root=>{if(root===f.sourceRoot)throw Error('source unavailable');return old;}}),/verified fallback unavailable/);
+  assert.equal(await readFile(manifest,'utf8'),before);
+ }finally{await f.close();}
+});
+test('source dist symlink is rejected on first boot without creating a manifest',async()=>{
+ const f=await fixture();try{
+  const outside=path.join(f.root,'outside');await mkdir(outside);await writeFile(path.join(outside,'production.html'),'outside build');await rm(path.join(f.sourceRoot,'dist'),{recursive:true});await symlink(outside,path.join(f.sourceRoot,'dist'));
+  await assert.rejects(createReleaseStore({...f,readHead:async()=>old}),/Source build unavailable/);
+  await assert.rejects(readFile(path.join(f.stateRoot,'release.json')),error=>error.code==='ENOENT');
+ }finally{await f.close();}
+});
+
+test('even an in-release dist symlink is rejected and a real directory remains valid',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old}),release=path.join(store.releasesRoot,old);
+  await mkdir(path.join(release,'build'),{recursive:true});await writeFile(path.join(release,'build','production.html'),'ready');await symlink('build',path.join(release,'dist'));
+  assert.equal(await store.verifyRelease(old),null);await rm(path.join(release,'dist'));await rename(path.join(release,'build'),path.join(release,'dist'));
+  assert.deepEqual(await store.verifyRelease(old),{sha:old,path:release});
+ }finally{await f.close();}
+});
+test('replacement of releases ancestor after store creation is rejected',async()=>{
+ const f=await fixture();try{
+  const store=await createReleaseStore({...f,readHead:async()=>old}),release=path.join(store.releasesRoot,old);
+  await mkdir(path.join(release,'dist'),{recursive:true});await writeFile(path.join(release,'dist','production.html'),'ready');
+  const moved=path.join(f.root,'moved');await rename(store.releasesRoot,moved);await symlink(moved,store.releasesRoot);
+  assert.equal(await store.verifyRelease(old),null);
+ }finally{await f.close();}
+});
+test('build-path substitution during Git verification cannot be accepted',async()=>{
+ const f=await fixture();try{
+  const outside=path.join(f.root,'outside');await mkdir(outside);await writeFile(path.join(outside,'production.html'),'outside');let replace=false;
+  const store=await createReleaseStore({...f,readHead:async root=>{if(replace&&root!==f.sourceRoot){await rm(path.join(root,'dist'),{recursive:true});await symlink(outside,path.join(root,'dist'));}return old;}});
+  const release=path.join(store.releasesRoot,old);await mkdir(path.join(release,'dist'),{recursive:true});await writeFile(path.join(release,'dist','production.html'),'ready');replace=true;
+  assert.equal(await store.verifyRelease(old),null);
  }finally{await f.close();}
 });

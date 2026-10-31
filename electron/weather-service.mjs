@@ -27,6 +27,7 @@ const forecastUrl=city=>{const url=new URL(forecastHost);url.search=new URLSearc
 /** Host-only weather, with no device geolocation and no renderer-chosen URL. */
 export function createWeatherService({fetchJSON,readCache=async()=>null,writeCache=async()=>{},now=Date.now,steadyNow=()=>performance.now(),setEvery=setInterval,clearEvery=clearInterval}){
   if(typeof fetchJSON!=='function'||typeof readCache!=='function'||typeof writeCache!=='function')throw TypeError('Weather dependencies required');
+  let searchGeneration=0;
   let city=null,data=null,loaded=false,failed=false,disposed=false,inFlight=null,searchResults=[],timer=null,controller=null,persistenceError=false,lastSuccessTick=null;
   const listeners=new Set();
   const publish=()=>{for(const listener of listeners){try{listener(snapshot());}catch{}}};
@@ -73,8 +74,9 @@ export function createWeatherService({fetchJSON,readCache=async()=>null,writeCac
   async function search(query){
     if(disposed)throw Error('Weather stopped');
     if(typeof query!=='string'||query.length<3||query.length>64||!/^[-'., \p{L}\p{M}]+$/u.test(query))throw TypeError('Invalid city');
-    searchResults=[];
+    const generation=++searchGeneration;searchResults=[];
     const results=(await fetchJSON(cityUrl(query.trim()),undefined))?.results;
+    if(disposed||generation!==searchGeneration)return [];
     searchResults=(Array.isArray(results)?results:[]).slice(0,10).map(location).filter(Boolean);
     return searchResults.map(item=>({id:item.id,label:`${item.label}, ${item.countryCode}`}));
   }
@@ -82,9 +84,10 @@ export function createWeatherService({fetchJSON,readCache=async()=>null,writeCac
     const selected=Number.isSafeInteger(id)?searchResults.find(item=>item.id===id):null;
     if(!selected||disposed)throw Error('City unavailable');
     if(inFlight)await inFlight;
+    if(disposed)throw Error('Weather stopped');
     city=selected;data=null;failed=false;lastSuccessTick=null;searchResults=[];await save();publish();return refresh();
   }
   function start(){if(timer||disposed)return;void refresh();timer=setEvery(()=>{void refresh();},refreshMs);timer?.unref?.();}
-  function dispose(){disposed=true;controller?.abort();if(timer)clearEvery(timer);timer=null;listeners.clear();}
+  function dispose(){disposed=true;searchGeneration++;searchResults=[];controller?.abort();if(timer)clearEvery(timer);timer=null;listeners.clear();}
   return {snapshot,refresh,search,select,start,dispose,subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener);}};
 }

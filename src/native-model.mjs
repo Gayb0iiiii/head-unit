@@ -1,3 +1,4 @@
+import {emptyLocation,filterLocationStatus} from './location-status.mjs';
 import {filterPicture} from './picture.mjs';
 import {filterConnectionPhase} from './connection-status.mjs';
 import {emptyHomeStatus,filterHomeStatus} from './home-status.mjs';
@@ -14,6 +15,7 @@ export class NativeHeadunit extends Headunit {
     this.clock = clock;
     this.mediaGeneration = 0;
     this.state.homeStatus = emptyHomeStatus('disconnected');
+    this.state.location = emptyLocation('disconnected');
     this.state.mediaPending = false;
     this.bridge = bridge;
     this.onChange = onChange;
@@ -64,6 +66,7 @@ export class NativeHeadunit extends Headunit {
     this.state.projectionReady = connected && view.projectionReady === true;
     this.state.picture=filterPicture(view?.picture,this.state.projectionReady,view?.front);
     this.state.connected = connected;
+    this.state.location=filterLocationStatus(view?.location,connected);
     this.state.desktopAvailable=view?.desktopAvailable===true&&typeof this.bridge.exitToDesktop==='function';
     if(!connected)this.state.commandError=false;
     this.state.connectionPhase = filterConnectionPhase(view?.connectionPhase,connected);
@@ -75,7 +78,7 @@ export class NativeHeadunit extends Headunit {
     this.state.homeStatus=filterHomeStatus(view?.homeStatus,connected,activePhone);
     this.scheduleExpiry();
     this.state.front = connected && ['livi','projection','camera','cluster'].includes(view.front) ? view.front : 'livi';
-    this.state.screen = this.localRoute || (connected && visibleRoutes.has(view.route) ? view.route : ['settings','projection'].includes(this.state.screen)?this.state.screen:'home');
+    this.state.screen = this.localRoute || (connected && visibleRoutes.has(view.route) ? view.route : ['settings','projection','phones'].includes(this.state.screen)?this.state.screen:'home');
     if (view.route === 'dashboard') this.state.homeMode = 'dashboard';
     else if (view.route === 'home') this.state.homeMode = 'apps';
     this.state.notice = connected && view.notice === 'projection-reconnecting' ? view.notice : null;
@@ -109,12 +112,14 @@ export class NativeHeadunit extends Headunit {
 
   scheduleExpiry() {
     this.clock.clearTimeout(this.expiryTimer);
+    this.locationExpiry=this.clock.now()+this.state.location.freshForMs;
     this.expiries=Object.fromEntries(['phone','media'].map(key=>[key,this.clock.now()+this.state.homeStatus[key].freshForMs]));
     this.expireStatus();
   }
 
   expireStatus() {
     const delays=[];
+    if(this.state.location.freshForMs>0){const remaining=this.locationExpiry-this.clock.now();if(remaining<=0)this.state.location=emptyLocation('stale');else delays.push(remaining);}
     for(const key of ['phone','media']) {
       const value=this.state.homeStatus[key];
       if(value.status!=='available')continue;
@@ -146,9 +151,9 @@ export class NativeHeadunit extends Headunit {
     this.cancelSelection();
     this.state.commandError = false;
     this.localRoute=localRoutes.has(route)?route:null;
-    if(this.localRoute){this.state.screen=this.localRoute;if(route==='audio'&&this.state.connected&&this.state.front==='projection')this.command('navigate','audio');this.onChange();return;}
+    if(this.localRoute){this.state.screen=this.localRoute;if(this.state.connected&&this.state.front==='projection')this.command('navigate',route==='audio'?'audio':'home');this.onChange();return;}
     if(!this.state.connected){
-      this.state.screen=['settings','projection'].includes(route)?route:'home';
+      this.state.screen=['settings','projection','phones'].includes(route)?route:'home';
       this.onChange();
       return;
     }

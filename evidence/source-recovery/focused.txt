@@ -1,0 +1,36 @@
+✔ clean first boot uses source build; pending activation reboots into known working release (18.828204ms)
+✔ candidate needs a real same-hash worktree and built production file (6.960591ms)
+✔ release symlink and malformed manifest fail closed (5.393174ms)
+✔ valid staged active release boots even when source build is absent (4.741758ms)
+✔ missing recorded release does not silently reset an existing manifest (6.044959ms)
+✔ unavailable active release recovers only to the recorded verified previous commit (4.494722ms)
+✔ a wrong-hash previous release cannot be promoted by recovery (4.191653ms)
+✔ verified staged previous release survives source git-error (5.021533ms)
+✔ verified staged previous release survives source invalid-sha (6.62544ms)
+✔ verified staged previous release survives source directory-build (3.998406ms)
+✔ verified staged previous release survives source symlink-build (7.384214ms)
+✔ source failure never hides invalid previous build or rewrites its manifest (4.025636ms)
+✔ fallback state persistence failure is propagated instead of returning recovered success (4.330348ms)
+✔ real git verification recovers a staged previous commit when source is not a repository (36.302062ms)
+✔ untrusted manifest and first-boot source failures remain fatal without inventing state (2.377403ms)
+✔ candidate is activated only after renderer readiness; failed startup rolls back while Cage owner stays (11.676646ms)
+✔ a healthy promoted release can request another update without restarting Cage (2.541427ms)
+✔ healthy candidate commits and becomes active only after matching readiness (0.616203ms)
+✔ candidate exit during the health window restores the previous release (0.619228ms)
+✔ unverified, concurrent, or pre-ready activation is rejected without stopping old UI (0.416437ms)
+✔ candidate readiness timeout rolls back; repeated active failures become fatal (2.524992ms)
+✔ active release that reports ready then exits repeatedly still reaches the failure limit (0.422797ms)
+✔ a stable active release clears transient failures after its health interval (0.264131ms)
+✔ shutdown during asynchronous launch stops the late child instead of orphaning it (0.743803ms)
+✔ shutdown while verification waits cannot persist or activate a candidate (0.626398ms)
+✔ starting twice cannot create competing child owners (0.213937ms)
+✔ real child ignoring graceful shutdown is killed within the shutdown deadline (93.651898ms)
+✔ candidate launch rejection immediately restores the verified previous release (2.061646ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 186.032136

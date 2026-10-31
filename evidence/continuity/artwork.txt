@@ -1,0 +1,1 @@
+{"passed": true, "fixtures": "six original covers + silent MP3s", "checks": ["ID3 title/artist/album", "embedded PNG decode", "MP3 duration", "paused restart with artwork", "four viewport captures"]}

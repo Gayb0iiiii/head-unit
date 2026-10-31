@@ -1,0 +1,35 @@
+✔ simultaneous startup coalesces callers, selects UI and stops after observed activation (4.793644ms)
+✔ delayed renderer readiness waits and does not activate just because Cage exists (7.852407ms)
+✔ missing UI readiness falls back only to verified desktop (3.480938ms)
+✔ missing display never activates a local VT and preserves independent recovery (0.343449ms)
+✔ unknown, remote, stale and ambiguous evidence never activates UI (9.498696ms)
+✔ restart between discovery and activation rejects stale instance and uses desktop (0.712936ms)
+✔ explicit activation rejection uses verified desktop; uncertain timeout cannot race fallback (30.455442ms)
+✔ unobserved or competing active session cannot report a foreground success (6.997009ms)
+✔ hung discovery is bounded and disposal cancels without late activation (125.556813ms)
+✔ malformed readiness timestamps fail closed without coercing provider objects (3.415681ms)
+✔ late activation completion after timeout never starts a competing fallback (30.107607ms)
+✔ missing readiness for both sessions never turns process presence into readiness (1.805466ms)
+✔ future readiness and foreign session UID cannot select headunit (5.216281ms)
+✔ already exclusively active ready UI requires no activation (0.332172ms)
+✔ malformed activation acknowledgement never permits competing fallback (0.229801ms)
+✔ disposal during activation prevents readback and fallback after late success (0.641611ms)
+✔ disposal during readback cannot report successful foreground selection (0.635392ms)
+✔ only matching current challenge and exact schema produce fresh identity-bound readiness (7.116466ms)
+✔ PID reuse and foreign parent never acquire readiness (0.981425ms)
+✔ timeout disconnect disposal and abort remove listeners and never cache a previous ready (21.304291ms)
+✔ responder reports only host-supplied readiness and removes handlers on disposal (0.982325ms)
+✔ real owned Node child exchanges readiness over inherited IPC without a public socket (47.229344ms)
+✔ previous valid response cannot satisfy a new challenge and child identity cannot assert another session (0.853004ms)
+✔ send failure, hung identity provider and concurrent probes are bounded (21.683793ms)
+✔ process identity binds boot, PID, start ticks, owner and real cgroup session (2.22016ms)
+✔ PID reuse, changed UID, invalid pid and ambiguous sessions fail closed (0.291382ms)
+✔ actual Linux current-process identity is read without inventing a login session (9.741816ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 298.586724

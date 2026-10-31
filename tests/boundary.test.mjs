@@ -1,3 +1,4 @@
+import {emptyLocation} from '../src/location-status.mjs';
 import {emptyHomeStatus} from '../src/home-status.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,6 +12,8 @@ const boundaryPath = new URL('../electron/main-boundary.mjs', import.meta.url);
 const hostPath = new URL('../electron/host.mjs', import.meta.url);
 const runtimePath = new URL('../electron/glass-runtime.mjs', import.meta.url);
 const channels = {
+  controlBluetoothMedia:'headunit:control-bluetooth-media',rememberBluetooth:'headunit:remember-bluetooth',requestBluetoothForget:'headunit:request-bluetooth-forget',confirmBluetoothForget:'headunit:confirm-bluetooth-forget',
+  getBluetooth:'headunit:get-bluetooth',discoverBluetooth:'headunit:discover-bluetooth',stopBluetoothDiscovery:'headunit:stop-bluetooth-discovery',pairBluetooth:'headunit:pair-bluetooth',confirmBluetooth:'headunit:confirm-bluetooth',cancelBluetoothPairing:'headunit:cancel-bluetooth-pairing',connectBluetoothMusic:'headunit:connect-bluetooth-music',releaseBluetoothMusic:'headunit:release-bluetooth-music',acknowledgeBluetoothPause:'headunit:acknowledge-bluetooth-pause',
   view: 'headunit:view', getView: 'headunit:get-view', navigate: 'headunit:navigate',
   selectPhone: 'headunit:select-phone', setVolume: 'headunit:set-volume',
   touch: 'headunit:touch', cancelTouch: 'headunit:cancel-touch', media: 'headunit:media', metrics:'headunit:get-metrics', stopMetrics:'headunit:stop-metrics',
@@ -21,7 +24,7 @@ const channels = {
   locationSource:'headunit:open-location-source',
   rendererReady:'headunit:renderer-ready',updateStatus:'headunit:update-status',getUpdateStatus:'headunit:get-update-status',requestUpdate:'headunit:request-update',cancelUpdate:'headunit:cancel-update',
 };
-const expectedView = {connectionPhase:'ready',homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null,desktopAvailable:false};
+const expectedView = {connectionPhase:'ready',location:emptyLocation(),homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null,desktopAvailable:false};
 const copy = value => JSON.parse(JSON.stringify(value));
 async function moduleAt(path) {
   assert.ok(existsSync(path), `${path.pathname.split('/').at(-1)} must implement the isolated boundary`);
@@ -63,7 +66,7 @@ test('actual sandbox preload exposes only narrow methods and fixed IPC channels'
   const calls=[];
   const {api, exposed} = await preload(async (...args) => {calls.push(copy(args)); return copy(expectedView);});
   assert.deepEqual([...exposed.keys()], ['headunit']);
-  assert.deepEqual(Object.keys(api).sort(), ['cancelTouch','cancelUpdate','exitToDesktop','getMetrics','getTimeStatus','getUpdateStatus','getView','getWeather','media','navigate','onUpdateStatus','onView','onWeather','openLocationAttribution','openWeatherAttribution','requestUpdate','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','signalReady','stopMetrics','touch']);
+  assert.deepEqual(Object.keys(api).sort(), ['controlBluetoothMedia','rememberBluetooth','requestBluetoothForget','confirmBluetoothForget','acknowledgeBluetoothPause','cancelBluetoothPairing','confirmBluetooth','connectBluetoothMusic','discoverBluetooth','getBluetooth','onBluetooth','pairBluetooth','releaseBluetoothMusic','stopBluetoothDiscovery','cancelTouch','cancelUpdate','exitToDesktop','getMetrics','getTimeStatus','getUpdateStatus','getView','getWeather','media','navigate','onUpdateStatus','onView','onWeather','openLocationAttribution','openWeatherAttribution','requestUpdate','searchWeather','selectPhone','selectWeather','setManualTime','setNtp','setTimezone','setVolume','signalReady','stopMetrics','touch'].sort());
   assert.equal(Object.isFrozen(api), true);
   assert.deepEqual(await api.getView(), expectedView);
   await api.getMetrics();await api.stopMetrics();await api.exitToDesktop();await api.navigate('settings'); await api.selectPhone('phone-1'); await api.setVolume(0.4);
@@ -324,7 +327,7 @@ test('trusted host lifecycle cancels held native touches on navigation, crash, d
   const {HeadunitController}=await import('../src/controller.mjs');
   for (const reason of ['did-start-navigation','render-process-gone','destroyed','detach']) {
     const f=fixture(); const pointers=[];
-    const session={ready:true,state:{front:{main:'projection'},sessions:{active:'cp'},devices:[],config:{}},pointer:points=>pointers.push(points),action:()=>1,path:()=>{}};
+    const session={ready:true,state:{front:{main:'projection'},sessions:{active:'carplay'},devices:[],config:{}},pointer:points=>pointers.push(points),action:()=>1,path:()=>{}};
     const transport={session,subscribe(listener){listener();return ()=>{};}};
     const controller=new HeadunitController(transport);
     const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,controller});
@@ -364,7 +367,7 @@ test('glass runtime attaches before an explicit local socket start and disposes 
   runtime.start();
   assert.equal(created,1);
   socket.emit('connect');
-  socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},sessions:{active:'cp'},devices:[{id:'one',name:'Driver',status:'active'},{id:'two',name:'Passenger',status:'available'}],config:{huVolume:0.5}}}));
+  socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{front:{main:'livi'},sessions:{active:'carplay'},devices:[{id:'one',name:'Driver',status:'active'},{id:'two',name:'Passenger',status:'available'}],config:{huVolume:0.5}}}));
   assert.deepEqual((await f.call(channels.getView)).phones.map(p=>p.id),['one','two']);
   const selection=f.call(channels.selectPhone,['two']);
   const request=socket.writes.at(-1);
@@ -508,4 +511,43 @@ test('main IPC filters configured picture metadata and clears it on takeover or 
  const detach=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url});
  assert.deepEqual((await f.call(channels.getView)).picture,{width:800,height:480,insets:null});f.controller.state.front='camera';assert.equal((await f.call(channels.getView)).picture,undefined);
  f.controller.state.front='projection';f.controller.state.connected=false;assert.equal((await f.call(channels.getView)).picture,undefined);detach();
+});
+
+test('Bluetooth bridge authenticates, validates and filters all observations',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath),f=fixture();let listener,confirmed,stopped=0;
+ const id='11111111-1111-1111-1111-111111111111';
+ const bluetooth={snapshot:()=>({availability:'available',parked:true,secret:'private',devices:[{id,name:'Phone',paired:true,address:'hidden'}]}),subscribe:fn=>{listener=fn;return()=>{};},confirm:async(...args)=>{confirmed=args;},suspend:async()=>{stopped++;}};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,bluetooth});
+ const value=await f.call('headunit:get-bluetooth');assert.equal(value.devices[0].name,'Phone');assert.doesNotMatch(JSON.stringify(value),/private|hidden|address/);
+ await assert.rejects(f.call('headunit:confirm-bluetooth',[id,true],{...f.event,sender:{}}),/Untrusted/);
+ await assert.rejects(f.call('headunit:confirm-bluetooth',['/org/bluez/device',true]),/arguments/);
+ await f.call('headunit:confirm-bluetooth',[id,false]);assert.deepEqual(confirmed,[id,false]);
+ listener({availability:'available',confirmation:{token:id,deviceId:id,passkey:'123456'},raw:'private'});assert.equal(f.wc.sent.at(-1)[0],'headunit:bluetooth');assert.doesNotMatch(JSON.stringify(f.wc.sent.at(-1)),/private/);
+ f.window.emit('blur');await assert.rejects(f.call('headunit:confirm-bluetooth',[id,true]),/unavailable/);assert.equal(stopped,1);dispose();
+});
+test('projection actions wait for Bluetooth release and fail closed on cleanup failure',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath),f=fixture();let finish;
+ const bluetooth={releaseMusic:()=>new Promise(resolve=>{finish=resolve;}),suspend:async()=>{}};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,bluetooth});const pending=f.call(channels.navigate,['projection']);assert.equal(f.controller.calls.some(c=>c[0]==='intent'),false);finish();await pending;assert.equal(f.controller.calls.at(-1)[1].route,'projection');
+ bluetooth.releaseMusic=async()=>{throw Error('cleanup failed');};await assert.rejects(f.call(channels.selectPhone,['phone-1']),/unavailable/);dispose();
+});
+test('Bluetooth preload strips IPC event and exposes only fixed commands',async()=>{
+ const calls=[],{api,ipc,lifecycle}=await preload(async(...args)=>{calls.push(copy(args));});let received;api.onBluetooth(value=>{received=value;});ipc.emit('headunit:bluetooth',{secret:'event'},{availability:'available'});assert.deepEqual(received,{availability:'available'});await api.confirmBluetooth('token',false);await api.acknowledgeBluetoothPause('token',true);assert.deepEqual(calls,[['headunit:confirm-bluetooth','token',false],['headunit:acknowledge-bluetooth-pause','token',true]]);lifecycle.emit('unload');assert.equal(ipc.listenerCount('headunit:bluetooth'),0);
+});
+test('AVRCP and forget bridge reject arbitrary controls, paths, extra arguments and stale caller identity',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath),f=fixture(),calls=[];const id='11111111-1111-1111-1111-111111111111';
+ const bluetooth={media:async(...a)=>calls.push(a),requestForget:async(...a)=>calls.push(a),confirmForget:async(...a)=>calls.push(a),remember:async(...a)=>calls.push(a),suspend:async()=>{}};
+ const dispose=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,bluetooth});
+ for(const args of [[id,'seek'],['/org/bluez/player','play'],[id,'play','extra']])await assert.rejects(f.call('headunit:control-bluetooth-media',args),/arguments/);
+ await assert.rejects(f.call('headunit:confirm-bluetooth-forget',[id,'yes']),/arguments/);await assert.rejects(f.call('headunit:request-bluetooth-forget',[id],{...f.event,senderFrame:{url:f.url}}),/Untrusted/);
+ await f.call('headunit:control-bluetooth-media',[id,'pause']);await f.call('headunit:request-bluetooth-forget',[id]);await f.call('headunit:confirm-bluetooth-forget',[id,false]);assert.deepEqual(calls,[[id,'pause'],[id],[id,false]]);dispose();
+});
+test('existing authenticated view exposes only bounded GNSS fields with no receiver controls',async()=>{
+ const f=fixture();const {attachHeadunitBoundary}=await moduleAt(boundaryPath);const detach=attachHeadunitBoundary({ipcMain:f.ipcMain,trustedWindow:f.window,trustedUrl:f.url,controller:f.controller});
+ try{
+  f.controller.state.location={status:'current',latitude:0,longitude:0,sampledAt:1800000000000,fixQuality:'gps',fixMode:'3d',freshForMs:1000,device:'/dev/private',error:'private path',raw:'secret'};
+  const view=await f.call(channels.getView);assert.equal(view.location.latitude,0);assert.equal(view.location.device,undefined);assert.doesNotMatch(JSON.stringify(view),/private|secret/);
+  f.controller.state.location.longitude=181;assert.equal((await f.call(channels.getView)).location.latitude,null);
+  assert.equal([...f.handlers.keys()].some(key=>/gnss|gps/.test(key)),false);
+ }finally{detach();}
 });

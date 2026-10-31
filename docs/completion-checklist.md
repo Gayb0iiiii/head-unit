@@ -1,5 +1,7 @@
 # Head-unit completion checklist
 
+For the current 2026-10-30 status and remaining Pi gates, see [current feature inventory](current-feature-inventory.md). The dated checkpoints below are historical.
+
 Updated 2026-10-20. This repository is the ongoing head-unit project for the HZJ105. A completed software item means source-level behavior is implemented and tested; it does not establish vehicle readiness.
 
 ## Completed software

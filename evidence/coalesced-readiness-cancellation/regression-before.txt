@@ -1,0 +1,46 @@
+✔ supervisor composes owned IPC with session correlation and preserves original probe time (3.929353ms)
+✔ late correlation cannot freshen expired evidence or accept session reassignment (7.203474ms)
+✔ exit revokes pending supervisor readiness and cleans probe listeners (1.009566ms)
+✔ disconnect revokes pending supervisor readiness and cleans probe listeners (1.286516ms)
+✔ dispose revokes pending supervisor readiness and cleans probe listeners (1.294238ms)
+✔ replacement child cannot inherit late old-child correlation (1.063376ms)
+✔ query timeout and cancellation do not change release state or stop the child (51.412676ms)
+✔ activation invalidates in-flight query without changing update acknowledgement (1.733769ms)
+✔ disposal while creating a probe cleans the late handle without probing it (0.677655ms)
+✔ readiness queries coalesce only while pending and re-probe after completion (1.006531ms)
+✔ a changed session-leader binding permanently revokes readiness for that child (0.659197ms)
+✖ later coalesced caller cancellation revokes shared proof but permits a fresh query (3.431084ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 142.442731
+
+✖ failing tests:
+
+test at tests/release-readiness.test.mjs:55:1
+✖ later coalesced caller cancellation revokes shared proof but permits a fresh query (3.431084ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   instance: 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+  +   observedAt: 100,
+  +   ready: true,
+  +   sessionId: 's2'
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:61:39)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { sessionId: 's2', instance: 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', ready: true, observedAt: 100 },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

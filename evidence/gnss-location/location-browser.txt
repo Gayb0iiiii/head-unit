@@ -1,0 +1,1 @@
+{"passed": true, "fixture": "injected GNSS, no receiver", "checks": ["absent receiver status", "offline current coordinates", "three viewport bounds", "stale timer removes coordinates", "no-fix/simulated/disabled/disconnected hides coordinates", "no raw paths or errors", "no location persistence or external requests"]}

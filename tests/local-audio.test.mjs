@@ -82,3 +82,43 @@ test('native ownership denies playback including a takeover during file loading'
 test('a duplicate queued file starts at the beginning when selected',async()=>{
  const {audio,media}=setup();await audio.ready;await audio.importFiles([file('A.wav')]);await audio.playTrack(audio.tracks[0].id);audio.enqueue(audio.current.id);media.currentTime=44;await audio.next();assert.equal(media.currentTime,0);
 });
+test('paused seeks save immediately for restart continuity',async()=>{
+ const {audio,media,prefs}=setup();await audio.ready;await audio.importFiles([file('A.wav')]);await audio.playTrack(audio.tracks[0].id);audio.pause();audio.seek(37);
+ assert.equal(media.paused,true);assert.equal(prefs.value.position,37);
+});
+test('reimport repairs a missing stored blob without losing favourites or queue',async()=>{
+ const {audio,rows}=setup();await audio.ready;const input=file('A.wav');await audio.importFiles([input]);const id=audio.tracks[0].id;audio.enqueue(id);audio.favourite(id);
+ rows.set(id,{...rows.get(id),blob:undefined});await audio.play();assert.match(audio.message,/Cannot play/);
+ await audio.importFiles([input]);assert.ok(rows.get(id).blob);assert.equal(audio.tracks.length,1);assert.deepEqual(audio.queue,[id]);assert.equal(audio.favourites.has(id),true);await audio.play();assert.equal(audio.playing,true);
+});
+
+test('offline restore preserves the selected queue occurrence when earlier files disappear',async()=>{
+ const store={list:async()=>[{id:'A'},{id:'B'}]};
+ const saved={queue:['missing','A','B','A','B'],index:3,position:42};
+ const audio=new LocalAudio({media:new Media(),store,storage:{getItem:()=>JSON.stringify(saved)}});await audio.ready;
+ assert.deepEqual(audio.queue,['A','B','A','B']);assert.equal(audio.index,2);assert.equal(audio.current.id,'A');assert.equal(audio.position,42);assert.equal(audio.playing,false);assert.equal(audio.media.src,'');
+});
+test('offline restore does not apply a missing selected tracks position to another file',async()=>{
+ const audio=new LocalAudio({media:new Media(),store:{list:async()=>[{id:'A'},{id:'B'}]},storage:{getItem:()=>JSON.stringify({queue:['A','missing','B'],index:1,position:87})}});await audio.ready;
+ assert.equal(audio.current.id,'B');assert.equal(audio.position,0);assert.equal(audio.playing,false);assert.match(audio.message,/unavailable/i);
+});
+
+test('source pause during asynchronous restore cannot overwrite saved playback preferences',async()=>{
+ let finish;let saved={queue:['A'],index:0,position:42,favourites:['A'],repeat:'all',shuffle:true};const writes=[];
+ const audio=new LocalAudio({media:new Media(),store:{list:()=>new Promise(resolve=>{finish=resolve;})},storage:{getItem:()=>JSON.stringify(saved),setItem:(_key,value)=>{saved=JSON.parse(value);writes.push(saved);}}});
+ audio.pause();audio.pause();assert.equal(writes.length,0);
+ finish([{id:'A'}]);await audio.ready;assert.equal(audio.current.id,'A');assert.equal(audio.position,42);assert.equal(audio.favourites.has('A'),true);assert.equal(audio.repeat,'all');assert.equal(audio.shuffle,true);assert.equal(audio.playing,false);assert.equal(audio.media.src,'');
+ audio.pause();assert.equal(saved.position,42);assert.deepEqual(saved.queue,['A']);
+});
+test('removing an unrelated library track preserves selected duplicate queue occurrence',async()=>{
+ const {audio,media}=setup();await audio.ready;await audio.importFiles([file('A.wav'),file('B.wav'),file('C.wav')]);const [a,b,c]=audio.tracks.map(t=>t.id);
+ audio.queue=[a,b,a,c];audio.index=2;audio.position=42;await audio.removeTrack(c);
+ assert.deepEqual(audio.queue,[a,b,a]);assert.equal(audio.index,2);assert.equal(audio.position,42);assert.equal(media.paused,true);
+ await audio.next(true);assert.equal(media.paused,true);assert.equal(audio.index,2);
+});
+
+test('failed library restoration never replaces saved preferences with empty defaults on pause',async()=>{
+ const original=JSON.stringify({queue:['A'],index:0,position:42});let saved=original;
+ const audio=new LocalAudio({media:new Media(),store:{list:async()=>{throw Error('storage temporarily unavailable');}},storage:{getItem:()=>saved,setItem:(_key,value)=>{saved=value;}}});
+ await audio.ready;audio.pause();assert.equal(saved,original);assert.match(audio.message,/storage unavailable/i);
+});

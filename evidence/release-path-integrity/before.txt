@@ -1,0 +1,63 @@
+✔ clean first boot uses source build; pending activation reboots into known working release (17.762693ms)
+✔ candidate needs a real same-hash worktree and built production file (5.392391ms)
+✔ release symlink and malformed manifest fail closed (4.364708ms)
+✔ valid staged active release boots even when source build is absent (5.502173ms)
+✔ missing recorded release does not silently reset an existing manifest (6.11361ms)
+✔ unavailable active release recovers only to the recorded verified previous commit (5.505229ms)
+✔ a wrong-hash previous release cannot be promoted by recovery (6.115052ms)
+✔ verified staged previous release survives source git-error (4.25122ms)
+✔ verified staged previous release survives source invalid-sha (5.648811ms)
+✔ verified staged previous release survives source directory-build (5.218173ms)
+✔ verified staged previous release survives source symlink-build (9.539782ms)
+✔ source failure never hides invalid previous build or rewrites its manifest (6.515726ms)
+✔ fallback state persistence failure is propagated instead of returning recovered success (4.728677ms)
+✔ real git verification recovers a staged previous commit when source is not a repository (35.438867ms)
+✔ untrusted manifest and first-boot source failures remain fatal without inventing state (2.198188ms)
+✖ a staged dist symlink cannot supply a previous-release build from outside the release (3.944595ms)
+✖ source dist symlink is rejected on first boot without creating a manifest (6.791504ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 15
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 201.147163
+
+✖ failing tests:
+
+test at tests/release-store.test.mjs:132:1
+✖ a staged dist symlink cannot supply a previous-release build from outside the release (3.944595ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   path: '/tmp/headunit-release-store-HoGwUD/state/releases/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +   sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:136:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', path: '/tmp/headunit-release-store-HoGwUD/state/releases/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/release-store.test.mjs:142:1
+✖ source dist symlink is rejected on first boot without creating a manifest (6.791504ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///workspace/head-unit/tests/release-store.test.mjs:145:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /Source build unavailable/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

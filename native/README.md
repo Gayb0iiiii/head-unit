@@ -6,7 +6,7 @@ This directory maintains a small local patch series, not a separate upstream for
 
 Use a separate, clean checkout/worktree at the pin. The sparse source needs `native`, `src/main/shared/assets` (embedded icons), and `scripts/livi-link/common` (embedded hostapd configuration **text**, never installed or executed here). Root files, including LICENSE and rust-toolchain.toml, must also be present. A full pinned checkout works too. The old `/workspace/shared/livi-upstream-pinned` path is not present in the current saved environment; `/workspace/livi-native-work` is the isolated sparse worktree used for this increment.
 
-Required: Python 3.9+, Git, x86_64 Linux, C/C++ compiler/linker and OpenSSL development headers/pkg-config. Use the pinned Rust **beta-2026-10-03**, which reports **1.100.0-beta.3**, commit `7bbda45cb1ec0a378d91959646a8fa904be3192a`. Do not substitute another compiler to make the guard pass. No JavaScript dependencies or native services are needed for this target.
+Required: Python 3.9+, Git, architecture-native x86_64 or aarch64 Linux, C/C++ compiler/linker and OpenSSL development headers/pkg-config. Use the pinned Rust **beta-2026-10-03**, which reports **1.100.0-beta.3**, commit `7bbda45cb1ec0a378d91959646a8fa904be3192a`. Do not substitute another compiler to make the guard pass. No JavaScript dependencies or native services are needed for this target.
 
 The current environment installed rustc, rust-std, cargo and rustfmt under `/workspace/native-tools/rust-beta-2026-10-03` from the official `https://static.rust-lang.org/dist/2026-10-03/channel-rust-beta.toml` archives, verifying each SHA-256 listed in `manifest.json`. Their installer used that local prefix and `--disable-ldconfig`; no system Rust, shell startup, library cache, service or security configuration was changed. Cargo downloads use `/workspace/native-tools/cargo-home`, with build output in `/workspace/native-tools/target`. CI uses the same date-pinned toolchain through its existing rustup installation.
 
@@ -76,7 +76,7 @@ build; it is not distribution clearance. Upstream GPL notices remain intact.
 This is a repeatable pinned source/toolchain recipe, **not a byte-for-byte
 reproducibility claim**: runner images and Ubuntu packages receive updates. The
 report records actual inputs so differences can be investigated. Hardware target
-selection, ARM builds and distribution obligations need separate acceptance.
+acceptance and distribution obligations remain separate. The [ARM64 build path](../docs/arm64-build.md) adds a native CI target without treating compilation as Pi acceptance.
 
 In the saved Debian coding environment, a direct full build stops at missing
 `glib-2.0.pc`; guarded preflight stops at missing CMake. Read-only apt simulation
@@ -84,3 +84,7 @@ cannot locate the development packages and reports an unreadable apt configurati
 file. No local apt install, source change or privilege/security workaround was
 performed. The separately provisioned CI job is the full-build verification path;
 its exact commit/job result, not this recipe alone, establishes a passing build.
+
+## Native ARM64 path
+
+Pass `--target aarch64-unknown-linux-gnu` to compile/test and engine-compile/engine-test on a native ARM64 Linux builder. The default remains x86_64. The compiler must report the selected host and the same pinned release/commit; an x86 compiler cannot claim ARM output. All four engine ELF headers must match the selected 64-bit little-endian machine before build success is recorded. The manifest's official archive hashes document the earlier x86 installation only; they are not ARM archive hashes. CI obtains the date-pinned official ARM compiler with rustup and validates its identity. See [current capability and limitations](../docs/arm64-build.md).

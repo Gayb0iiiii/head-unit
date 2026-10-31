@@ -1,0 +1,35 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {CoreSession} from '../src/session.mjs';import {publicView} from '../src/view.mjs';
+import {filterLocationStatus} from '../src/location-status.mjs';
+const stamp=1800000000000;
+function fixture(overrides={}){let mono=0,wall=stamp;const s=new CoreSession(()=>{},()=>mono,()=>wall);s.receive({type:'welcome',protocol:8,rev:1,state:{config:{gpsEnabled:true},telemetry:{gnss:{connected:true,fixQuality:'gps',fixMode:'3d',satellitesUsed:8,satellitesVisible:12,updatedAt:stamp},gps:{lat:-35.02,lng:117.88,fixTs:stamp,...overrides}}}});return {s,view:()=>publicView(s).location,advance:ms=>mono+=ms,wall:value=>wall=value,patch:ops=>s.receive({type:'patch',rev:s.rev+1,ops})};}
+test('fresh native GNSS fix exposes bounded coordinates and observation lifetime',()=>{const {view}=fixture();assert.equal(view().status,'current');assert.equal(view().latitude,-35.02);assert.equal(view().longitude,117.88);assert.equal(view().freshForMs,10000);assert.equal(view().satellitesUsed,8);assert.equal(view().device,undefined);});
+test('stale welcome is not refreshed by receiving a new snapshot',()=>{const {view}=fixture({fixTs:stamp-10001});assert.equal(view().status,'stale');assert.equal(view().latitude,null);});
+test('future, missing and malformed fix times do not establish a current fix',()=>{for(const fixTs of [stamp+1,undefined,null,'1800000000000',Infinity])assert.equal(fixture({fixTs}).view().status,'unavailable');});
+test('unrelated updates and repeated source timestamps do not renew the fix lease',()=>{const f=fixture();f.advance(9000);f.patch([{op:'set',path:['config','huVolume'],value:.4}]);assert.equal(f.view().freshForMs,1000);f.patch([{op:'set',path:['telemetry','gps','fixTs'],value:stamp}]);f.advance(1001);assert.equal(f.view().status,'stale');assert.equal(f.view().latitude,null);});
+test('wall-clock rollback cannot extend a previously observed fix',()=>{const f=fixture();f.wall(stamp-3600000);f.advance(10001);assert.equal(f.view().status,'stale');});
+test('receiver loss, no fix and simulated fixes never retain coordinates',()=>{for(const patch of [{connected:false},{fixQuality:'none'},{fixMode:'none'},{fixQuality:'simulated'},{fixQuality:'manual'},{fixQuality:'estimated'}]){const f=fixture();f.patch(Object.entries(patch).map(([key,value])=>({op:'set',path:['telemetry','gnss',key],value})));assert.notEqual(f.view().status,'current');assert.equal(f.view().latitude,null);}});
+test('invalid coordinate pair is rejected including nonfinite values, with zero coordinates valid',()=>{for(const value of [{lat:91},{lng:-181},{lat:NaN},{lat:'0'},{lng:null}])assert.notEqual(fixture(value).view().status,'current');assert.equal(fixture({lat:0,lng:0}).view().status,'current');});
+test('disabled, missing, resync and disconnect remain distinct and contain no location',()=>{const f=fixture();f.patch([{op:'set',path:['config','gpsEnabled'],value:false}]);assert.equal(f.view().status,'disabled');f.s.receive({type:'patch',rev:999,ops:[]});assert.equal(f.view().status,'disconnected');f.s.close();assert.equal(f.view().latitude,null);const s=new CoreSession(()=>{});s.receive({type:'welcome',protocol:8,rev:1,state:{}});assert.equal(publicView(s).location.status,'unavailable');});
+test('renderer filter drops raw device/error/extra fields and never accepts invalid lifetime',()=>{const raw={...fixture().view(),device:'/dev/private',error:'secret',extra:{},freshForMs:10001};const filtered=filterLocationStatus(raw,true);assert.notEqual(filtered.status,'current');assert.equal(filtered.latitude,null);assert.equal(filtered.device,undefined);assert.equal(filtered.error,undefined);assert.equal(filterLocationStatus(fixture().view(),false).status,'disconnected');});
+test('receiver bytes alone cannot freshen an old positional sample',()=>{const f=fixture();f.advance(11000);f.wall(stamp+11000);f.patch([{op:'set',path:['telemetry','gnss','updatedAt'],value:stamp+11000}]);assert.equal(f.view().status,'stale');});
+test('restored upstream last-known coordinates without live receiver evidence stay unavailable',()=>{
+ const s=new CoreSession(()=>{},()=>0,()=>stamp);s.receive({type:'welcome',protocol:8,rev:1,state:{telemetry:{gps:{lat:12,lng:34,fixTs:stamp}}}});
+ assert.equal(publicView(s).location.status,'unavailable');assert.equal(publicView(s).location.latitude,null);
+});
+
+test('missing receiver sample time means unknown freshness, not a known stale reading',()=>{const f=fixture();f.patch([{op:'remove',path:['telemetry','gnss','updatedAt']}]);assert.equal(f.view().status,'unavailable');assert.equal(f.view().latitude,null);});
+
+for(const phase of ['welcome','patch'])test(`malformed object GNSS timestamps fail closed during ${phase} without losing synchronization`,()=>{
+ for(const [group,key] of [['gnss','updatedAt'],['gps','fixTs']])for(const bad of [{toString:null},{valueOf:null,toString:{}},[ {toString:null} ],{},[],true,'1800000000000']){
+  const f=fixture();
+  if(phase==='welcome'){
+   const state=structuredClone(f.s.state);state.telemetry[group][key]=bad;
+   assert.doesNotThrow(()=>f.s.receive({type:'welcome',protocol:8,rev:2,state}));
+  }else f.patch([{op:'set',path:['telemetry',group,key],value:bad}]);
+  assert.equal(f.s.ready,true);assert.equal(f.s.resyncing,false);
+  assert.equal(f.view().status,'unavailable');assert.equal(f.view().latitude,null);
+  f.patch([{op:'set',path:['telemetry',group,key],value:stamp}]);
+  assert.equal(f.view().status,'current');
+ }
+});

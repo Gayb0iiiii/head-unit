@@ -1,21 +1,31 @@
+import {queryReleaseReadiness} from './release-readiness.mjs';
 const shaPattern=/^[0-9a-f]{40}$/;
 
 /** Keep Cage's supervised child alive while Electron restarts or rolls back. */
-export function createReleaseSupervisor({initial,recovered=false,launch,verifyRelease,saveState,setTimer=setTimeout,clearTimer=clearTimeout,onFatal=()=>{},readinessMs=30000,healthMs=10000}){
+export function createReleaseSupervisor({initial,recovered=false,launch,verifyRelease,saveState,setTimer=setTimeout,clearTimer=clearTimeout,onFatal=()=>{},readinessMs=30000,healthMs=10000,shutdownMs=10000,readinessOptions={}}){
   if(!shaPattern.test(initial?.sha)||typeof initial?.path!=='string'||![launch,verifyRelease,saveState,setTimer,clearTimer,onFatal].every(fn=>typeof fn==='function'))throw TypeError('Invalid release supervisor');
-  let active=initial,current=null,pending=null,failures=0,disposed=false,timer=null,stopTimer=null,queue=Promise.resolve();
+  let active=initial,current=null,pending=null,failures=0,disposed=false,started=false,timer=null,stopTimer=null,queue=Promise.resolve();
   const enqueue=fn=>{queue=queue.then(fn).catch(error=>{if(!disposed)onFatal(error);});return queue;};
   const clearWatch=()=>{if(timer!==null)clearTimer(timer);timer=null;};
   const clearStop=()=>{if(stopTimer!==null)clearTimer(stopTimer);stopTimer=null;};
   const armStop=instance=>{clearStop();stopTimer=setTimer(()=>{if(current===instance&&instance.child.kill('SIGKILL')===false)onFatal(Error('Electron could not stop'));},10000);stopTimer?.unref?.();};
+  const stopOwnedChild=child=>{
+    const deadline=setTimer(()=>child.kill('SIGKILL'),shutdownMs);deadline?.unref?.();
+    child.once('exit',()=>clearTimer(deadline));
+    child.once('error',()=>clearTimer(deadline));
+    if(child.kill('SIGTERM')===false)clearTimer(deadline);
+  };
   const acknowledge=(child,id,accepted)=>{try{child.send?.({kind:'update-ack',id,accepted});}catch{}};
   async function launchRelease(release,mode){
     if(disposed)return;
     const child=await launch(release,mode);
-    const instance={child,release,mode,ready:false};current=instance;
+    if(disposed){stopOwnedChild(child);return;}
+    const instance={child,release,mode,ready:false,readinessStop:new AbortController(),readinessLost:false,query:null};current=instance;
+    const revoke=()=>{instance.readinessLost=true;instance.readinessStop.abort();child.removeListener('disconnect',revoke);};
+    instance.revokeReadiness=revoke;child.on('disconnect',revoke);
     child.on('message',message=>{void enqueue(()=>receive(instance,message));});
-    child.on('exit',code=>{void enqueue(()=>exited(instance,code));});
-    child.on('error',()=>{void enqueue(()=>exited(instance,1));});
+    child.on('exit',code=>{revoke();void enqueue(()=>exited(instance,code));});
+    child.on('error',()=>{revoke();void enqueue(()=>exited(instance,1));});
     timer=setTimer(()=>{if(current===instance&&!instance.ready){if(child.kill('SIGTERM')===false)onFatal(Error('Electron readiness timeout could not stop the child'));else armStop(instance);}},readinessMs);
     timer?.unref?.();
   }
@@ -46,9 +56,11 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     if(!instance.ready||pending||instance.mode==='candidate'||!shaPattern.test(message.sha)||message.sha===active.sha){reject();return;}
     let candidate;
     try{candidate=await verifyRelease(message.sha);}catch{reject();return;}
+    if(disposed||instance!==current)return;
     if(candidate?.sha!==message.sha||typeof candidate.path!=='string'){reject();return;}
     try{await saveState({active:active.sha,pending:candidate.sha,previous:null});}
     catch{reject();return;}
+    if(disposed||instance!==current)return;
     pending={candidate,previous:active};
     if(instance.child.kill('SIGTERM')===false){
       pending=null;
@@ -62,9 +74,10 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     if(disposed||instance!==current)return;
     clearWatch();clearStop();current=null;
     if(pending&&instance.mode!=='candidate'){
-      await launchRelease(pending.candidate,'candidate');return;
+      try{await launchRelease(pending.candidate,'candidate');return;}
+      catch{if(disposed)return;/* Restore the previous UI if candidate launch itself fails. */}
     }
-    if(pending&&instance.mode==='candidate'){
+    if(pending){
       await saveState({active:pending.previous.sha,pending:null,previous:null});
       active=pending.previous;pending=null;failures=0;
       await launchRelease(active,'rollback');return;
@@ -73,8 +86,35 @@ export function createReleaseSupervisor({initial,recovered=false,launch,verifyRe
     await launchRelease(active,'active');
   }
   return {
-    start:()=>enqueue(()=>launchRelease(active,recovered?'rollback':'active')),
+    start:()=>{if(started||disposed)return queue;started=true;return enqueue(()=>launchRelease(active,recovered?'rollback':'active'));},
     idle:()=>queue,
-    dispose(){disposed=true;clearWatch();clearStop();current?.child.kill?.('SIGTERM');current=null;},
+    probeReadiness({signal}={}){
+      const instance=current;
+      const isCurrent=()=>!disposed&&current===instance&&instance?.ready&&!instance.readinessLost&&!pending;
+      if(!isCurrent())return Promise.resolve(null);
+      if(signal?.aborted){instance.query?.stop.abort();return instance.query?.promise??Promise.resolve(null);}
+      if(!instance.query){
+        const query={stop:new AbortController(),signals:new Set(),promise:null};
+        const cancel=()=>query.stop.abort();query.cancel=cancel;
+        instance.query=query;
+        query.promise=queryReleaseReadiness({...readinessOptions,child:instance.child,isCurrent,signal:AbortSignal.any([query.stop.signal,instance.readinessStop.signal])}).then(proof=>{
+          if(!proof||query.stop.signal.aborted||!isCurrent())return null;
+          const bound=instance.readinessBinding;
+          if(bound&&(bound.sessionId!==proof.sessionId||bound.instance!==proof.instance)){instance.revokeReadiness();return null;}
+          instance.readinessBinding??={sessionId:proof.sessionId,instance:proof.instance};
+          return proof;
+        }).finally(()=>{
+          for(const caller of query.signals)caller.removeEventListener('abort',cancel);
+          query.signals.clear();
+          if(instance.query===query)instance.query=null;
+        });
+      }
+      const query=instance.query;
+      if(signal&&!query.signals.has(signal)){
+        query.signals.add(signal);signal.addEventListener('abort',query.cancel,{once:true});
+      }
+      return query.promise;
+    },
+    dispose(){if(disposed)return;disposed=true;clearWatch();clearStop();current?.revokeReadiness();if(current)stopOwnedChild(current.child);current=null;},
   };
 }

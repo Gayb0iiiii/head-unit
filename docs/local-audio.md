@@ -10,7 +10,7 @@ Browse tracks, albums, artists or folders; search title, artist, album and folde
 
 Select a track to replace the queue and play; **+** appends without interrupting playback. Queue supports explicit selection, earlier/later, remove and clear. Favourites, shuffle, repeat off/all/one, previous/next, pause and seeking are supported. Manual Next advances even with repeat-one enabled. At the end of a queue with repeat off, playback stops. A decode/missing-file error stops and invites another track; it does not spin through a broken queue.
 
-Queue, current item, favourites, shuffle/repeat and approximate position persist. Position is checkpointed about every five seconds and on pause. Restart is always paused and loads the current file only after explicit Play. There is no automatic resume after native takeover. Manage/Delete removes only the imported copy, not the source file. Known moving state hides browsing and blocks import/queue/file management. Unknown motion is not treated as a verified parked state; manage music only when safely parked.
+Queue, current item, favourites, shuffle/repeat and approximate position persist. Position is checkpointed about every five seconds and on pause. Restart is always paused and loads the current file only after explicit Play. There is no automatic resume after native takeover. Manage/Delete names the track and asks for confirmation before removing the imported copy; Cancel is focused first. It never deletes the source file. Known moving state hides browsing and blocks import/queue/file management. Unknown motion is not treated as a verified parked state; manage music only when safely parked.
 
 ## Output and source ownership
 
@@ -25,3 +25,17 @@ The target is Orange Pi 5 Plus / Armbian / Electron feeding HELIX DSP PRO MK3. S
 `npm test`, `npm run build`, and `npm run test:electron:fixture` cover the software boundaries. `python3 tests/local-audio-browser.py` (with `npm start`, Python Playwright and `/usr/bin/chromium`) exercises production CSP, real IndexedDB storage, generated stereo WAV decoding/time progress, transport, queue edits, favourites, search/folders, reload-paused persistence, file removal, source-navigation pause and responsive bounds. The bridge is a disconnected fixture; it is not native LIVI. Screenshots use generated test filenames and neutral artwork.
 
 Codec support depends on the installed Electron/Chromium build. WAV decoding was exercised here; MP3/M4A/AAC/FLAC/Ogg/Opus playback, embedded artwork rendering on the Pi, actual USB import, full-disk/power-loss behavior, touch ergonomics, call/navigation mixing, OS output selection and physical HELIX output still need hardware acceptance. No services were changed and no deployment or native engine launch was performed.
+
+### Continuity and repair audit
+
+Paused seeks now save their position immediately. Re-importing a file whose metadata exists but whose stored blob is missing repairs that blob while preserving its queue/favourite identity. Existing complete files still deduplicate. Tests cover both failures before their fixes.
+
+Keep the kiosk application name (`livi-headunit-kiosk`), OS user and Electron user-data directory stable across release changes. Do not remove the Chromium profile or use temporary profiles in the deployed launcher: imported audio, artwork, queue and preferences live there, outside the Git checkout. A backup must be made with Electron stopped and include the complete profile, not just the source repository. No automatic migration from the separate `livi-headunit-shell` development application is implemented; do not merge live Chromium databases. Actual cross-release Electron/Armbian profile acceptance remains required.
+
+`tests/audio-profile-continuity.py` attempts a persistent Chromium profile restart across two local release file paths using the actual store/model. In this managed workspace it is **blocked**, not passed: `file://` navigation returns `ERR_BLOCKED_BY_ADMINISTRATOR`. No policy bypass was attempted. Browser HTTP reload tests continue to pass but do not replace this migration check.
+
+### Artwork workspace
+
+The library and favourites show an artwork grid; queue entries retain their ordered list and move/remove actions. Track cards use embedded cover images and genuine metadata, falling back to a neutral record symbol when no artwork exists. Group browsing also uses available embedded art. Selecting a card retains the existing explicit-play behavior.
+
+Landscape Audio has a top strip for app destinations, an artwork collection, a compact bottom player, and a separate right-side stack for previous/play/next/shuffle/repeat. The stack does not expose volume, equalizer, vehicle or HELIX controls. Library options opens import, search, grouping and Manage; Escape closes this disclosure before leaving the screen. A saved dock-side choice still applies to other screens. Portrait retains bottom navigation and scrolls the library, player and controls above it.

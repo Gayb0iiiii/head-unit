@@ -26,7 +26,7 @@ export class Headunit {
     this.state = {
       screen: 'home', homeMode: 'apps', activePhone: null,
       appearancePreference: 'auto', appearance: resolveAppearance(),
-      vehicleStatus: 'independent', wallpaper: 'coast', dockSide: 'left', demoPlaying: false,
+      vehicleStatus: 'independent', wallpaper: simulation?'coast':'graphite', dockSide: simulation?'left':'right', demoPlaying: false,
       glassStrength: 55, uiScale:100, customWallpaper:null, accent:'sea',wallpaperBrightness:100,wallpaperDim:0,wallpaperBlur:0,debugOverlay:false, appOrder: [...this.orders.apps], dashboardOrder: [...defaultOrders.dashboard],
       editingLayout: false, motionState: 'unknown', persistenceError: false,
       phones: simulation ? [

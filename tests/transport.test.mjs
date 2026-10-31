@@ -175,3 +175,21 @@ test('corrupt frames remain terminal in managed mode instead of reconnecting for
  assert.equal(t.snapshot().status,'error');assert.equal(t.snapshot().managed,false);assert.equal(clock.timers.size,0);clock.tick(100);assert.equal(sockets.length,1);t.stop();
 });
 test('one bounded cancellation frame may drain held touches during backpressure without replay',()=>{const socket=new Socket();socket.write=function(b){this.writes.push(b);return false};const t=new CoreTransport('/tmp/livi-test/core.sock',()=>socket);t.connect();socket.emit('connect');socket.emit('data',encode({type:'welcome',protocol:8,rev:0,state:{}}));const points=[{id:0,x:.1,y:.2,phase:'cancel'}];assert.doesNotThrow(()=>t.session.pointer(points));assert.throws(()=>t.session.pointer(points),/backpressure/);assert.equal(socket.writes.length,2);t.close();});
+
+for(const phase of ['welcome','patch'])test(`malformed GNSS ${phase} preserves managed transport and subsequent reconnect`,()=>{
+ const {transport:t,clock,sockets}=lifecycle();
+ try{
+  t.start();const socket=sockets[0];
+  const telemetry={gnss:{connected:true,updatedAt:{toString:null}}};
+  if(phase==='welcome'){
+   socket.emit('connect');socket.emit('data',encode({...welcome,state:{telemetry}}));
+  }else{
+   synchronize(socket);socket.emit('data',encode({type:'patch',rev:1,ops:[{op:'set',path:['telemetry'],value:telemetry}]}));
+  }
+  assert.equal(t.snapshot().status,'ready');assert.equal(t.snapshot().managed,true);assert.equal(t.error,null);
+  socket.emit('data',encode({type:'patch',rev:t.session.rev+1,ops:[{op:'set',path:['config'],value:{huVolume:.25}}]}));
+  assert.equal(t.session.state.config.huVolume,.25);
+  socket.emit('close');assert.equal(t.snapshot().status,'backoff');clock.tick(5);
+  assert.equal(sockets.length,2);synchronize(sockets[1]);assert.equal(t.snapshot().status,'ready');
+ }finally{t.stop();}
+});

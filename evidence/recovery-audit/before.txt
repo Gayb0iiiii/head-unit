@@ -1,0 +1,95 @@
+✔ import retains playable files, deduplicates and reports unsupported input without autoplay (4.631315ms)
+✔ queue follows explicit order, repeats only when requested, and stops at its end (5.700059ms)
+✔ queue reorder/remove preserve current item and previous restarts after three seconds (1.667302ms)
+✔ saved queue and favourites restore paused without loading media (0.51962ms)
+✔ removing current file stops playback and removes all queue references (0.694039ms)
+✔ seek clamps to real duration and playback errors are actionable (0.922307ms)
+✔ late file load cannot restart after pause or replace a newer selection (0.459832ms)
+✔ shuffle selects a different track and storage failure is visible (0.708781ms)
+✔ saved position restores only after an explicit play and loaded metadata (0.711194ms)
+✔ import waits for initial library restore so existing tracks cannot be lost (5.969359ms)
+✔ native ownership denies playback including a takeover during file loading (0.493392ms)
+✔ a duplicate queued file starts at the beginning when selected (0.401455ms)
+✔ paused seeks save immediately for restart continuity (0.267757ms)
+✔ reimport repairs a missing stored blob without losing favourites or queue (0.468364ms)
+✖ offline restore preserves the selected queue occurrence when earlier files disappear (1.134592ms)
+✖ offline restore does not apply a missing selected tracks position to another file (0.412411ms)
+✔ candidate is activated only after renderer readiness; failed startup rolls back while Cage owner stays (6.534666ms)
+✔ a healthy promoted release can request another update without restarting Cage (2.688506ms)
+✔ healthy candidate commits and becomes active only after matching readiness (0.556044ms)
+✔ candidate exit during the health window restores the previous release (0.744153ms)
+✔ unverified, concurrent, or pre-ready activation is rejected without stopping old UI (0.56654ms)
+✔ candidate readiness timeout rolls back; repeated active failures become fatal (0.990298ms)
+✔ active release that reports ready then exits repeatedly still reaches the failure limit (0.349518ms)
+✔ a stable active release clears transient failures after its health interval (0.342848ms)
+✔ shutdown during asynchronous launch stops the late child instead of orphaning it (1.122514ms)
+✔ shutdown while verification waits cannot persist or activate a candidate (0.924751ms)
+✔ starting twice cannot create competing child owners (0.262349ms)
+✔ real child ignoring graceful shutdown is killed within the shutdown deadline (92.066051ms)
+✖ candidate launch rejection immediately restores the verified previous release (2.526485ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 26
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 178.91277
+
+✖ failing tests:
+
+test at tests/local-audio.test.mjs:95:1
+✖ offline restore preserves the selected queue occurrence when earlier files disappear (1.134592ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/local-audio.test.mjs:99:57)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/local-audio.test.mjs:101:1
+✖ offline restore does not apply a missing selected tracks position to another file (0.412411ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  87 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/local-audio.test.mjs:103:44)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 87,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/release-supervisor.test.mjs:130:1
+✖ candidate launch rejection immediately restores the verified previous release (2.526485ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  -   'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    ]
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-supervisor.test.mjs:136:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' ],
+    expected: [ 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

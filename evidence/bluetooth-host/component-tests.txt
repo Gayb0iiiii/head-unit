@@ -1,0 +1,31 @@
+✔ discovery uses only selected adapter and releases its own session (6.616609ms)
+✔ unknown motion and powered-off adapters cannot start discovery (1.540452ms)
+✔ pairing requires explicit matching numeric confirmation without trusting device (11.031626ms)
+✔ rejected pairing clears prompt and reports bounded error (1.474675ms)
+✔ agent rejects unsolicited device and unsupported authorization (0.821528ms)
+✔ A2DP requests remote source profile only and reports observations, not audible success (1.162703ms)
+✔ no audio ownership or sink evidence means no connection attempt (0.588972ms)
+✔ service loss invalidates pending pairing and stale confirmations (1.446553ms)
+✔ permission errors are classified without raw error or device identifiers (0.657885ms)
+✔ disposal during discovery releases late acquired discovery and prevents resurrection (1.240648ms)
+✔ late discovery after timeout is released rather than becoming active (5.384289ms)
+✔ timed-out audio lease acquisition cannot connect a profile later (4.724199ms)
+✔ pairing service replacement never cancels a new daemon operation (0.73585ms)
+✔ timed-out request blocks overlapping operations until its late cleanup completes (6.165722ms)
+✔ revoked music ownership disconnects only the requested A2DP profile (0.822078ms)
+✔ adapter loss cancels a displayed pairing confirmation (0.659687ms)
+✔ immediate disposal prevents deferred discovery from calling BlueZ (0.277421ms)
+✔ synchronously revoked lease does not connect or disconnect an unrequested profile (0.359803ms)
+✔ timeout registering an agent does not cancel another client pairing operation (6.565764ms)
+✔ failed discovery stop retains owned session and exposes a bounded error (0.929478ms)
+✔ discovery deadline stops only this application discovery session (1.475907ms)
+✔ explicit pairing cancellation clears prompt and cancels only the requested device (1.241579ms)
+✔ revocation waits for an outstanding connect before disconnecting and releasing focus (0.8476ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 141.535491

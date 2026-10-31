@@ -37,27 +37,37 @@ export class LocalAudio {
     for(const event of ['play','pause','loadedmetadata'])media?.addEventListener(event,()=>this.onChange());
     media?.addEventListener('timeupdate',()=>{onProgress();if(Math.abs((media.currentTime||0)-this.position)>=5){this.position=media.currentTime;this.save();}});
     media?.addEventListener('error',()=>{this.pause();this.message='Cannot play this file. Try another track or re-import it.';this.onChange();});
-    this.ready=this.restore();
+    this.restored=false;this.ready=this.restore();
   }
   get current(){return this.tracks.find(t=>t.id===this.queue[this.index]);}
   get playing(){return !!this.media&&!this.media.paused;}
   async restore(){
     try {this.tracks=await this.store.list();const saved=JSON.parse(this.storage?.getItem(preferenceKey)||'{}');
-      this.queue=Array.isArray(saved.queue)?saved.queue.filter(id=>this.tracks.some(t=>t.id===id)).slice(0,2000):[];
-      this.index=this.queue.length?Math.min(Math.max(Number.isInteger(saved.index)?saved.index:0,0),this.queue.length-1):-1;
+      const original=Array.isArray(saved.queue)?saved.queue:[];
+      const selected=Number.isInteger(saved.index)&&saved.index>=0&&saved.index<original.length?saved.index:0;
+      const retained=original.map((id,index)=>({id,index})).filter(row=>this.tracks.some(t=>t.id===row.id)).slice(0,2000);
+      this.queue=retained.map(row=>row.id);
+      const restored=retained.findIndex(row=>row.index===selected);
+      this.index=restored>=0?restored:retained.findIndex(row=>row.index>selected);
+      if(this.index<0&&this.queue.length)this.index=this.queue.length-1;
       this.favourites=new Set(Array.isArray(saved.favourites)?saved.favourites.filter(id=>this.tracks.some(t=>t.id===id)):[]);
-      this.position=Number.isFinite(saved.position)&&saved.position>=0?saved.position:0;
-      this.repeat=['off','one','all'].includes(saved.repeat)?saved.repeat:'off';this.shuffle=saved.shuffle===true;
+      this.position=restored>=0&&Number.isFinite(saved.position)&&saved.position>=0?saved.position:0;
+      if(original.length&&restored<0)this.message='Previously selected file is unavailable. Playback remains paused.';
+      this.repeat=['off','one','all'].includes(saved.repeat)?saved.repeat:'off';this.shuffle=saved.shuffle===true;this.restored=true;
     }catch{this.message='Local storage unavailable. Check available space and restart.';}
     this.onChange();
   }
-  save(){try{this.storage?.setItem(preferenceKey,JSON.stringify({queue:this.queue,index:this.index,favourites:[...this.favourites],repeat:this.repeat,shuffle:this.shuffle,position:this.position}));}catch{this.message='Playback choices could not be saved. Check local storage.';}}
+  save(){if(!this.restored)return;try{this.storage?.setItem(preferenceKey,JSON.stringify({queue:this.queue,index:this.index,favourites:[...this.favourites],repeat:this.repeat,shuffle:this.shuffle,position:this.position}));}catch{this.message='Playback choices could not be saved. Check local storage.';}}
   async importFiles(files){
-    if(this.busy)return;this.busy=true;await this.ready;this.message='Importing files…';this.onChange();let added=0,unsupported=0,duplicates=0;
-    try{for(const file of files){const track=describeFile(file);if(!track){unsupported++;continue;}if(this.tracks.some(t=>t.id===track.id)){duplicates++;continue;}
+    if(this.busy)return;this.busy=true;await this.ready;this.message='Importing files…';this.onChange();let added=0,unsupported=0,duplicates=0,repaired=0;
+    try{for(const file of files){const track=describeFile(file);if(!track){unsupported++;continue;}if(this.tracks.some(t=>t.id===track.id)){
+        const stored=await this.store.get(track.id);
+        if(stored?.blob){duplicates++;continue;}
+        const existing=this.tracks.find(t=>t.id===track.id);await this.store.put({...existing,blob:file});repaired++;continue;
+      }
       if(this.tracks.length>=2000)throw Error('Library limit');
       const metadata=await readAudioMetadata(file);const tagged={...track,...metadata};await this.store.put({...tagged,blob:file});this.tracks.push(tagged);added++;
-    }this.message=`${added} imported · ${duplicates} already in library · ${unsupported} unsupported or oversized`;
+    }this.message=`${added} imported · ${duplicates} already in library · ${unsupported} unsupported or oversized${repaired?` · ${repaired} repaired`:``}`;
     }catch{this.message=`${added} imported. Import stopped: check local storage (2,000 track limit).`;}
     this.busy=false;this.onChange();
   }
@@ -89,7 +99,7 @@ export class LocalAudio {
     await this.select(next);
   }
   async previous(){if(this.media?.currentTime>3){this.seek(0);return;}await this.select(Math.max(0,this.index-1));}
-  seek(value){if(this.media&&Number.isFinite(this.media.duration)&&Number.isFinite(value))this.media.currentTime=Math.max(0,Math.min(value,this.media.duration));}
+  seek(value){if(this.media&&Number.isFinite(this.media.duration)&&Number.isFinite(value)){this.media.currentTime=Math.max(0,Math.min(value,this.media.duration));this.position=this.media.currentTime;this.save();}}
   move(index,step){const target=index+step;if(!Number.isInteger(index)||![-1,1].includes(step)||target<0||target>=this.queue.length)return;
     [this.queue[index],this.queue[target]]=[this.queue[target],this.queue[index]];
     if(this.index===index)this.index=target;else if(this.index===target)this.index=index;this.save();this.onChange();}
@@ -99,7 +109,9 @@ export class LocalAudio {
   clearQueue(){this.pause();this.release();this.queue=[];this.index=-1;this.position=0;this.save();this.onChange();}
   favourite(id){if(this.favourites.has(id))this.favourites.delete(id);else this.favourites.add(id);this.save();this.onChange();}
   async removeTrack(id){try{await this.store.remove(id);if(this.current?.id===id){this.pause();this.release();this.position=0;}
-    const current=this.current?.id;this.tracks=this.tracks.filter(t=>t.id!==id);this.queue=this.queue.filter(item=>item!==id);this.index=this.queue.indexOf(current);if(this.index<0&&this.queue.length)this.index=0;
+    const selected=this.current?.id,removedBefore=this.queue.slice(0,this.index).filter(item=>item===id).length;
+    this.tracks=this.tracks.filter(t=>t.id!==id);this.queue=this.queue.filter(item=>item!==id);
+    this.index=this.queue.length?(selected===id?0:this.index-removedBefore):-1;
     this.favourites.delete(id);this.save();this.onChange();
   }catch{this.message='Could not remove file. Check local storage.';this.onChange();}}
 }

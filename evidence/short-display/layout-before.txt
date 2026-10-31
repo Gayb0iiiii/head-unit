@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/ui-audio-artwork.py", line 50, in <module>
+    assert abs(cover['width']-cover['height'])<2,('cropped cover',cover)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('cropped cover', {'x': 31, 'y': 207, 'width': 122, 'height': 100})

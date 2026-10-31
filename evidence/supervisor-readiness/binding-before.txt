@@ -1,0 +1,45 @@
+✔ supervisor composes owned IPC with session correlation and preserves original probe time (3.702478ms)
+✔ late correlation cannot freshen expired evidence or accept session reassignment (3.853182ms)
+✔ exit revokes pending supervisor readiness and cleans probe listeners (0.975086ms)
+✔ disconnect revokes pending supervisor readiness and cleans probe listeners (0.577846ms)
+✔ dispose revokes pending supervisor readiness and cleans probe listeners (3.929115ms)
+✔ replacement child cannot inherit late old-child correlation (0.744804ms)
+✔ query timeout and cancellation do not change release state or stop the child (54.371274ms)
+✔ activation invalidates in-flight query without changing update acknowledgement (1.304113ms)
+✔ disposal while creating a probe cleans the late handle without probing it (0.665807ms)
+✔ readiness queries coalesce only while pending and re-probe after completion (0.995395ms)
+✖ a changed session-leader binding permanently revokes readiness for that child (1.890242ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 151.157464
+
+✖ failing tests:
+
+test at tests/release-readiness.test.mjs:50:1
+✖ a changed session-leader binding permanently revokes readiness for that child (1.890242ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   instance: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+  +   observedAt: 100,
+  +   ready: true,
+  +   sessionId: 's2'
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/release-readiness.test.mjs:52:100)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { sessionId: 's2', instance: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', ready: true, observedAt: 100 },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

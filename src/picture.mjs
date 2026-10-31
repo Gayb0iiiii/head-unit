@@ -1,3 +1,7 @@
+// Protocol 8 session presence is not evidence of decoded frames or audible output.
+export function hasProjectionSession(session){
+  return session?.ready===true&&['carplay','androidauto'].includes(session.state?.sessions?.active);
+}
 // Configured projection geometry, not a live-frame size or calibrated input rectangle.
 const own=(value,key)=>value&&typeof value==='object'?Object.getOwnPropertyDescriptor(value,key)?.value:undefined;
 const integer=(value,min,max)=>Number.isInteger(value)&&value>=min&&value<=max;
@@ -10,14 +14,26 @@ export function filterPicture(value,connected,front) {
   return {width,height,insets:valid?{top,bottom,left,right}:null};
 }
 export function configuredPicture(session) {
-  if(session?.ready!==true||session.state?.front?.main!=='projection'||!['carplay','androidauto'].includes(session.state?.sessions?.active))return null;
+  if(!hasProjectionSession(session)||session.state?.front?.main!=='projection')return null;
   const config=session.state.config;
   return filterPicture({width:own(config,'projectionWidth'),height:own(config,'projectionHeight'),insets:{top:own(config,'projectionViewAreaTop'),bottom:own(config,'projectionViewAreaBottom'),left:own(config,'projectionViewAreaLeft'),right:own(config,'projectionViewAreaRight')}},true,'projection');
 }
 export function pictureMarkup(value) {
   const picture=filterPicture(value,true,'projection');
   if(!picture)return '<div class="native-projection-region"><p class="native-picture-notice" role="status">Phone display size unavailable</p></div>';
+  const masks=picture.insets?['top','bottom','left','right'].map(side=>`<div class="native-picture-mask ${side}"></div>`).join(''):'';
+  return `<div class="native-projection-region" aria-label="Phone display area"><div class="native-picture">${masks}</div></div>`;
+}
+// Setting individual style properties is permitted by style-src 'self'; HTML
+// style attributes are blocked. Keep the same validated contain/mask geometry.
+export function applyPictureGeometry(root,value){
+  const picture=filterPicture(value,true,'projection');
+  const element=root.querySelector?.('.native-picture');if(!picture||!element)return;
   const {width,height,insets}=picture;
-  const masks=insets?`<div class="native-picture-mask top" style="height:${insets.top/height*100}%"></div><div class="native-picture-mask bottom" style="height:${insets.bottom/height*100}%"></div><div class="native-picture-mask left" style="width:${insets.left/width*100}%"></div><div class="native-picture-mask right" style="width:${insets.right/width*100}%"></div>`:'';
-  return `<div class="native-projection-region" aria-label="Phone display area"><div class="native-picture" style="width:min(100cqw, calc(100cqh * ${width} / ${height}));height:min(100cqh, calc(100cqw * ${height} / ${width}))">${masks}</div></div>`;
+  element.style.width=`min(100cqw, calc(100cqh * ${width} / ${height}))`;
+  element.style.height=`min(100cqh, calc(100cqw * ${height} / ${width}))`;
+  if(insets)for(const side of ['top','bottom','left','right']){
+    const mask=root.querySelector(`.native-picture-mask.${side}`);if(!mask)continue;
+    const vertical=['top','bottom'].includes(side);mask.style[vertical?'height':'width']=`${insets[side]/(vertical?height:width)*100}%`;
+  }
 }

@@ -19,3 +19,13 @@ test('library groups embedded albums/artists and keeps untagged files honest',()
  assert.match(renderLocalAudio(a,{group:'album'}),/Drives/);assert.match(renderLocalAudio(a,{group:'folder'}),/USB/);
  assert.doesNotMatch(renderLocalAudio(a,{group:'artist',groupValue:'Asher'}),/>Other</);
 });
+test('library deletion requires a named second action and cancel leaves the file intact',async()=>{
+ const {bindLocalAudio}=await import('../src/local-audio-view.mjs');
+ const buttons=['delete','confirm-delete','cancel-delete'].map(local=>({dataset:{local,id:'a'}}));
+ const root={querySelectorAll:selector=>selector==='[data-local]'?buttons:[],querySelector:()=>null};
+ const deleted=[],view={};const player={...audio,removeTrack:id=>deleted.push(id)};
+ bindLocalAudio(root,player,view,()=>{},()=>false);
+ buttons[0].onclick();assert.deepEqual(deleted,[]);assert.equal(view.pendingDelete,'a');
+ buttons[2].onclick();assert.deepEqual(deleted,[]);assert.equal(view.pendingDelete,null);
+ buttons[0].onclick();buttons[1].onclick();assert.deepEqual(deleted,['a']);
+});

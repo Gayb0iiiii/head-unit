@@ -1,0 +1,41 @@
+✔ clean first boot uses source build; pending activation reboots into known working release (27.432999ms)
+✔ candidate needs a real same-hash worktree and built production file (11.804783ms)
+✔ release symlink and malformed manifest fail closed (5.396171ms)
+✔ valid staged active release boots even when source build is absent (7.327285ms)
+✔ missing recorded release does not silently reset an existing manifest (5.328901ms)
+✔ unavailable active release recovers only to the recorded verified previous commit (6.342574ms)
+✔ a wrong-hash previous release cannot be promoted by recovery (7.751437ms)
+✔ verified staged previous release survives source git-error (7.760266ms)
+✔ verified staged previous release survives source invalid-sha (9.206931ms)
+✔ verified staged previous release survives source directory-build (5.758568ms)
+✔ verified staged previous release survives source symlink-build (7.976226ms)
+✔ source failure never hides invalid previous build or rewrites its manifest (7.499459ms)
+✔ fallback state persistence failure is propagated instead of returning recovered success (4.581664ms)
+✔ real git verification recovers a staged previous commit when source is not a repository (28.41543ms)
+✔ untrusted manifest and first-boot source failures remain fatal without inventing state (2.756076ms)
+✔ a staged dist symlink cannot supply a previous-release build from outside the release (4.594166ms)
+✔ source dist symlink is rejected on first boot without creating a manifest (2.352448ms)
+✔ even an in-release dist symlink is rejected and a real directory remains valid (3.426991ms)
+✔ replacement of releases ancestor after store creation is rejected (2.96052ms)
+✔ build-path substitution during Git verification cannot be accepted (4.965922ms)
+✔ candidate is activated only after renderer readiness; failed startup rolls back while Cage owner stays (12.064558ms)
+✔ a healthy promoted release can request another update without restarting Cage (2.618473ms)
+✔ healthy candidate commits and becomes active only after matching readiness (0.76883ms)
+✔ candidate exit during the health window restores the previous release (0.891582ms)
+✔ unverified, concurrent, or pre-ready activation is rejected without stopping old UI (0.654991ms)
+✔ candidate readiness timeout rolls back; repeated active failures become fatal (1.110627ms)
+✔ active release that reports ready then exits repeatedly still reaches the failure limit (0.301988ms)
+✔ a stable active release clears transient failures after its health interval (0.264442ms)
+✔ shutdown during asynchronous launch stops the late child instead of orphaning it (1.518401ms)
+✔ shutdown while verification waits cannot persist or activate a candidate (0.887817ms)
+✔ starting twice cannot create competing child owners (0.288948ms)
+✔ real child ignoring graceful shutdown is killed within the shutdown deadline (92.843937ms)
+✔ candidate launch rejection immediately restores the verified previous release (1.374628ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 221.772656

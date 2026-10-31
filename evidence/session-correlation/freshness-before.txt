@@ -1,0 +1,61 @@
+✔ only matching current challenge and exact schema produce fresh identity-bound readiness (5.31916ms)
+✔ PID reuse and foreign parent never acquire readiness (0.800279ms)
+✔ timeout disconnect disposal and abort remove listeners and never cache a previous ready (21.076753ms)
+✔ responder reports only host-supplied readiness and removes handlers on disposal (0.879907ms)
+✔ real owned Node child exchanges readiness over inherited IPC without a public socket (42.882928ms)
+✔ previous valid response cannot satisfy a new challenge and child identity cannot assert another session (0.925245ms)
+✔ send failure, hung identity provider and concurrent probes are bounded (20.27025ms)
+✖ identity validation delay cannot freshen a readiness reply beyond the coordinator lifetime (2.399194ms)
+✖ accepted readiness retains probe-start time instead of post-validation time (1.702328ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 7
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 165.355485
+
+✖ failing tests:
+
+test at tests/boot-readiness.test.mjs:41:1
+✖ identity validation delay cannot freshen a readiness reply beyond the coordinator lifetime (2.399194ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   instance: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +   observedAt: 2201,
+  +   pid: 55,
+  +   ready: true,
+  +   sessionId: 's1'
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-readiness.test.mjs:44:37)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pid: 55, sessionId: 's1', instance: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ready: true, observedAt: 2201 },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/boot-readiness.test.mjs:46:1
+✖ accepted readiness retains probe-start time instead of post-validation time (1.702328ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  500 !== 100
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/boot-readiness.test.mjs:48:165)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 100,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

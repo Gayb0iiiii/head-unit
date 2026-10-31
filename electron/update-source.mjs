@@ -4,7 +4,8 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 
 const origin='https://github.com/Gayb0iiiii/head-unit.git';
-const branch='feat/orangepi-system-ui';
+const defaultBranch='feat/orangepi-system-ui';
+const validBranch=value=>typeof value==='string'&&/^[a-zA-Z0-9][a-zA-Z0-9_/-]{0,119}$/.test(value)&&!value.includes('//')&&!value.endsWith('/')&&value!=='HEAD';
 const shaPattern=/^[0-9a-f]{40}$/;
 
 /** Isolate each unprivileged Git/build command so cancellation stops its descendants too. */
@@ -32,7 +33,8 @@ export function runUpdateCommand(file,args,{cwd,timeoutMs=120000,signal}={}){
 }
 
 /** Prepare a reviewable release. This never activates it or restarts the UI. */
-export async function prepareHeadunitUpdate({sourceRoot,releasesRoot,activeSha,activeRoot=sourceRoot,run=runUpdateCommand,signal}){
+export async function prepareHeadunitUpdate({sourceRoot,releasesRoot,activeSha,activeRoot=sourceRoot,run=runUpdateCommand,signal,branch=defaultBranch}){
+  if(!validBranch(branch))throw TypeError('Invalid update branch');
   if(![sourceRoot,releasesRoot,activeRoot].every(value=>typeof value==='string'&&path.isAbsolute(value))||!shaPattern.test(activeSha)||typeof run!=='function')throw TypeError('Invalid update configuration');
   const [sourcePath,releasesPath,activePath]=await Promise.all([realpath(sourceRoot),realpath(releasesRoot),realpath(activeRoot)]);
   if((await lstat(releasesRoot)).isSymbolicLink()||sourcePath===releasesPath||activePath!==sourcePath&&!activePath.startsWith(`${releasesPath}${path.sep}`))throw Error('Update paths unavailable');

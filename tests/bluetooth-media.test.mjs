@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {bluetoothMetadata} from '../electron/bluetooth-media.mjs';
+test('metadata keeps unknown values unknown and rejects end-position sentinel',()=>{const m=bluetoothMetadata({Status:'invented',Position:0xffffffff,Track:{Title:'x'.repeat(1000),Artist:42,Duration:-1,Artwork:'not exported'}});assert.equal(m.status,'unknown');assert.equal(m.positionMs,null);assert.equal(m.durationMs,null);assert.equal(m.artist,null);assert.equal(m.title.length,256);assert.equal('Artwork' in m,false);});

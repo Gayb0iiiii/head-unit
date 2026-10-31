@@ -264,7 +264,7 @@ test('curated landscape, pastel, solid and gradient wallpapers persist without a
  assert.throws(()=>h.wallpaper('https://example.com/image.jpg'));
  assert.throws(()=>h.wallpaper('__proto__'));
  storage.setItem('headunit.appearance',JSON.stringify({wallpaper:'../../secret'}));
- assert.equal(new Headunit(storage,{simulation:false}).state.wallpaper,'coast');
+ assert.equal(new Headunit(storage,{simulation:false}).state.wallpaper,'graphite');
 });
 
 test('wallpaper tuning and accent are bounded, persistent and reset without deleting the selected wallpaper',()=>{
@@ -322,4 +322,10 @@ test('appearance handles corrupt storage, failed writes and moving edit lock',()
  assert.equal(h.state.persistenceError,true);assert.equal(h.state.appearance.mode,'day');
  h.setMotionState('moving');assert.equal(h.setAppearancePreference('night'),false);
  assert.equal(h.state.appearancePreference,'day');
+});
+test('production starts with graphite and driver-side dock, preserving saved choices',()=>{
+ const storage=memoryStorage();const fresh=new Headunit(storage,{simulation:false});
+ assert.equal(fresh.state.wallpaper,'graphite');assert.equal(fresh.state.dockSide,'right');
+ fresh.wallpaper('dusk');fresh.setDockSide('left');
+ const restored=new Headunit(storage,{simulation:false});assert.equal(restored.state.wallpaper,'dusk');assert.equal(restored.state.dockSide,'left');
 });

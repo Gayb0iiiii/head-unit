@@ -1,0 +1,5 @@
+
+> livi-headunit-integration-prototype@0.1.0 build
+> node scripts/build.mjs
+
+Built production renderer and separate offline development preview; syntax checked adapter modules. No dependency install required.

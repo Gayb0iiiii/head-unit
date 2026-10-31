@@ -1,0 +1,80 @@
+✔ explicit navigation persists while native projection and camera restore prior route (5.12883ms)
+✔ Home requests native home without disconnecting phone and waits for authority (0.979572ms)
+✔ camera override cannot be dismissed by normal navigation (0.315087ms)
+✔ touch cancels on hide; stale touches are not replayed after reconnect (0.374865ms)
+✔ startup remembers settings; unavailable projection falls back without auto pairing (0.211063ms)
+✔ invalid intents cannot reach native commands or persistence (0.385341ms)
+✔ chosen phone is persisted only after native active status, not action reply (0.224993ms)
+✔ return prioritizes saved phone once and resumes only previously playing media (0.213316ms)
+✔ deliberate pause disarms auto-resume and recovery never steals another active phone (0.316699ms)
+✔ a deliberate phone-side pause in an established session never triggers resume (4.473859ms)
+✔ dashboard is an explicit restorable home function (0.207727ms)
+✔ phone absence and return resumes once without requiring a core disconnect (0.273815ms)
+✔ resync does not rearm playback recovery for a phone that never left (0.158795ms)
+✔ authoritative route transitions report current path without changing saved preference (0.137133ms)
+✔ multitouch reports all held contacts alongside immediate edges (0.267766ms)
+✔ multitouch contact order stays stable when an earlier finger moves or lifts (0.337741ms)
+✔ a newly available wired second phone waits for manual selection (0.284552ms)
+✔ explicit selection wakes a remembered offline phone without claiming it is active (0.223231ms)
+✔ startup camera overlay does not consume saved projection restoration (0.169031ms)
+✔ unchanged native updates do not rewrite preferences (0.223101ms)
+✔ failed path reports do not hide views or mark stale routing as synchronized (0.163953ms)
+✔ unavailable projection immediately reports the phone-selection fallback (0.12122ms)
+✔ projection dropout returns Home with a nonblocking notice and respects subsequent manual navigation (0.127409ms)
+✔ a dropout racing an intentional exit from projection does not replace the selected screen (0.09434ms)
+✔ new projection intent supersedes a pending exit with one fresh show command (0.124704ms)
+✖ unknown session values cannot advertise or request projection (0.843329ms)
+✔ known projection sessions require a synchronized core connection (0.208839ms)
+✖ saved projection waits for a recognized session before restoration (0.221658ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 26
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 101.986487
+
+✖ failing tests:
+
+test at tests/controller.test.mjs:46:1
+✖ unknown session values cannot advertise or request projection (0.843329ms)
+  AssertionError [ERR_ASSERTION]: "cp"
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/controller.test.mjs:49:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/controller.test.mjs:62:1
+✖ saved projection waits for a recognized session before restoration (0.221658ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///workspace/head-unit/tests/controller.test.mjs:65:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

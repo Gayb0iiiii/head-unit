@@ -7,29 +7,31 @@ const hex=value=>value.match(/[\da-f]{2}/gi).map(part=>parseInt(part,16));
 const luminance=color=>color.map(v=>{const x=v/255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;}).reduce((sum,x,i)=>sum+x*[.2126,.7152,.0722][i],0);
 const ratio=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
 const blend=(foreground,alpha,background)=>foreground.map((v,i)=>v*alpha+background[i]*(1-alpha));
-const surface=name=>{const match=new RegExp(`--${name}:rgb\\((\\d+) (\\d+) (\\d+) / \\.(\\d+)\\)`).exec(css);assert.ok(match,`missing ${name}`);return {color:match.slice(1,4).map(Number),alpha:Number(`0.${match[4]}`)};};
-test('production content contrast stays above 4.5:1 against black, white, and busy wallpaper colors',()=>{
- const busy=[[0,0,0],[255,255,255],[255,225,60],[20,160,230],[220,40,105]];
- for(const [mode,name,primary,secondary] of [
-   ['night','production-panel-dark','#f3f7fc','#d5e6ee'],
-   ['day','production-panel-day','#142b41','#38556b']]){
-   const {color,alpha}=surface(name);
-   for(const background of busy){const panel=blend(color,alpha,background);
-     for(const [label,text] of [['primary',primary],['secondary',secondary]]){
-       const measured=ratio(hex(text),panel);
-       assert.ok(measured>=4.5,`${mode} ${label} on ${background}: ${measured.toFixed(2)}:1`);
-     }
+// Token-level proof complements ui-comfort.py, which checks the resolved cascade.
+const palettes=[...css.matchAll(/--surface-rgb:([\d ]+);--surface-alpha:calc\((\.[\d]+) \+ var\(--glass-tint,\.[\d]+\) \* (\.[\d]+)\);([\s\S]*?)--surface-border:/g)].map(match=>({
+ color:match[1].trim().split(' ').map(Number),offset:Number(match[2]),factor:Number(match[3]),
+ token:name=>{const value=new RegExp(`--${name}:(#[a-f0-9]{6})`).exec(match[4]);assert.ok(value,`missing ${name}`);return hex(value[1]);}
+}));
+test('glass palette text meets 4.5:1 across every saved strength and extreme wallpapers',()=>{
+ assert.equal(palettes.length,2);
+ for(const palette of palettes)for(let strength=0;strength<=100;strength++){
+  const alpha=palette.offset+(.18+strength*.0044)*palette.factor;
+  for(const background of [[0,0,0],[255,255,255],[255,225,60],[20,160,230],[220,40,105]]){
+   const base=blend(palette.color,alpha,background);
+   const sheenRgb=css.match(/--glass-sheen-rgb:([\d ]+)/)[1].split(' ').map(Number);
+   const sheenAlpha=Number(css.match(/--glass-sheen-alpha:(\.[\d]+)/)[1]);
+   for(const sheen of [0,sheenAlpha]){
+   const panel=blend(sheenRgb,sheen,base);
+   for(const name of ['text-primary','text-secondary'])assert.ok(ratio(palette.token(name),panel)>=4.5,`${name}, strength ${strength}, wallpaper ${background}`);
+   assert.ok(ratio(palette.token('focus-ring'),panel)>=3,'Focus ring must remain visible');
    }
+  }
  }
- assert.ok(ratio(hex('#d5e6ee'),hex('#091827'))>=4.5);
- assert.ok(ratio(hex('#38556b'),hex('#edf5f8'))>=4.5);
 });
-test('production navigation rail and offline status keep contrast on extreme wallpapers',()=>{
- for(const [name,text] of [['production-rail-dark','#f3f7fc'],['production-rail-day','#142b41'],['production-status-dark','#d5e6ee']]){
-   const {color,alpha}=surface(name);
-   for(const background of [[0,0,0],[255,255,255]]){
-     const measured=ratio(hex(text),blend(color,alpha,background));
-     assert.ok(measured>=4.5,`${name} on ${background}: ${measured.toFixed(2)}:1`);
-   }
+test('selected and ordinary controls retain readable text without white backgrounds',()=>{
+ for(const palette of palettes){
+  assert.ok(ratio(palette.token('selected-text'),palette.token('selected-background'))>=4.5);
+  assert.ok(ratio(palette.token('text-primary'),palette.token('control-background'))>=4.5);
+  assert.ok(Math.max(...palette.color)<=220);
  }
 });
