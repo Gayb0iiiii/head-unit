@@ -17,9 +17,14 @@ test('glass palette text meets 4.5:1 across every saved strength and extreme wal
  for(const palette of palettes)for(let strength=0;strength<=100;strength++){
   const alpha=palette.offset+(.18+strength*.0044)*palette.factor;
   for(const background of [[0,0,0],[255,255,255],[255,225,60],[20,160,230],[220,40,105]]){
-   const panel=blend(palette.color,alpha,background);
+   const base=blend(palette.color,alpha,background);
+   const sheenRgb=css.match(/--glass-sheen-rgb:([\d ]+)/)[1].split(' ').map(Number);
+   const sheenAlpha=Number(css.match(/--glass-sheen-alpha:(\.[\d]+)/)[1]);
+   for(const sheen of [0,sheenAlpha]){
+   const panel=blend(sheenRgb,sheen,base);
    for(const name of ['text-primary','text-secondary'])assert.ok(ratio(palette.token(name),panel)>=4.5,`${name}, strength ${strength}, wallpaper ${background}`);
    assert.ok(ratio(palette.token('focus-ring'),panel)>=3,'Focus ring must remain visible');
+   }
   }
  }
 });

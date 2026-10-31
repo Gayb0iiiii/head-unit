@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/graphite-material-browser.py", line 24, in <module>
+    assert upper-lower>=5,(mode,'default graphite glass needs visible surface lighting',upper,lower)
+           ^^^^^^^^^^^^^^
+AssertionError: ('day', 'default graphite glass needs visible surface lighting', 24.0, 21.333333333333332)

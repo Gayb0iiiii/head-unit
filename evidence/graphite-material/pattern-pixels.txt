@@ -1,0 +1,2 @@
+PASS day: broad pattern SD 7.24; reduced SD 0.00; fine blur SD 1.39 vs no blur 9.33
+PASS night: broad pattern SD 8.39; reduced SD 0.00; fine blur SD 1.29 vs no blur 10.79

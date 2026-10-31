@@ -607,14 +607,14 @@ body[data-appearance=day] .local-audio{color:var(--text-primary)}body[data-appea
 /* Drive comfort tokens: lifted graphite by day, near-black at night. The stored glass
    tint controls ALL surface alpha; foreground opacity is never reduced. */
 body{
- --surface-rgb:12 17 20;--surface-alpha:calc(.70 + var(--glass-tint,.422) * .08);
+ --surface-rgb:12 17 20;--surface-alpha:calc(.72 + var(--glass-tint,.422) * .08);
  --surface-paint:rgb(var(--surface-rgb) / var(--surface-alpha));
  --text-primary:#d3dfe1;--text-secondary:#c1cdd1;--control-background:#253238;
  --selected-background:#163b44;--selected-text:#a6dce4;--focus-ring:#94c1ce;
  --surface-border:rgb(180 208 218 / .32);color:var(--text-primary);background:#080d10;
 }
 body[data-appearance=day]{
- --surface-rgb:18 24 28;--surface-alpha:calc(.735 + var(--glass-tint,.422) * .08);
+ --surface-rgb:18 24 28;--surface-alpha:calc(.75 + var(--glass-tint,.422) * .08);
  --surface-paint:rgb(var(--surface-rgb) / var(--surface-alpha));
  --text-primary:#d8e0e1;--text-secondary:#bdcbce;--control-background:#2c3c42;
  --selected-background:#19434d;--selected-text:#b3e5ec;--focus-ring:#94c1ce;
@@ -946,3 +946,21 @@ html[data-mode=production] body #app>main{min-height:calc(100dvh - 98px);padding
 /* Keep physical navigation targets usable at the supported 90–115% scale. */
 html[data-mode=production] body #app>aside.app-bar{height:max(64px,calc(64px * var(--ui-scale-inverse,1)));min-height:max(64px,calc(64px * var(--ui-scale-inverse,1)))}
 html[data-mode=production] body #app .dock-button{height:max(48px,calc(48px * var(--ui-scale-inverse,1)));min-height:max(48px,calc(48px * var(--ui-scale-inverse,1)))}
+
+/* Material lighting belongs to the glass, not the wallpaper. A muted slate
+   reflection gives dark-on-dark glass depth without white glare or extra panels. */
+body{--glass-sheen-rgb:70 100 110;--glass-sheen-alpha:.28}
+html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.panel,.wallpaper-controls){
+ background-image:linear-gradient(160deg,rgb(var(--glass-sheen-rgb) / var(--glass-sheen-alpha)),rgb(var(--glass-sheen-rgb) / .08) 48%,transparent 85%);
+ border-color:rgb(174 207 216 / .28);
+ box-shadow:inset 0 1px 0 rgb(207 233 239 / .35),inset 1px 0 0 rgb(170 205 216 / .10),inset 0 -1px 0 rgb(0 0 0 / .25),0 8px 22px rgb(0 0 0 / .22);
+}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more),(forced-colors:active){
+ html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.panel,.wallpaper-controls){background-image:none;box-shadow:none}
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+ html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.panel,.wallpaper-controls){background-image:none;box-shadow:none}
+}
+@media(forced-colors:active){
+ html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.panel,.wallpaper-controls){border-color:CanvasText}
+}
