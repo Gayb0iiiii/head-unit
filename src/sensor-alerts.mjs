@@ -19,7 +19,7 @@ function identifier(value, field) {
 
 function duration(value, field, minimum, maximum) {
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
-    throw new RangeError(`${field} must be an integer from ${minimum} to ${maximum} milliseconds`);
+    throw new RangeError(`${field} must be a whole number from ${minimum} to ${maximum} milliseconds`);
   }
   return value;
 }
@@ -33,18 +33,18 @@ export function validateSensorRule(input) {
   const sensor = identifier(input.sensor, 'sensor');
   const label = input.label === undefined ? sensor : input.label;
   if (typeof label !== 'string' || !label.trim() || label.trim().length > 80 || /[<>\u0000-\u001f\u007f]/.test(label)) {
-    throw new TypeError('label must be 1–80 characters of plain text');
+    throw new TypeError('Rule name must be 1–80 characters without special markup');
   }
   if (!conditions.has(input.condition)) throw new TypeError('Unknown sensor condition');
   const hysteresis = input.hysteresis ?? 0;
-  if (!finite(hysteresis) || hysteresis < 0) throw new RangeError('hysteresis must be finite and nonnegative');
+  if (!finite(hysteresis) || hysteresis < 0) throw new RangeError('Enter a valid reset margin of zero or greater');
   if (numericConditions.has(input.condition)) {
-    if (!finite(input.threshold)) throw new TypeError('Numeric rules require a finite threshold');
+    if (!finite(input.threshold)) throw new TypeError('Enter a valid threshold');
     if (!finite(input.threshold - hysteresis) || !finite(input.threshold + hysteresis)) {
-      throw new RangeError('Threshold and hysteresis overflow');
+      throw new RangeError('Threshold and reset margin are too large');
     }
   } else if (Object.hasOwn(input, 'threshold') || hysteresis !== 0) {
-    throw new TypeError('Missing and stale rules cannot have a numeric threshold or hysteresis');
+    throw new TypeError('Missing or stale reading rules do not use a threshold or reset margin');
   }
   const enabled = input.enabled ?? true;
   const audio = input.audio ?? false;
@@ -55,9 +55,9 @@ export function validateSensorRule(input) {
     id, sensor, label: label.trim(), condition: input.condition,
     ...(numericConditions.has(input.condition) ? { threshold: input.threshold } : {}),
     hysteresis,
-    debounceMs: duration(input.debounceMs ?? 1000, 'debounceMs', 0, 600000),
-    staleAfterMs: duration(input.staleAfterMs ?? 5000, 'staleAfterMs', 1, 86400000),
-    repeatMs: duration(input.repeatMs ?? 60000, 'repeatMs', 1000, 86400000),
+    debounceMs: duration(input.debounceMs ?? 1000, 'Alert delay', 0, 600000),
+    staleAfterMs: duration(input.staleAfterMs ?? 5000, 'Reading expiry', 1, 86400000),
+    repeatMs: duration(input.repeatMs ?? 60000, 'Repeat interval', 1000, 86400000),
     enabled, audio, repeat
   };
 }

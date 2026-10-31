@@ -230,3 +230,29 @@ test('dock side rejects invalid saved or requested values and obeys motion/stora
  h.setMotionState('moving');assert.equal(h.setDockSide('right'),false);assert.equal(h.state.dockSide,'left');
  const session=new Headunit();session.setDockSide('right');assert.equal(session.state.dockSide,'right');assert.equal(session.state.persistenceError,true);
 });
+
+test('appearance override persists and auto retains the last mode without inventing headlights',()=>{
+ const storage=memoryStorage(),h=new Headunit(storage);
+ assert.deepEqual(h.state.appearance,{mode:'night',source:'fallback',signalAvailable:false});
+ h.setAppearancePreference('day');h.setAppearancePreference('auto');
+ const restored=new Headunit(storage);
+ assert.equal(restored.state.appearancePreference,'auto');
+ assert.deepEqual(restored.state.appearance,{mode:'day',source:'fallback',signalAvailable:false});
+ assert.equal(restored.state.activePhone,null);
+});
+test('verified appearance signal is ephemeral and manual override wins',()=>{
+ const storage=memoryStorage(),h=new Headunit(storage);
+ h.updateHeadlights(false);assert.equal(h.state.appearance.mode,'day');
+ h.setAppearancePreference('night');h.updateHeadlights(false);assert.equal(h.state.appearance.mode,'night');
+ h.setAppearancePreference('auto');assert.equal(h.state.appearance.mode,'day');
+ h.updateHeadlights(null);assert.deepEqual(h.state.appearance,{mode:'day',source:'fallback',signalAvailable:false});
+ assert.equal(new Headunit(storage).state.appearance.signalAvailable,false);
+ assert.throws(()=>h.updateHeadlights('on'));assert.throws(()=>h.setAppearancePreference('sunset'));
+});
+test('appearance handles corrupt storage, failed writes and moving edit lock',()=>{
+ const h=new Headunit({getItem:()=>'{"appearancePreference":"wrong","lastAppearance":"wrong"}',setItem:()=>{throw Error('full');}});
+ assert.equal(h.state.appearance.mode,'night');h.setAppearancePreference('day');
+ assert.equal(h.state.persistenceError,true);assert.equal(h.state.appearance.mode,'day');
+ h.setMotionState('moving');assert.equal(h.setAppearancePreference('night'),false);
+ assert.equal(h.state.appearancePreference,'day');
+});

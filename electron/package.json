@@ -1,0 +1,9 @@
+{
+  "name": "livi-headunit-shell",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "desktopName": "dev.f-io.livi.desktop",
+  "license": "GPL-3.0-or-later"
+}

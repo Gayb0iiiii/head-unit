@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // A small DOM boundary for event wiring and rendered markup, not browser/layout QA.
 // All navigation, storage, and playback-preview state use the real application.
 let instance = 0;
-async function launch(data = new Map()) {
+async function launch(data = new Map(), host = null) {
   const root = { innerHTML: '' };
   let buttons = [];
   let elements = [];
@@ -30,13 +30,15 @@ async function launch(data = new Map()) {
     }
   });
   globalThis.localStorage = { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value) };
+  globalThis.window = host ? {headunit:host} : {};
   doc = globalThis.document = {
     body: { dataset: {}, style: { setProperty: (key, value) => style.set(key, value) } },
     activeElement: null,
     getElementById: id => id === 'app' ? root : elements.find(element => element.id === id),
     querySelectorAll(selector) {
-      const key = selector.slice(6, -1).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-      return elements.filter(element => key in element.dataset);
+      const [,tag,keyName] = selector.match(/^(button)?\[data-([\w-]+)\]$/);
+      const key = keyName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      return [...elements,doc.body].filter(element => (!tag || element.tag === tag) && key in element.dataset);
     }
   };
   const application = await import(`../src/app.mjs?unit=${++instance}`);
@@ -57,10 +59,57 @@ async function launch(data = new Map()) {
       const button = buttons.find(button => button.dataset[key] === value);
       assert.ok(button, `Rendered button ${key}=${value} exists`);
       assert.equal(typeof button.onclick, 'function');
-      if (!button.disabled) button.onclick();
+      if (!button.disabled) { button.onclick(); doc.body.onclick?.(); }
     }
   };
 }
+
+test('glass interface uses native phone state and waits for the selected phone', async () => {
+  const calls = [];
+  let publish;
+  const host = {
+    onView(listener) { publish = listener; return () => {}; },
+    getView: async () => ({connected:false,route:'disconnected',phones:[]}),
+    navigate: async route => { calls.push(['navigate',route]); return {accepted:true}; },
+    selectPhone: async id => { calls.push(['selectPhone',id]); return {accepted:true}; }
+  };
+  const ui = await launch(new Map(),host);
+  assert.doesNotMatch(ui.root.innerHTML,/Driver’s iPhone|Passenger’s iPhone|Simulate disconnect/);
+  publish({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[
+    {id:'one',name:'Driver',status:'active'},
+    {id:'two',name:'Passenger <script>test</script>',status:'available'}
+  ]});
+  assert.match(ui.root.innerHTML,/Driver/);
+  assert.doesNotMatch(ui.root.innerHTML,/<script>test<\/script>/);
+  ui.click('phone','two');
+  assert.deepEqual(calls,[['selectPhone','two']]);
+  assert.match(ui.root.innerHTML,/Switching phone/);
+  assert.match(ui.root.innerHTML,/Driver.*Active/s);
+  publish({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[
+    {id:'one',name:'Driver',status:'available'}, {id:'two',name:'Passenger',status:'active'}
+  ]});
+  await Promise.resolve();
+  assert.deepEqual(calls,[['selectPhone','two'],['navigate','projection']]);
+  publish({connected:true,projectionReady:true,route:'projection',front:'projection',phones:[{id:'two',name:'Passenger',status:'active'}]});
+  assert.match(ui.root.innerHTML,/native-projection-region/);
+  assert.doesNotMatch(ui.root.innerHTML,/CarPlay demo|Simulated/);
+});
+
+test('glass phone list offers manual wake for a remembered offline phone', async () => {
+  const calls = [];
+  let publish;
+  const host = {
+    onView(listener) { publish = listener; return () => {}; },
+    getView: async () => ({connected:false,route:'disconnected',phones:[]}),
+    navigate: async route => { calls.push(['navigate',route]); return {accepted:true}; },
+    selectPhone: async id => { calls.push(['selectPhone',id]); return {accepted:true}; }
+  };
+  const ui = await launch(new Map(),host);
+  publish({connected:true,projectionReady:true,route:'phones',front:'livi',phones:[{id:'away',name:'Away',status:'offline'}]});
+  ui.click('phone','away');
+  assert.deepEqual(calls,[['selectPhone','away']]);
+  assert.match(ui.root.innerHTML,/Switching phone/);
+});
 
 test('Home switches directly between app grid and a clearly simulated music/vehicle dashboard', async () => {
   const ui = await launch();
@@ -75,7 +124,7 @@ test('Home switches directly between app grid and a clearly simulated music/vehi
   assert.match(ui.root.innerHTML, /Unavailable/);
   assert.match(ui.root.innerHTML, /data-action="projection"/);
   assert.doesNotMatch(ui.root.innerHTML, /312|km\/h|Demo values|battery/i);
-  assert.match(ui.root.innerHTML, /No live audio or vehicle connection/);
+  assert.match(ui.root.innerHTML, /Simulated phones · No live audio or vehicle data/);
   ui.click('homeMode', 'apps');
   assert.match(ui.root.innerHTML, /class="apps"/);
   assert.doesNotMatch(ui.root.innerHTML, /class="dashboard"/);
@@ -107,7 +156,7 @@ test('last screen survives reload and Home returns to the chosen dashboard witho
   assert.match(reloaded.root.innerHTML, /data-home-mode="dashboard"[^>]*aria-pressed="true"/);
   assert.match(reloaded.root.innerHTML, /Choose a phone/);
 });
-test('Phones labels unsupported pairing, modes, forgetting, and contacts without fake controls',async()=>{const ui=await launch();ui.click('action','phones');assert.match(ui.root.innerHTML,/<button disabled[^>]*>Add phone<\/button>/);assert.match(ui.root.innerHTML,/Remove saved phone/);assert.match(ui.root.innerHTML,/Bluetooth-only/);assert.match(ui.root.innerHTML,/Contact sync/);assert.match(ui.root.innerHTML,/backend integration/);});
+test('Phones labels unsupported pairing, modes, forgetting, and contacts without fake controls',async()=>{const ui=await launch();ui.click('action','phones');assert.match(ui.root.innerHTML,/<button disabled[^>]*>Add phone<\/button>/);assert.match(ui.root.innerHTML,/Remove saved phone/);assert.match(ui.root.innerHTML,/Connection options are unavailable/);assert.match(ui.root.innerHTML,/Contacts are unavailable/);assert.doesNotMatch(ui.root.innerHTML,/backend|integration|v4|scaffold/);});
 
 
 test('app editing reorders, announces position and preserves the exact keyboard control', async () => {
@@ -180,8 +229,8 @@ test('moving host state ends editing and disables personalization without preten
 
 test('Settings includes empty optional sensor rules with no fabricated alerts or audio',async()=>{
  const ui=await launch();ui.click('action','settings');
- assert.match(ui.root.innerHTML,/No rules configured/);
- assert.match(ui.root.innerHTML,/No live sensor data is connected/);
+ assert.match(ui.root.innerHTML,/No alert rules added/);
+ assert.match(ui.root.innerHTML,/Sensor readings and alerts are unavailable/);
  assert.match(ui.root.innerHTML,/data-sensor-action="add"/);
  assert.doesNotMatch(ui.root.innerHTML,/sensor-alert:/);
 });
@@ -202,6 +251,78 @@ test('Settings offers persisted left and right dock buttons and locks them while
 test('whole CarPlay tile is a single projection button and dashboard playback stays separate',async()=>{
  const ui=await launch();const tile=ui.root.innerHTML.match(/<button class="tile mint"[^>]*data-action="projection"[^>]*>([\s\S]*?)<\/button>/);
  assert.ok(tile);assert.match(tile[1],/CarPlay/);assert.doesNotMatch(tile[1],/<button|demo-playback/);
- ui.click('action','projection');assert.match(ui.root.innerHTML,/Projection preview/);
+ ui.click('action','projection');assert.match(ui.root.innerHTML,/CarPlay demo/);
  ui.click('action','home');ui.click('homeMode','dashboard');ui.click('action','demo-playback');assert.match(ui.root.innerHTML,/Your dashboard/);assert.match(ui.root.innerHTML,/Pause demo track/);
+});
+
+for(const target of ['home','phones','projection','camera','cluster','disconnected'])test(`native diagnostics yields to ${target} and does not reopen`,async()=>{
+ let publish;
+ const host={onView(fn){publish=fn;return()=>{};},getView:async()=>({connected:true,projectionReady:true,route:'settings',front:'livi',phones:[]}),navigate:async()=>({accepted:true})};
+ const ui=await launch(new Map(),host);
+ ui.click('action','diagnostics');assert.match(ui.root.innerHTML,/<h1>Diagnostics<\/h1>/);
+ if(['home','phones','projection'].includes(target))ui.click('action',target);
+ publish({connected:target!=='disconnected',route:target,front:['camera','cluster','projection'].includes(target)?target:'livi',phones:[]});
+ assert.doesNotMatch(ui.root.innerHTML,/<h1>Diagnostics<\/h1>/);
+ publish({connected:true,projectionReady:true,route:'settings',front:'livi',phones:[]});
+ assert.match(ui.root.innerHTML,/<h1>Settings<\/h1>/);
+});
+
+test('native Home renders verified media/battery safely and explicit controls preserve navigation',async()=>{
+ let publish;const calls=[];
+ const host={onView(fn){publish=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',phones:[]}),media:async(...args)=>{calls.push(args);return {accepted:true};}};
+ const ui=await launch(new Map(),host);
+ publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{phone:{status:'available',phoneId:'a',batteryPercent:73,charging:true,freshForMs:30000},media:{status:'available',phoneId:'a',title:'<img src=x onerror=bad()>',artist:'Artist',playing:true,freshForMs:30000}}});
+ assert.match(ui.root.innerHTML,/73%/);assert.match(ui.root.innerHTML,/Signal.*Unavailable/s);
+ assert.match(ui.root.innerHTML,/&lt;img/);assert.doesNotMatch(ui.root.innerHTML,/<img src=x/);
+ ui.click('media','pause');assert.deepEqual(calls,[['pause','a']]);assert.match(ui.root.innerHTML,/Good to go/);
+ ui.click('action','edit-layout');assert.doesNotMatch(ui.root.innerHTML,/data-move="dashboard:/);
+ publish({connected:true,route:'home',front:'livi',phones:[{id:'a',status:'active'}],homeStatus:{media:{status:'stale',phoneId:'a'}}});
+ assert.match(ui.root.innerHTML,/Media information is out of date/);assert.doesNotMatch(ui.root.innerHTML,/&lt;img/);
+ assert.match(ui.root.innerHTML,/data-media="play"[^>]*disabled/);
+});
+
+test('Settings exposes persistent day/night controls, unavailable Auto status and focus retention',async()=>{
+ const app=await launch();app.click('action','settings');
+ assert.match(app.root.innerHTML,/Headlight signal unavailable/);
+ app.click('appearance','day');assert.equal(app.doc.body.dataset.appearance,'day');
+ assert.equal(app.doc.activeElement.dataset.focusKey,'appearance-day');
+ assert.match(app.root.innerHTML,/data-appearance="day"[^>]*aria-pressed="true"/);
+ app.click('appearance','auto');assert.equal(app.doc.body.dataset.appearance,'day');
+ const restored=await launch(app.data);assert.equal(restored.doc.body.dataset.appearance,'day');
+ restored.updateMotion('moving');restored.click('appearance','night');
+ assert.equal(restored.doc.body.dataset.appearance,'day');
+});
+test('native theme changes remain local and cannot send phone or media commands',async()=>{
+ const calls=[];const app=await launch(new Map(),{onView:()=>()=>{},getView:async()=>({connected:true,front:'livi',route:'settings',phones:[]}),navigate:()=>calls.push('navigate'),media:()=>calls.push('media')});
+ await new Promise(resolve=>setImmediate(resolve));
+ app.click('appearance','day');assert.equal(app.doc.body.dataset.appearance,'day');
+ assert.deepEqual(calls,[]);assert.match(app.root.innerHTML,/Panel brightness unavailable/);
+});
+
+test('bubbled navigation clicks do not rewrite appearance preferences',async()=>{
+ let appearanceWrites=0;const data=new Map();const originalSet=data.set.bind(data);
+ data.set=(key,value)=>{if(key==='headunit.appearance')appearanceWrites++;return originalSet(key,value);};
+ const app=await launch(data);app.click('action','settings');app.click('appearance','day');
+ const before=appearanceWrites;app.click('action','home');
+ assert.equal(appearanceWrites,before,'navigation must not trigger body appearance handlers');
+ assert.equal(app.doc.body.dataset.appearance,'day');
+});
+
+test('native connection screen explains retry, refusal and synchronization without claiming readiness',async()=>{
+ let emit;const app=await launch(new Map(),{onView:fn=>{emit=fn;return()=>{};},getView:async()=>({connected:false,route:'disconnected',connectionPhase:'connecting',phones:[]})});
+ await new Promise(resolve=>setImmediate(resolve));assert.match(app.root.innerHTML,/Connecting to the system/);
+ emit({connected:false,connectionPhase:'backoff'});assert.match(app.root.innerHTML,/reconnect automatically/);
+ emit({connected:false,connectionPhase:'refused'});assert.match(app.root.innerHTML,/Unable to connect/);assert.doesNotMatch(app.root.innerHTML,/reconnect automatically/);
+ emit({connected:false,connectionPhase:'resyncing'});assert.match(app.root.innerHTML,/Updating connection/);
+ emit({connected:false,connectionPhase:'secret'});assert.doesNotMatch(app.root.innerHTML,/secret/);
+});
+test('native picture geometry replaces the content-column placeholder and clears through repeated interruptions',async()=>{
+ let publish;const ui=await launch(new Map(),{onView:fn=>{publish=fn;return()=>{};},getView:async()=>({connected:false}),navigate:async()=>({accepted:true})});
+ const projection={connected:true,projectionReady:true,front:'projection',route:'projection',phones:[],picture:{width:800,height:480,insets:{top:10,bottom:0,left:0,right:0}}};
+ for(let i=0;i<2;i++){
+  publish(projection);assert.match(ui.root.innerHTML,/100cqh \* 800 \/ 480/);assert.match(ui.root.innerHTML,/native-picture-mask/);
+  publish({...projection,front:'camera',route:'camera'});assert.match(ui.root.innerHTML,/Camera unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|Display in use/);
+  publish({...projection,picture:null});assert.match(ui.root.innerHTML,/Phone display size unavailable/);assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask/);
+  publish({connected:false,route:'disconnected',picture:projection.picture});assert.doesNotMatch(ui.root.innerHTML,/native-picture-mask|100cqh/);
+ }
 });

@@ -1,0 +1,7 @@
+
+> livi-headunit-integration-prototype@0.1.0 test:electron
+> node tests/electron/run.mjs
+
+[4438:1019/023042.611713:FATAL:sandbox/linux/suid/client/setuid_sandbox_host.cc:166] The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /workspace/head-unit/tests/electron/node_modules/electron/dist/chrome-sandbox is owned by root and has mode 4755.
+[4441:0100/000000.634336:ERROR:content/zygote/zygote_linux.cc:662] write: Broken pipe (32)
+Electron smoke FAIL: /workspace/head-unit/evidence/electron-smoke/2026-10-19T02-30-42.587Z/result.json

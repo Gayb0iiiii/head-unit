@@ -20,7 +20,7 @@ const api = Object.freeze({
   setVolume: value => ipcRenderer.invoke('headunit:set-volume', value),
   touch: points => ipcRenderer.invoke('headunit:touch', points),
   cancelTouch: () => ipcRenderer.invoke('headunit:cancel-touch'),
-  media: control => ipcRenderer.invoke('headunit:media', control),
+  media: (control,phoneId) => ipcRenderer.invoke('headunit:media', control,phoneId),
 });
 window.addEventListener('unload', () => {
   for (const listener of listeners) ipcRenderer.removeListener('headunit:view', listener);

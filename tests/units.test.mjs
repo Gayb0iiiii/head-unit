@@ -24,7 +24,7 @@ test('invalid or extra unit preferences fail closed', () => {
   for (const input of [null, [], 'psi', 2, new Date(), { pressure: 'PSI' },
     { pressure: 'Pa' }, { temperature: 'kelvin' }, { temperature: null },
     { pressure: undefined }, { other: 'psi' }]) {
-    assert.throws(() => units.validateUnitPreferences(input), /unit preference/i);
+    assert.throws(() => units.validateUnitPreferences(input), /valid temperature and pressure units/i);
   }
 });
 
@@ -130,15 +130,15 @@ test('every conversion rejects nonfinite or nonnumeric values and unknown sensor
     assert.equal(typeof units[name], 'function');
     for (const id of ['insideTemperature', 'boostPressure', 'batteryVoltage']) {
       for (const value of [NaN, Infinity, -Infinity, undefined, null, '', '42', {}, true]) {
-        assert.throws(() => units[name](id, value), /finite number/i);
+        assert.throws(() => units[name](id, value), /valid sensor value/i);
       }
     }
     assert.throws(() => units[name]('unknown', 42), /unknown sensor/i);
-    assert.throws(() => units[name]('boostPressure', 42, { pressure: 'atm' }), /unit preference/i);
+    assert.throws(() => units[name]('boostPressure', 42, { pressure: 'atm' }), /valid temperature and pressure units/i);
   }
   assert.throws(() => units.toDisplayValue('insideTemperature', Number.MAX_VALUE,
-    { temperature: 'fahrenheit' }), /finite number/i);
-  assert.throws(() => units.toCanonicalValue('boostPressure', Number.MAX_VALUE), /finite number/i);
+    { temperature: 'fahrenheit' }), /valid sensor value/i);
+  assert.throws(() => units.toCanonicalValue('boostPressure', Number.MAX_VALUE), /valid sensor value/i);
 });
 
 test('changing preferences and round trips never mutate canonical rule thresholds', () => {

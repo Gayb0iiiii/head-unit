@@ -1,3 +1,5 @@
+import {filterConnectionPhase} from './connection-status.mjs';
+import {activeDevice,homeView} from './home-view.mjs';
 import {publicView} from './view.mjs';
 const routes=new Set(['home','dashboard','phones','settings','audio','vehicle','projection']);
 const exact=(value,keys)=>Object.keys(value).sort().join(',')===keys.sort().join(',');
@@ -5,12 +7,12 @@ export class HeadunitController {
   constructor(transport,preferences={}) {
     this.transport=transport; this.preferences=preferences; this.listeners=new Set();
     this.lastActive=null;this.lastReportedRoute=null;this.contacts=new Map(); this.route='home'; this.front=null; this.started=false;
-    this.leavingProjection=false;this.projectionInterrupted=false;this.lastPhone=null;this.resume=false;this.pausePending=false;this.pendingChoice=null;this.recoveryAttempted=false;this.resumeAttempted=false;this.wasReady=false;this.recovering=true;
+    this.leavingProjection=false;this.projectionInterrupted=false;this.lastPhone=null;this.resume=false;this.pauseIntent=false;this.pendingChoice=null;this.recoveryAttempted=false;this.resumeAttempted=false;this.wasReady=false;this.recovering=true;
     try { const saved=preferences.load();this.preferred=typeof saved==='string'?saved:saved?.route;this.lastPhone=typeof saved?.lastPhone==='string'?saved.lastPhone:null;this.resume=saved?.resume===true; } catch {}
     if(!routes.has(this.preferred))this.preferred='home';
     this.unsubscribe=transport.subscribe(()=>this.sync());
   }
-  view() { return {...publicView(this.transport.session),route:this.route,preferredRoute:this.preferred,notice:this.projectionInterrupted?'projection-reconnecting':null}; }
+  view() { return {...publicView(this.transport.session),connectionPhase:filterConnectionPhase(this.transport.status,this.transport.session.ready),projectionReady:this.transport.session.ready&&!!this.transport.session.state?.sessions?.active,route:this.route,preferredRoute:this.preferred,notice:this.projectionInterrupted?'projection-reconnecting':null}; }
   subscribe(listener) {this.listeners.add(listener);listener(this.view());return ()=>this.listeners.delete(listener);}
   publish(){for(const listener of this.listeners)listener(this.view());}
   savePreferences(){const value={route:this.preferred,lastPhone:this.lastPhone,resume:this.resume};const encoded=JSON.stringify(value);if(encoded===this.lastSaved)return;try{this.preferences.save?.(value);this.lastSaved=encoded;}catch{}}
@@ -24,7 +26,7 @@ export class HeadunitController {
     if(next==='projection')this.projectionInterrupted=false;
     if(next!=='projection')this.leavingProjection=false;
     this.front=next;
-    const devices=Array.isArray(session.state?.devices)?session.state.devices:[];
+    const devices=Array.isArray(session.state?.devices)?session.state.devices.filter(d=>d&&typeof d.id==='string'&&d.id.length>0&&d.id.length<=256):[];
     const active=devices.find(d=>d.status==='active');
     if(this.lastActive===this.lastPhone&&!active&&this.lastPhone){this.recovering=true;this.recoveryAttempted=false;this.resumeAttempted=false;}
     this.lastActive=active?.id??null;
@@ -34,7 +36,9 @@ export class HeadunitController {
     if(active?.id===this.lastPhone&&typeof session.state?.nowPlaying?.playing==='boolean'){
       const playing=session.state.nowPlaying.playing;
       const shouldResume=this.recovering&&!this.resumeAttempted&&this.resume&&!playing;
-      this.recovering=false;this.resume=this.pausePending?false:playing;if(!playing)this.pausePending=false;this.savePreferences();
+      // Playback snapshots and command replies cannot prove which intent caused playback.
+      // Preserve deliberate pause for recovery until a newer explicit Play supersedes it.
+      this.recovering=false;this.resume=this.pauseIntent?false:playing;this.savePreferences();
       if(shouldResume){this.resumeAttempted=true;session.action({kind:'media',control:'play'});}
     }
     this.wasReady=true;
@@ -67,10 +71,28 @@ export class HeadunitController {
       else {this.route=intent.route;this.reportPath();this.publish();}
       return this.view();
     }
-    if(intent.type==='selectPhone'&&exact(intent,['type','id'])&&typeof intent.id==='string'&&session.state?.devices?.some(d=>d.id===intent.id)){
-      this.cancelTouch();this.pendingChoice=intent.id;try{return {requestId:session.action({kind:'selectDevice',id:intent.id})};}catch(error){this.pendingChoice=null;throw error;}
+    if(intent.type==='selectPhone'&&exact(intent,['type','id'])&&typeof intent.id==='string'&&session.state?.devices?.some(d=>d?.id===intent.id)){
+      const device=session.state.devices.find(d=>d?.id===intent.id);
+      this.cancelTouch();this.pendingChoice=intent.id;
+      const choice=Symbol();this.choiceToken=choice;
+      let finish;const completion=new Promise(resolve=>{finish=resolve;});
+      try {
+        const requestId=session.action({kind:device.status==='offline'?'connectDevice':'selectDevice',id:intent.id},ok=>{
+          if(!ok&&this.choiceToken===choice)this.pendingChoice=null;
+          finish(ok);
+        });
+        return {requestId,completion};
+      }catch(error){if(this.choiceToken===choice)this.pendingChoice=null;throw error;}
     }
-    if(intent.type==='media'&&exact(intent,['type','control'])&&['play','pause'].includes(intent.control)){this.pausePending=intent.control==='pause';if(this.pausePending)this.resume=false;this.recovering=false;this.resumeAttempted=true;this.savePreferences();return {requestId:session.action({kind:'media',control:intent.control})};}
+    if(intent.type==='media'&&(exact(intent,['type','control'])||exact(intent,['type','control','phoneId']))&&['play','pause'].includes(intent.control)){
+      // Renderer calls always carry the observed owner; trusted host callers may omit it.
+      if('phoneId' in intent && (intent.phoneId!==activeDevice(session.state)?.id || this.pendingChoice || homeView(session).media.status!=='available'))throw Error('Media owner unavailable');
+      this.pauseIntent=intent.control==='pause';if(this.pauseIntent)this.resume=false;
+      this.recovering=false;this.resumeAttempted=true;this.savePreferences();
+      let finish;const completion=new Promise(resolve=>{finish=resolve;});
+      const requestId=session.action({kind:'media',control:intent.control},ok=>finish(ok));
+      return {requestId,completion};
+    }
     if(intent.type==='volume'&&exact(intent,['type','value'])&&Number.isFinite(intent.value)&&intent.value>=0&&intent.value<=1)return {requestId:session.action({kind:'setConfig',patch:{huVolume:intent.value}})};
     if(intent.type==='touch'&&exact(intent,['type','points'])&&this.front==='projection'&&Array.isArray(intent.points)&&intent.points.length>0&&intent.points.length<=10){
       const points=intent.points;const seen=new Set();const next=new Map(this.contacts);

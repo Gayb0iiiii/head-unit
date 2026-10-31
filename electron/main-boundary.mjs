@@ -1,3 +1,6 @@
+import {filterPicture} from '../src/picture.mjs';
+import {filterConnectionPhase} from '../src/connection-status.mjs';
+import {filterHomeStatus} from '../src/home-status.mjs';
 /** Dependency-injected main-process boundary. No Electron import, launch or socket connection. */
 const routes = new Set(['home','phones','settings','audio','vehicle','projection','dashboard']);
 const displayedRoutes = new Set([...routes,'camera','cluster','disconnected']);
@@ -20,8 +23,14 @@ function trustedURL(value) {
 // Defense in depth if a future controller accidentally returns native state.
 function rendererView(value) {
   const source = plain(value) ? value : {};
+  const active=(Array.isArray(source.phones)?source.phones:[]).filter(phone=>plain(phone)&&phone.status==='active'&&text(phone.id,256));
+  const picture=filterPicture(source.picture,source.connected===true&&source.projectionReady===true,source.front);
   return {
+    ...(picture?{picture}:{}),
+    connectionPhase:filterConnectionPhase(source.connectionPhase,source.connected),
+    homeStatus:filterHomeStatus(source.homeStatus,source.connected===true,active.length===1?active[0].id:null),
     connected: source.connected === true,
+    projectionReady: source.connected === true && source.projectionReady === true,
     front: ['livi','projection','camera','cluster'].includes(source.front) ? source.front : 'livi',
     phones: (Array.isArray(source.phones) ? source.phones : []).slice(0,128)
       .filter(phone => plain(phone) && text(phone.id,256))
@@ -50,10 +59,17 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
   if (!contents || !controller || !['view','subscribe','intent'].every(key => typeof controller[key] === 'function')) throw new TypeError('Trusted window and controller required');
   let disposed = false;
   let navigating = false;
+  let focused = trustedWindow.isFocused?.() === true;
+  let responsive = true;
+  const windowLifecycle = [];
   let unsubscribe;
   const registered = [];
   const lifecycle = [];
   function on(name, listener) { contents.on(name,listener); lifecycle.push([name,listener]); }
+  function onWindow(name,listener) {
+    if(typeof trustedWindow.on!=='function'||typeof trustedWindow.removeListener!=='function')return;
+    trustedWindow.on(name,listener);windowLifecycle.push([name,listener]);
+  }
   function pageTrusted() {
     try { return !disposed && !navigating && !contents.isDestroyed() && contents.getURL() === url && contents.mainFrame?.url === url; }
     catch { return false; }
@@ -65,14 +81,15 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     ipcMain.handle(channel, async (event,...args) => {
       authenticate(event);
       if (args.length !== count || !validate(...args)) throw new TypeError('Invalid headunit arguments');
-      try { return operation(...args); }
+      try { return await operation(...args); }
       catch { throw new Error('Headunit operation unavailable'); }
     });
     registered.push(channel);
   }
   function action(channel, validate, makeIntent, count = 1) {
-    register(channel,count,validate,(...args) => {
-      controller.intent(makeIntent(...args));
+    register(channel,count,validate,async (...args) => {
+      const result=controller.intent(makeIntent(...args));
+      if(result?.completion && await result.completion !== true) throw new Error('Command failed');
       // Do not return arbitrary core replies, state, errors or request metadata.
       return {accepted:true};
     });
@@ -87,6 +104,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     cancelContacts();
     for (const channel of registered) ipcMain.removeHandler(channel);
     for (const [name,listener] of lifecycle) contents.removeListener(name,listener);
+    for (const [name,listener] of windowLifecycle) trustedWindow.removeListener(name,listener);
     unsubscribe?.();
   }
   try {
@@ -94,15 +112,22 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     action('headunit:navigate',route => routes.has(route),route => ({type:'navigate',route}));
     action('headunit:select-phone',id => text(id,256),id => ({type:'selectPhone',id}));
     action('headunit:set-volume',bounded,value => ({type:'volume',value}));
-    action('headunit:touch',pointsValid,points => ({type:'touch',points:points.map(({id,x,y,phase}) => ({id,x,y,phase}))}));
+    action('headunit:touch',pointsValid,points => {
+      if(!focused||!responsive)throw Error('Input owner unavailable');
+      return {type:'touch',points:points.map(({id,x,y,phase}) => ({id,x,y,phase}))};
+    });
     action('headunit:cancel-touch',() => true,() => ({type:'cancelTouch'}),0);
-    action('headunit:media',control => control === 'play' || control === 'pause',control => ({type:'media',control}));
+    action('headunit:media',(control,phoneId) => (control === 'play' || control === 'pause') && text(phoneId,256),(control,phoneId) => ({type:'media',control,phoneId}),2);
     // Account for both current Event details and Electron's older positional API.
     on('did-start-navigation',(details,_url,_sameDocument,isMainFrame) => {
       if (details?.isMainFrame ?? isMainFrame) { navigating = true; cancelContacts(); }
     });
     on('did-navigate',() => { navigating = false; });
     on('did-navigate-in-page',(_event,_url,isMainFrame) => { if (isMainFrame) navigating = false; });
+    onWindow('blur',()=>{focused=false;cancelContacts();});
+    onWindow('focus',()=>{focused=true;});
+    onWindow('unresponsive',()=>{responsive=false;cancelContacts();});
+    onWindow('responsive',()=>{responsive=true;});
     on('destroyed',dispose);
     on('render-process-gone',dispose);
     unsubscribe = controller.subscribe(view => {

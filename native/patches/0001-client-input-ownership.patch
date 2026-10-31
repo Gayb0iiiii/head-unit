@@ -1,0 +1,1368 @@
+diff --git a/native/livi-helperd/bin/livi-core/src/projection.rs b/native/livi-helperd/bin/livi-core/src/projection.rs
+index 8062972..a4b4b93 100644
+--- a/native/livi-helperd/bin/livi-core/src/projection.rs
++++ b/native/livi-helperd/bin/livi-core/src/projection.rs
+@@ -42,6 +42,10 @@ use crate::telemetry::{CLIMATE, SOURCE};
+ use crate::theme_catalog::{self, ThemeId};
+ use crate::update::UpdateAsk;
+ 
++mod owned_input;
++use owned_input::HeldInput;
++pub use owned_input::{InputPeer, UiInput};
++
+ const RAMP_DOWN_MS: u32 = 500;
+ const RAMP_UP_MS: u32 = 1500;
+ const KNOB_DEFLECT: f64 = 127.0;
+@@ -397,6 +401,7 @@ pub struct Projection {
+     helper_restart: Arc<Notify>,
+     devices: Devices,
+     cluster_on: bool,
++    held_input: Option<HeldInput>,
+     sessions: Vec<Entry>,
+     next_index: u32,
+     video_owner: Option<Link>,
+@@ -449,7 +454,7 @@ fn kept_cluster(cfg: &Config, theme: Theme) -> Cluster {
+ pub struct UiAsks {
+     pub wants: watch::Receiver<PerScreen<Front>>,
+     pub commands: mpsc::UnboundedReceiver<UiCommand>,
+-    pub input: mpsc::UnboundedReceiver<Input>,
++    pub input: mpsc::UnboundedReceiver<UiInput>,
+     pub spectrum: Arc<spectrum::Feed>,
+     pub goodbye: mpsc::UnboundedReceiver<oneshot::Sender<()>>,
+     pub activity: watch::Sender<Activity>,
+@@ -462,7 +467,7 @@ pub struct UiAsks {
+ pub struct UiSenders {
+     pub wants: watch::Sender<PerScreen<Front>>,
+     pub commands: mpsc::UnboundedSender<UiCommand>,
+-    pub input: mpsc::UnboundedSender<Input>,
++    pub input: mpsc::UnboundedSender<UiInput>,
+     pub dongle: mpsc::UnboundedSender<(Radio, bool)>,
+     pub link_speed_viewers: watch::Sender<usize>,
+     pub spectrum: Arc<spectrum::Feed>,
+@@ -552,6 +557,7 @@ impl Projection {
+             helper_restart,
+             devices,
+             cluster_on,
++            held_input: None,
+             sessions: Vec::new(),
+             next_index: 1,
+             video_owner: None,
+@@ -638,7 +644,8 @@ impl Projection {
+                     UiCommand::ForgetDevice(id) => self.forget_device(&id),
+                     UiCommand::CameraFound(found) => self.camera_found(found),
+                 },
+-                Some(input) = asks.input.recv() => self.input(input),
++                Some(input) = asks.input.recv() => self.client_input(input),
++                () = until(self.input_due()) => self.release_due_input(),
+                 Some(done) = asks.goodbye.recv() => self.goodbye(done),
+                 () = until(self.apply_due) => self.apply_idle(),
+                 changed = state.changed() => {
+@@ -1106,6 +1113,7 @@ impl Projection {
+ 
+     /// `done` fires once the last session ended and the helper has the empty paging list.
+     fn goodbye(&mut self, done: oneshot::Sender<()>) {
++        self.release_owned_input();
+         let paging_stopped = self.devices.stop_paging();
+         let (ended, sessions_ended) = oneshot::channel();
+         tokio::spawn(async move {
+@@ -1386,6 +1394,7 @@ impl Projection {
+     }
+ 
+     fn publish(&mut self) {
++        self.invalidate_owned_input();
+         let list = devices::views(&self.devices.registry, &|ids| self.session_of(ids));
+         let targets = self.targets();
+         self.devices.page(targets, false);
+@@ -1603,6 +1612,7 @@ impl Projection {
+         }
+     }
+ 
++    #[cfg(test)]
+     fn input(&mut self, input: Input) {
+         match input {
+             Input::Pointer { screen: Screen::Main, points } => self.pointer(&points),
+@@ -1611,6 +1621,7 @@ impl Projection {
+         }
+     }
+ 
++    #[cfg(test)]
+     fn pointer(&self, points: &[Point]) {
+         if points.is_empty() || self.front_main() != Front::Projection {
+             return;
+@@ -2278,6 +2289,465 @@ mod tests {
+         Input::Key { code: code.into(), down: true }
+     }
+ 
++    fn owned(rig: &mut Rig, client: u64, input: Input) {
++        rig.p.client_input(UiInput::Input { client, input });
++    }
++
++    fn down(id: u32) -> Input {
++        Input::Pointer {
++            screen: Screen::Main,
++            points: vec![Point { id, x: 0.25, y: 0.5, phase: Phase::Down }],
++        }
++    }
++
++    #[tokio::test]
++    async fn owned_input_disconnect_releases_original_touch_once() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(&mut rig, 1, down(3));
++        rig.aa_drain();
++        rig.p.client_input(UiInput::Disconnected { client: 2 });
++        assert!(rig.aa_drain().is_empty());
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert_eq!(
++            rig.aa_drain(),
++            [aa(
++                5,
++                SessionCmd::MultiTouch(vec![TouchItem {
++                    id: 3,
++                    x: 0.25,
++                    y: 0.5,
++                    action: TouchAction::Up
++                }])
++            )]
++        );
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert!(rig.aa_drain().is_empty());
++    }
++
++    #[tokio::test]
++    async fn owned_input_clients_cannot_release_or_replace_each_others_hold() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(&mut rig, 1, down(3));
++        rig.aa_drain();
++        owned(&mut rig, 2, down(3));
++        owned(&mut rig, 2, press("KeyV"));
++        rig.p.client_input(UiInput::Disconnected { client: 2 });
++        assert!(rig.aa_drain().is_empty());
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        rig.aa_drain();
++        owned(&mut rig, 2, down(3));
++        assert_eq!(rig.aa_drain().len(), 1);
++    }
++
++    #[tokio::test]
++    async fn owned_input_takeover_and_session_switch_require_fresh_press() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.aa_connect(6, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(&mut rig, 1, down(3));
++        rig.aa_drain();
++        rig.want(Front::Camera);
++        assert!(rig.aa_drain().contains(&aa(
++            5,
++            SessionCmd::MultiTouch(vec![TouchItem {
++                id: 3,
++                x: 0.25,
++                y: 0.5,
++                action: TouchAction::Up
++            }])
++        )));
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![Point { id: 3, x: 0.5, y: 0.5, phase: Phase::Move }],
++            },
++        );
++        assert!(rig.aa_drain().is_empty());
++        owned(&mut rig, 1, down(3));
++        rig.aa_drain();
++        rig.p.activate_next();
++        let out = rig.aa_drain();
++        assert!(out.contains(&aa(
++            5,
++            SessionCmd::MultiTouch(vec![TouchItem {
++                id: 3,
++                x: 0.25,
++                y: 0.5,
++                action: TouchAction::Up
++            }])
++        )));
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert!(rig.aa_drain().is_empty());
++    }
++
++    #[tokio::test]
++    async fn owned_input_ptt_release_uses_press_binding_after_config_change() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(&mut rig, 1, press("KeyV"));
++        assert_eq!(rig.aa_drain(), [command(5, Command::VoiceAssistant)]);
++        rig.p.bindings.voice_assistant = "Other".into();
++        owned(&mut rig, 1, Input::Key { code: "KeyV".into(), down: false });
++        assert_eq!(rig.aa_drain(), [command(5, Command::VoiceAssistantRelease)]);
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert!(rig.aa_drain().is_empty());
++    }
++
++    #[tokio::test(start_paused = true)]
++    async fn owned_input_select_timer_cannot_release_replacement_knob() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        rig.p.bindings.knob_down = "KeyI".into();
++        owned(&mut rig, 1, press("Enter"));
++        rig.aa_drain();
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        rig.aa_drain();
++        owned(&mut rig, 2, press("KeyI"));
++        assert_eq!(rig.aa_drain(), [command(5, Command::KnobDown)]);
++        tokio::time::advance(SELECT_RELEASE * 2).await;
++        rig.p.release_due_input();
++        assert!(rig.aa_drain().is_empty());
++        rig.p.client_input(UiInput::Disconnected { client: 2 });
++        assert_eq!(rig.aa_drain(), [command(5, Command::KnobUp)]);
++    }
++
++    #[tokio::test]
++    async fn owned_input_carplay_preserves_snapshot_slots_for_release() {
++        let mut rig = Rig::new();
++        rig.connect(1, true);
++        rig.want(Front::Projection);
++        rig.drain();
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![
++                    Point { id: 8, x: 0.2, y: 0.3, phase: Phase::Down },
++                    Point { id: 2, x: 0.8, y: 0.9, phase: Phase::Down },
++                ],
++            },
++        );
++        rig.drain();
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert_eq!(
++            rig.drain(),
++            [stack(
++                1,
++                StackCmd::Touches(vec![
++                    Touch { x: 0.2, y: 0.3, down: false },
++                    Touch { x: 0.8, y: 0.9, down: false }
++                ])
++            )]
++        );
++    }
++
++    #[tokio::test]
++    async fn owned_input_carplay_slots_survive_reordering_and_compaction() {
++        let mut rig = Rig::new();
++        rig.connect(1, true);
++        rig.want(Front::Projection);
++        rig.drain();
++        let point = |id, x, phase| Point { id, x, y: 0.5, phase };
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![point(8, 0.2, Phase::Down), point(2, 0.8, Phase::Down)],
++            },
++        );
++        rig.drain();
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![point(2, 0.7, Phase::Move), point(8, 0.3, Phase::Up)],
++            },
++        );
++        assert_eq!(
++            rig.drain(),
++            [stack(
++                1,
++                StackCmd::Touches(vec![
++                    Touch { x: 0.3, y: 0.5, down: false },
++                    Touch { x: 0.7, y: 0.5, down: true }
++                ])
++            )]
++        );
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer { screen: Screen::Main, points: vec![point(2, 0.6, Phase::Move)] },
++        );
++        assert_eq!(
++            rig.drain(),
++            [stack(
++                1,
++                StackCmd::Touches(vec![
++                    Touch { x: 0.3, y: 0.5, down: false },
++                    Touch { x: 0.6, y: 0.5, down: true }
++                ])
++            )]
++        );
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert_eq!(
++            rig.drain(),
++            [stack(
++                1,
++                StackCmd::Touches(vec![
++                    Touch { x: 0.3, y: 0.5, down: false },
++                    Touch { x: 0.6, y: 0.5, down: false }
++                ])
++            )]
++        );
++    }
++
++    #[tokio::test]
++    async fn owned_input_android_auto_releases_each_contact_through_session_ledger() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![
++                    Point { id: 0, x: 0.25, y: 0.5, phase: Phase::Down },
++                    Point { id: 1, x: 0.75, y: 0.5, phase: Phase::Down },
++                ],
++            },
++        );
++        let starts = rig.aa_drain();
++        assert_eq!(starts.len(), 2);
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![Point { id: 0, x: 1.0, y: 1.0, phase: Phase::Move }],
++            },
++        );
++        rig.aa_drain();
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert_eq!(
++            rig.aa_drain(),
++            [
++                aa(
++                    5,
++                    SessionCmd::MultiTouch(vec![
++                        TouchItem { id: 0, x: 1.0, y: 1.0, action: TouchAction::Up },
++                        TouchItem { id: 1, x: 0.75, y: 0.5, action: TouchAction::Move }
++                    ])
++                ),
++                aa(
++                    5,
++                    SessionCmd::MultiTouch(vec![TouchItem {
++                        id: 1,
++                        x: 0.75,
++                        y: 0.5,
++                        action: TouchAction::Up
++                    }])
++                )
++            ]
++        );
++    }
++
++    #[tokio::test(start_paused = true)]
++    async fn owned_input_select_expiry_is_once_and_allows_next_owner() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(&mut rig, 1, press("Enter"));
++        rig.aa_drain();
++        tokio::time::advance(SELECT_RELEASE).await;
++        rig.p.release_due_input();
++        assert_eq!(rig.aa_drain(), [command(5, Command::SelectUp)]);
++        rig.p.release_due_input();
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert!(rig.aa_drain().is_empty());
++        owned(&mut rig, 2, press("KeyV"));
++        rig.aa_drain();
++        rig.want(Front::Livi);
++        assert!(rig.aa_drain().contains(&command(5, Command::VoiceAssistantRelease)));
++    }
++
++    #[tokio::test]
++    async fn owned_input_carplay_overflow_cancels_without_sending_third_slot() {
++        let mut rig = Rig::new();
++        rig.connect(1, true);
++        rig.want(Front::Projection);
++        rig.drain();
++        owned(&mut rig, 1, down(0));
++        rig.drain();
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![
++                    Point { id: 0, x: 0.25, y: 0.5, phase: Phase::Move },
++                    Point { id: 1, x: 0.5, y: 0.5, phase: Phase::Down },
++                    Point { id: 2, x: 0.75, y: 0.5, phase: Phase::Down },
++                ],
++            },
++        );
++        assert_eq!(
++            rig.drain(),
++            [stack(1, StackCmd::Touches(vec![Touch { x: 0.25, y: 0.5, down: false }]))]
++        );
++        assert!(rig.p.held_input.is_none());
++    }
++
++    #[tokio::test]
++    async fn owned_input_aa_new_down_preserves_existing_id_for_session_validation() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(&mut rig, 1, down(0));
++        rig.aa_drain();
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![Point { id: 0, x: 1.0, y: 1.0, phase: Phase::Move }],
++            },
++        );
++        rig.aa_drain();
++        owned(&mut rig, 1, down(1));
++        assert_eq!(
++            rig.aa_drain(),
++            [aa(
++                5,
++                SessionCmd::MultiTouch(vec![
++                    TouchItem { id: 0, x: 1.0, y: 1.0, action: TouchAction::Move },
++                    TouchItem { id: 1, x: 0.25, y: 0.5, action: TouchAction::Down }
++                ])
++            )]
++        );
++    }
++
++    #[tokio::test]
++    async fn owned_input_rejects_stale_or_malformed_frames_atomically() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![Point { id: 0, x: f64::NAN, y: 0.5, phase: Phase::Down }],
++            },
++        );
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![Point { id: 0, x: 0.5, y: 0.5, phase: Phase::Move }],
++            },
++        );
++        assert!(rig.aa_drain().is_empty());
++        assert!(rig.p.held_input.is_none());
++        owned(&mut rig, 1, down(0));
++        rig.aa_drain();
++        owned(
++            &mut rig,
++            1,
++            Input::Pointer {
++                screen: Screen::Main,
++                points: vec![
++                    Point { id: 0, x: 0.5, y: 0.5, phase: Phase::Up },
++                    Point { id: 0, x: 0.5, y: 0.5, phase: Phase::Up },
++                ],
++            },
++        );
++        assert!(rig.aa_drain().is_empty());
++        rig.p.client_input(UiInput::Disconnected { client: 1 });
++        assert_eq!(rig.aa_drain().len(), 1);
++    }
++
++    #[tokio::test]
++    async fn owned_input_carplay_same_frame_replacement_frees_slot_before_allocating() {
++        for new_first in [false, true] {
++            let mut rig = Rig::new();
++            rig.connect(1, true);
++            rig.want(Front::Projection);
++            rig.drain();
++            let p = |id, x, phase| Point { id, x, y: 0.5, phase };
++            owned(
++                &mut rig,
++                1,
++                Input::Pointer {
++                    screen: Screen::Main,
++                    points: vec![p(0, 0.2, Phase::Down), p(1, 0.8, Phase::Down)],
++                },
++            );
++            rig.drain();
++            let mut points =
++                vec![p(0, 0.3, Phase::Up), p(1, 0.7, Phase::Move), p(2, 0.4, Phase::Down)];
++            if new_first {
++                points.rotate_right(1);
++            }
++            owned(&mut rig, 1, Input::Pointer { screen: Screen::Main, points });
++            assert_eq!(
++                rig.drain(),
++                [
++                    stack(
++                        1,
++                        StackCmd::Touches(vec![
++                            Touch { x: 0.3, y: 0.5, down: false },
++                            Touch { x: 0.7, y: 0.5, down: true }
++                        ])
++                    ),
++                    stack(
++                        1,
++                        StackCmd::Touches(vec![
++                            Touch { x: 0.4, y: 0.5, down: true },
++                            Touch { x: 0.7, y: 0.5, down: true }
++                        ])
++                    )
++                ]
++            );
++        }
++    }
++
++    #[tokio::test]
++    async fn owned_input_actor_drop_releases_held_ptt() {
++        let mut rig = Rig::new();
++        rig.aa_connect(5, true);
++        rig.want(Front::Projection);
++        rig.aa_drain();
++        owned(&mut rig, 1, press("KeyV"));
++        rig.aa_drain();
++        drop(rig.p);
++        assert_eq!(rig.aa.try_recv(), Ok(command(5, Command::VoiceAssistantRelease)));
++    }
++
+     #[tokio::test]
+     async fn the_first_phone_projects_where_the_ui_asks() {
+         let mut rig = Rig::new();
+diff --git a/native/livi-helperd/bin/livi-core/src/projection/owned_input.rs b/native/livi-helperd/bin/livi-core/src/projection/owned_input.rs
+new file mode 100644
+index 0000000..bf6f477
+--- /dev/null
++++ b/native/livi-helperd/bin/livi-core/src/projection/owned_input.rs
+@@ -0,0 +1,384 @@
++// GPL-3.0-or-later. Head-unit patch against LIVI 4bcd1335c2daedba40640e6dc432cd2ed7acfaa4.
++// Internal connection ownership only; no change to protocol 8.
++use super::*;
++use std::sync::atomic::{AtomicU64, Ordering};
++
++#[derive(Debug, PartialEq)]
++pub enum UiInput {
++    Input { client: u64, input: Input },
++    Disconnected { client: u64 },
++}
++
++/// Dropping an authenticated connection queues cleanup after its input, even on task abort.
++pub struct InputPeer {
++    id: u64,
++    tx: mpsc::UnboundedSender<UiInput>,
++}
++impl InputPeer {
++    pub fn new(tx: mpsc::UnboundedSender<UiInput>) -> std::io::Result<Self> {
++        static NEXT: AtomicU64 = AtomicU64::new(1);
++        let id = NEXT
++            .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
++            .map_err(|_| std::io::Error::other("input connection identities exhausted"))?;
++        Ok(Self { id, tx })
++    }
++    pub fn send(&self, input: Input) {
++        let _ = self.tx.send(UiInput::Input { client: self.id, input });
++    }
++}
++impl Drop for InputPeer {
++    fn drop(&mut self) {
++        let _ = self.tx.send(UiInput::Disconnected { client: self.id });
++    }
++}
++
++pub(super) struct HeldInput {
++    client: u64,
++    link: Link,
++    front: Front,
++    // CP: last complete vector, including inactive slots. AA: active IDs in stream coordinates.
++    points: Vec<Point>,
++    voice: Option<String>,
++    button: Option<Key>,
++    select_due: Option<tokio::time::Instant>,
++}
++impl HeldInput {
++    fn empty(&self) -> bool {
++        self.points.iter().all(|p| matches!(p.phase, Phase::Up | Phase::Cancel))
++            && self.voice.is_none()
++            && self.button.is_none()
++    }
++}
++impl Projection {
++    pub(super) fn input_due(&self) -> Option<tokio::time::Instant> {
++        self.held_input.as_ref().and_then(|h| h.select_due)
++    }
++    pub(super) fn release_due_input(&mut self) {
++        if self.input_due().is_some_and(|due| due <= tokio::time::Instant::now()) {
++            self.release_owned_button();
++            self.clear_empty_input();
++        }
++    }
++    fn clear_empty_input(&mut self) {
++        if self.held_input.as_ref().is_some_and(HeldInput::empty) {
++            self.held_input = None;
++        }
++    }
++    pub(super) fn invalidate_owned_input(&mut self) {
++        if self.held_input.as_ref().is_some_and(|h| {
++            Some(h.link) != self.active().map(|s| s.link) || h.front != self.front_main()
++        }) {
++            self.release_owned_input();
++        }
++    }
++    fn owned_button(&self, link: Link, key: Key) {
++        match link {
++            Link::Cp(id) => self
++                .cp
++                .stack(id, StackCmd::KnobSelect(matches!(key, Key::KnobDown | Key::SelectDown))),
++            Link::Aa(id) => {
++                let cmd = match key {
++                    Key::KnobDown => Command::KnobDown,
++                    Key::KnobUp => Command::KnobUp,
++                    Key::SelectDown => Command::SelectDown,
++                    Key::SelectUp => Command::SelectUp,
++                    _ => return,
++                };
++                self.aa.session(id, SessionCmd::Command(cmd));
++            }
++        }
++    }
++    fn release_owned_button(&mut self) {
++        let release = self.held_input.as_mut().and_then(|h| {
++            h.select_due = None;
++            h.button
++                .take()
++                .map(|key| (h.link, if key == Key::KnobDown { Key::KnobUp } else { Key::SelectUp }))
++        });
++        if let Some((link, key)) = release {
++            self.owned_button(link, key);
++        }
++    }
++    fn owned_points(&self, link: Link, points: &[Point]) {
++        match link {
++            Link::Cp(id) => self.cp.stack(
++                id,
++                StackCmd::Touches(
++                    points
++                        .iter()
++                        .map(|p| Touch {
++                            x: p.x,
++                            y: p.y,
++                            down: !matches!(p.phase, Phase::Up | Phase::Cancel),
++                        })
++                        .collect(),
++                ),
++            ),
++            Link::Aa(id) => self.aa.session(
++                id,
++                SessionCmd::MultiTouch(
++                    points
++                        .iter()
++                        .map(|p| TouchItem {
++                            id: p.id,
++                            x: p.x,
++                            y: p.y,
++                            action: match p.phase {
++                                Phase::Down => TouchAction::Down,
++                                Phase::Move => TouchAction::Move,
++                                _ => TouchAction::Up,
++                            },
++                        })
++                        .collect(),
++                ),
++            ),
++        }
++    }
++    pub(super) fn release_owned_input(&mut self) {
++        let Some(mut held) = self.held_input.take() else { return };
++        if held.points.iter().any(|p| !matches!(p.phase, Phase::Up | Phase::Cancel)) {
++            if matches!(held.link, Link::Aa(_)) {
++                // The session's geometry-aware ledger releases at the last accepted
++                // position if the final point is outside its picture/cut-outs.
++                let mut points = held.points;
++                while !points.is_empty() {
++                    for p in &mut points {
++                        p.phase = Phase::Move;
++                    }
++                    points[0].phase = Phase::Cancel;
++                    self.owned_points(held.link, &points);
++                    points.remove(0);
++                }
++            } else {
++                for p in &mut held.points {
++                    p.phase = Phase::Cancel;
++                }
++                self.owned_points(held.link, &held.points);
++            }
++        }
++        if held.voice.is_some()
++            && let Link::Aa(id) = held.link
++        {
++            self.aa.session(id, SessionCmd::Command(Command::VoiceAssistantRelease));
++        }
++        if let Some(key) = held.button {
++            self.owned_button(
++                held.link,
++                if key == Key::KnobDown { Key::KnobUp } else { Key::SelectUp },
++            );
++        }
++    }
++    pub(super) fn client_input(&mut self, event: UiInput) {
++        self.invalidate_owned_input();
++        let (client, input) = match event {
++            UiInput::Disconnected { client } => {
++                if self.held_input.as_ref().is_some_and(|h| h.client == client) {
++                    self.release_owned_input();
++                }
++                return;
++            }
++            UiInput::Input { client, input } => (client, input),
++        };
++        // One connection owns a held sequence; other clients cannot overwrite or release it.
++        if self.held_input.as_ref().is_some_and(|h| h.client != client) {
++            return;
++        }
++        let Some(link) = self.active().map(|s| s.link) else {
++            // Preserve non-phone actions such as cluster layout and DAB controls.
++            if let Input::Key { code, down } = input {
++                self.key(&code, down);
++            }
++            return;
++        };
++        match input {
++            Input::Pointer { screen: Screen::Main, mut points } => {
++                if self.front_main() != Front::Projection || points.is_empty() || points.len() > 10
++                {
++                    return;
++                }
++                let old = self.held_input.as_ref().map(|h| h.points.as_slice()).unwrap_or(&[]);
++                for (i, p) in points.iter().enumerate() {
++                    let active = old
++                        .iter()
++                        .any(|q| q.id == p.id && !matches!(q.phase, Phase::Up | Phase::Cancel));
++                    if p.id >= 10
++                        || !p.x.is_finite()
++                        || !p.y.is_finite()
++                        || points[..i].iter().any(|q| q.id == p.id)
++                        || (matches!(p.phase, Phase::Down) && active)
++                        || (!matches!(p.phase, Phase::Down) && !active)
++                    {
++                        return;
++                    }
++                }
++                let crop = *self.aa_crop.borrow();
++                for p in &mut points {
++                    p.x = p.x.clamp(0.0, 1.0);
++                    p.y = p.y.clamp(0.0, 1.0);
++                    if matches!(link, Link::Aa(_)) {
++                        (p.x, p.y) = android_auto::to_stream(p.x, p.y, crop.as_ref());
++                    }
++                }
++                // Validate the complete new contact set before emitting any packet.
++                if matches!(link, Link::Aa(_)) {
++                    let retained =
++                        old.iter().filter(|p| !points.iter().any(|q| q.id == p.id)).count();
++                    if retained
++                        + points
++                            .iter()
++                            .filter(|p| !matches!(p.phase, Phase::Up | Phase::Cancel))
++                            .count()
++                        > 10
++                    {
++                        return;
++                    }
++                }
++                if matches!(link, Link::Cp(_)) {
++                    // Apply existing releases/moves before allocating new stable HID slots.
++                    let mut slots = old.to_vec();
++                    for p in points.iter().filter(|p| p.phase != Phase::Down) {
++                        if let Some(slot) = slots.iter_mut().find(|q| q.id == p.id) {
++                            *slot = *p;
++                        }
++                    }
++                    let ending = slots.clone();
++                    let mut added = false;
++                    for p in points.iter().filter(|p| p.phase == Phase::Down) {
++                        added = true;
++                        if let Some(slot) =
++                            slots.iter_mut().find(|q| matches!(q.phase, Phase::Up | Phase::Cancel))
++                        {
++                            *slot = *p;
++                        } else {
++                            slots.push(*p);
++                        }
++                    }
++                    if slots.len() > livi_cp::hid::TOUCH_CONTACTS {
++                        self.release_owned_input();
++                        return;
++                    }
++                    if added && points.iter().any(|p| matches!(p.phase, Phase::Up | Phase::Cancel))
++                    {
++                        self.owned_points(link, &ending);
++                    }
++                    self.owned_points(link, &slots);
++                    self.hold(client, link).points = slots;
++                } else {
++                    let mut state = old.to_vec();
++                    for p in &mut state {
++                        p.phase = Phase::Move;
++                        if let Some(next) =
++                            points.iter().find(|q| q.id == p.id && q.phase == Phase::Move)
++                        {
++                            *p = *next;
++                        }
++                    }
++                    let mut emitted = false;
++                    for p in points.iter().filter(|p| p.phase != Phase::Move) {
++                        if p.phase == Phase::Down {
++                            state.push(*p);
++                        } else if let Some(old) = state.iter_mut().find(|q| q.id == p.id) {
++                            *old = *p;
++                        }
++                        self.owned_points(link, &state);
++                        state.retain(|q| !matches!(q.phase, Phase::Up | Phase::Cancel));
++                        for q in &mut state {
++                            q.phase = Phase::Move;
++                        }
++                        emitted = true;
++                    }
++                    if !emitted {
++                        self.owned_points(link, &state);
++                    }
++                    self.hold(client, link).points = state;
++                }
++            }
++            Input::Pointer { .. } => return,
++            Input::Key { code, down } => {
++                if code.len() > 128 {
++                    return;
++                }
++                // Match the press-time PTT code before looking at mutable bindings.
++                if !down
++                    && self.held_input.as_ref().is_some_and(|h| h.voice.as_ref() == Some(&code))
++                {
++                    if let Link::Aa(id) = link {
++                        self.aa.session(id, SessionCmd::Command(Command::VoiceAssistantRelease));
++                    }
++                    self.held_input.as_mut().unwrap().voice = None;
++                } else {
++                    let Some(key) = bound(&self.bindings, &code) else { return };
++                    if !down {
++                        return;
++                    }
++                    match key {
++                        Key::VoiceAssistantRelease => {
++                            if self.held_input.as_ref().is_some_and(|h| h.voice.is_some()) {
++                                if let Link::Aa(id) = link {
++                                    self.aa.session(
++                                        id,
++                                        SessionCmd::Command(Command::VoiceAssistantRelease),
++                                    );
++                                }
++                                self.held_input.as_mut().unwrap().voice = None;
++                            }
++                        }
++                        Key::SelectUp | Key::KnobUp => {
++                            let expected =
++                                if key == Key::SelectUp { Key::SelectDown } else { Key::KnobDown };
++                            if self.held_input.as_ref().is_some_and(|h| h.button == Some(expected))
++                            {
++                                self.release_owned_button();
++                            }
++                        }
++                        Key::VoiceAssistant if matches!(link, Link::Aa(_)) => {
++                            if self.held_input.as_ref().is_some_and(|h| h.voice.is_some()) {
++                                return;
++                            }
++                            self.aa_key(
++                                match link {
++                                    Link::Aa(id) => id,
++                                    _ => unreachable!(),
++                                },
++                                key,
++                                true,
++                            );
++                            self.hold(client, link).voice = Some(code);
++                        }
++                        Key::SelectDown | Key::KnobDown => {
++                            if self.front_main() != Front::Projection
++                                || self.held_input.as_ref().is_some_and(|h| h.button.is_some())
++                            {
++                                return;
++                            }
++                            self.owned_button(link, key);
++                            let h = self.hold(client, link);
++                            h.button = Some(key);
++                            h.select_due = (key == Key::SelectDown)
++                                .then(|| tokio::time::Instant::now() + SELECT_RELEASE);
++                        }
++                        _ => self.key(&code, down),
++                    }
++                }
++            }
++        }
++        self.clear_empty_input();
++    }
++    fn hold(&mut self, client: u64, link: Link) -> &mut HeldInput {
++        let front = self.front_main();
++        self.held_input.get_or_insert_with(|| HeldInput {
++            client,
++            link,
++            front,
++            points: Vec::new(),
++            voice: None,
++            button: None,
++            select_due: None,
++        })
++    }
++}
++impl Drop for Projection {
++    fn drop(&mut self) {
++        self.release_owned_input();
++    }
++}
+diff --git a/native/livi-helperd/bin/livi-core/src/server.rs b/native/livi-helperd/bin/livi-core/src/server.rs
+index 97eabef..7893130 100644
+--- a/native/livi-helperd/bin/livi-core/src/server.rs
++++ b/native/livi-helperd/bin/livi-core/src/server.rs
+@@ -17,7 +17,7 @@ use crate::config_file::{ConfigFile, apply_patch};
+ use crate::dab::DabAsk;
+ use crate::dongle::LinkSpeedViewer;
+ use crate::hub::{Frame, Hub};
+-use crate::projection::{UiCommand, UiSenders};
++use crate::projection::{InputPeer, UiCommand, UiSenders};
+ use crate::spectrum::Viewer;
+ use crate::status_file::Activity;
+ use crate::update::UpdateAsk;
+@@ -264,6 +264,7 @@ async fn client(core: Arc<Core>, stream: UnixStream) -> io::Result<()> {
+         let reason = format!("core speaks protocol {PROTOCOL}, not {protocol}");
+         return send(&mut wr, &FromCore::Refused { reason }).await;
+     }
++    let input_peer = InputPeer::new(core.asks.input.clone())?;
+     println!("[core] {client} connected");
+     let mut pages = core.open_page.subscribe();
+     let mut patches = welcome(&core, &mut wr).await?;
+@@ -286,7 +287,7 @@ async fn client(core: Arc<Core>, stream: UnixStream) -> io::Result<()> {
+                             send(&mut wr, &FromCore::Reply { id, error }).await?;
+                         }
+                         Ok(ToCore::Input { input }) => {
+-                            let _ = core.asks.input.send(input);
++                            input_peer.send(input);
+                         }
+                         Ok(ToCore::Spectrum { on: true }) => {
+                             viewer.get_or_insert_with(|| core.asks.spectrum.watch());
+@@ -414,6 +415,82 @@ mod tests {
+         (core, path, asks, dongle, update)
+     }
+ 
++    async fn owned_peer() -> (
++        TempDir,
++        Arc<Core>,
++        crate::projection::UiAsks,
++        Peer,
++        tokio::task::JoinHandle<io::Result<()>>,
++    ) {
++        let dir = TempDir::new();
++        let (core, _, asks, _, _) = start_with_asks(&dir);
++        let (server, stream) = UnixStream::pair().unwrap();
++        let task = tokio::spawn(client(core.clone(), server));
++        let mut peer = Peer { stream, dec: Decoder::new() };
++        peer.send(&ToCore::Hello { protocol: PROTOCOL, client: "same-display-name".into() }).await;
++        assert!(matches!(peer.recv().await, Some(FromCore::Welcome { .. })));
++        (dir, core, asks, peer, task)
++    }
++
++    #[tokio::test]
++    async fn owned_input_connection_eof_and_abort_preserve_fifo_identity() {
++        use crate::projection::UiInput;
++        for abort in [false, true] {
++            let (_dir, _core, mut asks, mut peer, task) = owned_peer().await;
++            let key = livi_core_proto::input::Input::Key { code: "KeyV".into(), down: true };
++            peer.send(&ToCore::Input { input: key.clone() }).await;
++            let Some(UiInput::Input { client, input }) = asks.input.recv().await else {
++                panic!("input missing")
++            };
++            assert_eq!(input, key);
++            if abort {
++                task.abort();
++            } else {
++                drop(peer);
++            }
++            let _ = tokio::time::timeout(Duration::from_secs(2), task).await.unwrap();
++            assert_eq!(asks.input.recv().await, Some(UiInput::Disconnected { client }));
++            assert!(asks.input.try_recv().is_err());
++        }
++    }
++
++    #[tokio::test]
++    async fn owned_input_write_failure_queues_cleanup() {
++        use crate::projection::UiInput;
++        let (_dir, core, mut asks, mut peer, task) = owned_peer().await;
++        peer.send(&ToCore::Input {
++            input: livi_core_proto::input::Input::Key { code: "KeyV".into(), down: true },
++        })
++        .await;
++        let Some(UiInput::Input { client, .. }) = asks.input.recv().await else {
++            panic!("input missing")
++        };
++        // Close only the peer's reading direction so the server's page write fails,
++        // without delivering an EOF to its read direction first.
++        let stream = peer.stream.into_std().unwrap();
++        stream.shutdown(std::net::Shutdown::Read).unwrap();
++        core.open_page.send("/test".into()).unwrap();
++        assert!(
++            tokio::time::timeout(Duration::from_secs(2), task).await.unwrap().unwrap().is_err()
++        );
++        assert_eq!(asks.input.recv().await, Some(UiInput::Disconnected { client }));
++    }
++
++    #[tokio::test]
++    async fn owned_input_display_names_do_not_choose_connection_identity() {
++        use crate::projection::UiInput;
++        let (_d1, _c1, mut a1, mut p1, t1) = owned_peer().await;
++        let (_d2, _c2, mut a2, mut p2, t2) = owned_peer().await;
++        let input = livi_core_proto::input::Input::Key { code: "KeyV".into(), down: true };
++        p1.send(&ToCore::Input { input: input.clone() }).await;
++        p2.send(&ToCore::Input { input }).await;
++        let Some(UiInput::Input { client: first, .. }) = a1.input.recv().await else { panic!() };
++        let Some(UiInput::Input { client: second, .. }) = a2.input.recv().await else { panic!() };
++        assert_ne!(first, second);
++        t1.abort();
++        t2.abort();
++    }
++
+     #[tokio::test]
+     async fn what_the_ui_asks_reaches_the_services() {
+         use livi_core_proto::input::Input;
+@@ -476,7 +553,9 @@ mod tests {
+         let key = Input::Key { code: "KeyA".into(), down: true };
+         ui.send(&ToCore::Input { input: key.clone() }).await;
+         ui.send(&ToCore::Path { path: "/media".into() }).await;
+-        assert_eq!(asks.input.recv().await, Some(key));
++        assert!(
++            matches!(asks.input.recv().await, Some(crate::projection::UiInput::Input { input, .. }) if input == key)
++        );
+         ui.send(&ToCore::Camera { found: true }).await;
+         assert_eq!(asks.commands.recv().await, Some(UiCommand::CameraFound(true)));
+     }
+diff --git a/native/livi-helperd/crates/livi-aa-stack/src/aa_session.rs b/native/livi-helperd/crates/livi-aa-stack/src/aa_session.rs
+index b79a3d5..508930d 100644
+--- a/native/livi-helperd/crates/livi-aa-stack/src/aa_session.rs
++++ b/native/livi-helperd/crates/livi-aa-stack/src/aa_session.rs
+@@ -7,8 +7,7 @@ use tokio::time::{Instant, Interval, MissedTickBehavior};
+ use crate::bridge::{Bridge, BridgeOut, Report};
+ use crate::channels::audio::AudioChannelType;
+ use crate::commands::{
+-    Action, Command, InputCommand, TouchAction, TouchItem, command_action, input_key, multi_touch,
+-    single_touch_action, touch_point,
++    Action, Command, InputCommand, TouchAction, TouchItem, TouchLedger, command_action, input_key,
+ };
+ use crate::config::AaConfig;
+ use crate::consts::ch;
+@@ -51,6 +50,7 @@ enum Internal {
+ 
+ struct Phone<M: AaMedia> {
+     id: SessionId,
++    touch_ledger: TouchLedger,
+     session: Session,
+     bridge: Bridge,
+     link: Link,
+@@ -110,6 +110,7 @@ pub(crate) async fn run<M: AaMedia>(
+     let outputs = Some(media.audio_output_opened());
+     let mut p = Phone {
+         id,
++        touch_ledger: TouchLedger::default(),
+         session,
+         bridge: Bridge::default(),
+         link,
+@@ -291,24 +292,24 @@ impl<M: AaMedia> Phone<M> {
+         self.apply(out);
+     }
+ 
++    fn owned_touches(&mut self, touches: &[TouchItem]) -> Vec<Out> {
++        if !self.session_up {
++            return Vec::new();
++        }
++        let geometry = self.session.geometry();
++        let mut out = Vec::new();
++        for (action, pointers, index) in self.touch_ledger.apply(&geometry, touches) {
++            out.extend(self.session.send_touch(action, &pointers, index));
++        }
++        out
++    }
++
+     fn on_cmd(&mut self, cmd: SessionCmd) {
+         let out = match cmd {
+             SessionCmd::Touch { action, x, y } => {
+-                let g = self.session.geometry();
+-                match touch_point(&g, 0, x, y) {
+-                    Some(p) => self.session.send_touch(single_touch_action(action), &[p], 0),
+-                    None => Vec::new(),
+-                }
+-            }
+-            SessionCmd::MultiTouch(touches) => {
+-                let g = self.session.geometry();
+-                match multi_touch(&g, &touches) {
+-                    Some((action, pointers, index)) => {
+-                        self.session.send_touch(action, &pointers, index)
+-                    }
+-                    None => Vec::new(),
+-                }
++                self.owned_touches(&[TouchItem { id: 0, x, y, action }])
+             }
++            SessionCmd::MultiTouch(touches) => self.owned_touches(&touches),
+             SessionCmd::Command(c) => match command_action(c) {
+                 Action::Key { code, down } => self.session.send_button(&[code], down),
+                 Action::Click(code) => self.click(code),
+@@ -690,6 +691,57 @@ mod tests {
+         assert_eq!(r.event().await, AaEvent::Disconnected { id: 7 });
+     }
+ 
++    #[tokio::test]
++    async fn owned_input_wire_cleanup_uses_accepted_positions_and_ends_all_contacts() {
++        use livi_aa_proto::{InputReportNotification, TouchAction as Event};
++        use prost::Message;
++        let mut r = rig(hevc(), false);
++        r.running(None).await;
++        let item = |id, x, action| TouchItem { id, x, y: 0.5, action };
++        r.cmds
++            .send(SessionCmd::MultiTouch(vec![
++                item(0, 0.3, TouchAction::Down),
++                item(1, 0.7, TouchAction::Down),
++            ]))
++            .unwrap();
++        for action in [Event::Down, Event::PointerDown] {
++            let f = r.frame().await;
++            assert_eq!(f.ch, ch::INPUT);
++            let touch = InputReportNotification::decode(f.payload.as_slice())
++                .unwrap()
++                .touchscreen_event
++                .unwrap();
++            assert_eq!(touch.action, Some(action as i32));
++        }
++        r.cmds.send(SessionCmd::MultiTouch(vec![item(0, 0.8, TouchAction::Move)])).unwrap();
++        let f = r.frame().await;
++        let moved = InputReportNotification::decode(f.payload.as_slice())
++            .unwrap()
++            .touchscreen_event
++            .unwrap();
++        let last_x = moved.pointers.iter().find(|p| p.pointer_id == 0).unwrap().x;
++        r.cmds
++            .send(SessionCmd::MultiTouch(vec![
++                item(0, 1.0, TouchAction::Up),
++                item(1, 1.0, TouchAction::Up),
++            ]))
++            .unwrap();
++        for (action, count) in [(Event::PointerUp, 2), (Event::Up, 1)] {
++            let f = r.frame().await;
++            assert_eq!(f.ch, ch::INPUT);
++            let touch = InputReportNotification::decode(f.payload.as_slice())
++                .unwrap()
++                .touchscreen_event
++                .unwrap();
++            assert_eq!(touch.action, Some(action as i32));
++            assert_eq!(touch.pointers.len(), count);
++            assert_eq!(touch.action_index, Some(0));
++            if count == 2 {
++                assert_eq!(touch.pointers[0].x, last_x);
++            }
++        }
++    }
++
+     #[tokio::test]
+     async fn input_and_keyframes_reach_the_phone() {
+         let mut r = rig(hevc(), false);
+@@ -706,7 +758,7 @@ mod tests {
+         r.cmds.send(SessionCmd::ClusterActive(false)).unwrap();
+         r.cmds
+             .send(SessionCmd::MultiTouch(vec![TouchItem {
+-                id: 2,
++                id: 0,
+                 x: 0.1,
+                 y: 0.1,
+                 action: TouchAction::Up,
+diff --git a/native/livi-helperd/crates/livi-aa-stack/src/commands.rs b/native/livi-helperd/crates/livi-aa-stack/src/commands.rs
+index e534c40..b6fd4eb 100644
+--- a/native/livi-helperd/crates/livi-aa-stack/src/commands.rs
++++ b/native/livi-helperd/crates/livi-aa-stack/src/commands.rs
+@@ -196,24 +196,90 @@ pub fn single_touch_action(action: TouchAction) -> u32 {
+ }
+ 
+ pub fn multi_touch(g: &Geometry, touches: &[TouchItem]) -> Option<(u32, Vec<TouchPointer>, u32)> {
+-    if touches.is_empty() {
++    // Filter before deriving the trigger index and single/multi action: cut-out
++    // contacts must not shift the action onto a different surviving finger.
++    let accepted: Vec<_> = touches
++        .iter()
++        .filter_map(|t| touch_point(g, t.id, t.x, t.y).map(|p| (t.action, p)))
++        .collect();
++    if accepted.is_empty() {
+         return None;
+     }
+-    let trigger = touches.iter().position(|t| t.action != TouchAction::Move);
+-    let multi = touches.len() > 1;
+-    let action = match trigger.map(|i| touches[i].action).unwrap_or(touches[0].action) {
++    let trigger = accepted.iter().position(|(action, _)| *action != TouchAction::Move);
++    let multi = accepted.len() > 1;
++    let action = match trigger.map(|i| accepted[i].0).unwrap_or(accepted[0].0) {
+         TouchAction::Down if multi => TouchEventAction::PointerDown as u32,
+         TouchAction::Down => TouchEventAction::Down as u32,
+         TouchAction::Up if multi => TouchEventAction::PointerUp as u32,
+         TouchAction::Up => TouchEventAction::Up as u32,
+         TouchAction::Move => TouchEventAction::Move as u32,
+     };
+-    let pointers: Vec<TouchPointer> =
+-        touches.iter().filter_map(|t| touch_point(g, t.id, t.x, t.y)).collect();
+-    if pointers.is_empty() {
+-        return None;
++    Some((action, accepted.into_iter().map(|(_, p)| p).collect(), trigger.unwrap_or(0) as u32))
++}
++
++/// Tracks only contacts accepted by the advertised, fixed session geometry.
++/// Terminal events may fall outside a cut-out; release at the last accepted position.
++#[derive(Default)]
++pub(crate) struct TouchLedger {
++    held: Vec<TouchItem>,
++}
++impl TouchLedger {
++    pub(crate) fn apply(
++        &mut self,
++        g: &Geometry,
++        touches: &[TouchItem],
++    ) -> Vec<(u32, Vec<TouchPointer>, u32)> {
++        let mut out = Vec::new();
++        if touches.len() > 10
++            || touches.iter().enumerate().any(|(i, t)| touches[..i].iter().any(|p| p.id == t.id))
++        {
++            return out;
++        }
++        let valid = |t: &TouchItem| {
++            t.x.is_finite()
++                && t.y.is_finite()
++                && (0.0..=1.0).contains(&t.x)
++                && (0.0..=1.0).contains(&t.y)
++                && touch_point(g, t.id, t.x, t.y).is_some()
++        };
++        let mut moved = false;
++        for t in touches.iter().filter(|t| t.action == TouchAction::Move && valid(t)) {
++            if let Some(old) = self.held.iter_mut().find(|p| p.id == t.id) {
++                *old = *t;
++                moved = true;
++            }
++        }
++        for t in touches.iter().filter(|t| t.action != TouchAction::Move) {
++            let index = self.held.iter().position(|p| p.id == t.id);
++            match (t.action, index) {
++                (TouchAction::Down, None) if valid(t) && self.held.len() < 10 => {
++                    self.held.push(*t);
++                    if let Some(frame) = multi_touch(g, &self.held) {
++                        out.push(frame);
++                    }
++                    self.held.last_mut().unwrap().action = TouchAction::Move;
++                }
++                (TouchAction::Up, Some(index)) => {
++                    if valid(t) {
++                        self.held[index] = *t;
++                    }
++                    self.held[index].action = TouchAction::Up;
++                    if let Some(frame) = multi_touch(g, &self.held) {
++                        out.push(frame);
++                    }
++                    self.held.remove(index);
++                }
++                _ => {}
++            }
++        }
++        if moved
++            && out.is_empty()
++            && let Some(frame) = multi_touch(g, &self.held)
++        {
++            out.push(frame);
++        }
++        out
+     }
+-    Some((action, pointers, trigger.unwrap_or(0) as u32))
+ }
+ 
+ #[cfg(test)]
+@@ -221,6 +287,56 @@ mod tests {
+     use super::*;
+     use crate::config::Insets;
+ 
++    #[test]
++    fn owned_input_ledger_keeps_valid_release_position_and_falls_back_at_edges() {
++        let g = Geometry::new((100, 100), (100, 100), Insets::default());
++        let mut ledger = TouchLedger::default();
++        let item = |x, action| TouchItem { id: 0, x, y: 0.5, action };
++        ledger.apply(&g, &[item(0.2, TouchAction::Down)]);
++        ledger.apply(&g, &[item(0.8, TouchAction::Move)]);
++        let up = ledger.apply(&g, &[item(1.0, TouchAction::Up)]);
++        assert_eq!(up[0].1[0].x, 80);
++        assert!(ledger.apply(&g, &[item(0.5, TouchAction::Up)]).is_empty());
++        ledger.apply(&g, &[item(0.2, TouchAction::Down)]);
++        let up = ledger.apply(&g, &[item(0.9, TouchAction::Up)]);
++        assert_eq!(up[0].1[0].x, 90);
++    }
++
++    #[test]
++    fn owned_input_ledger_rejects_orphans_and_serializes_multiple_ups() {
++        let g = Geometry::new((100, 100), (100, 100), Insets::default());
++        let mut ledger = TouchLedger::default();
++        let item = |id, x, action| TouchItem { id, x, y: 0.5, action };
++        assert!(ledger.apply(&g, &[item(0, 1.0, TouchAction::Down)]).is_empty());
++        assert!(ledger.apply(&g, &[item(0, 0.5, TouchAction::Move)]).is_empty());
++        let down =
++            ledger.apply(&g, &[item(0, 0.2, TouchAction::Down), item(1, 0.8, TouchAction::Down)]);
++        assert_eq!(down.len(), 2);
++        let up = ledger.apply(&g, &[item(0, 1.0, TouchAction::Up), item(1, 1.0, TouchAction::Up)]);
++        assert_eq!(up.len(), 2);
++        assert_eq!(up[0].0, TouchEventAction::PointerUp as u32);
++        assert_eq!(up[1].0, TouchEventAction::Up as u32);
++        assert_eq!(up[0].1.len(), 2);
++        assert_eq!(up[1].1.len(), 1);
++    }
++
++    #[test]
++    fn owned_input_invalid_contacts_do_not_shift_trigger_index_or_multi_action() {
++        let g = Geometry::new((1280, 720), (1280, 720), Insets::default());
++        let (action, pointers, index) = multi_touch(
++            &g,
++            &[
++                TouchItem { id: 0, x: 1.0, y: 0.5, action: TouchAction::Move },
++                TouchItem { id: 1, x: 0.5, y: 0.5, action: TouchAction::Up },
++            ],
++        )
++        .unwrap();
++        assert_eq!(action, TouchEventAction::Up as u32);
++        assert_eq!(index, 0);
++        assert_eq!(pointers.len(), 1);
++        assert_eq!(pointers[0].id, 1);
++    }
++
+     #[test]
+     fn touches_map_into_the_picture() {
+         let g = Geometry::new((1280, 720), (1280, 600), Insets { left: 10, ..Default::default() });
