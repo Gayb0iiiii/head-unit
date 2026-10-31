@@ -1,0 +1,4 @@
+PASS day: actual white-backdrop secondary text contrast 5.38:1
+PASS day: broad pattern SD 7.63; reduced SD 0.00; fine blur SD 0.28 vs no blur 9.50
+PASS night: actual white-backdrop secondary text contrast 5.34:1
+PASS night: broad pattern SD 8.73; reduced SD 0.00; fine blur SD 0.50 vs no blur 11.00

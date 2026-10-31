@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/ui-scroll.py", line 24, in <module>
+    assert abs(listing.evaluate('el=>el.scrollTop')-before)<2,'returning to Audio lost scroll position'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: returning to Audio lost scroll position

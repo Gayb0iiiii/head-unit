@@ -49,6 +49,9 @@ let updateStatus={phase:'unavailable',sha:null};
 let updateArmed=false;
 let updateEventSeen=false;
 let lastRenderedScreen=null;
+let renderedAudioKey=null;
+const audioScrollPositions=new Map();
+const screenScrollPositions=new Map();
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const glyphs={home:'<rect x="4" y="4" width="6" height="6" rx="2"/><rect x="14" y="4" width="6" height="6" rx="2"/><rect x="4" y="14" width="6" height="6" rx="2"/><rect x="14" y="14" width="6" height="6" rx="2"/>',phones:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>',projection:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>',settings:'<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',vehicle:'<path d="m4 10 2-5h12l2 5M3 16h18V10H3zM6 16v3m12-3v3M6 13h2m8 0h2"/>',audio:'<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/>',back:'<path d="m14 5-7 7 7 7"/>',dashboard:'<rect x="3" y="4" width="11" height="16" rx="2"/><rect x="17" y="4" width="4" height="7" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/>',play:'<path d="m9 5 11 7-11 7z"/>',pause:'<path d="M8 5v14M16 5v14"/>'};
 glyphs.radio='<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M7 5l10-3M7 11h10M8 16h2m3 0h3"/>';
@@ -180,7 +183,7 @@ ${renderWeatherSettings(s)}${native?renderLocationStatus(s.location):''}${render
 <div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop session unavailable'}</small></span><b>›</b></button><p class="settings-note">${s.desktopAvailable?'Switching sessions keeps the head-unit running. Use the installed desktop shortcut to return.':'Requires an installed local desktop session and a return shortcut.'}</p></section></div>
 <details class="settings-advanced"${settingsAdvancedOpen?' open':''}><summary>Units & sensor rules</summary><section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section></details>`;}
 
-function render(focusKey=document.activeElement?.dataset?.focusKey){const previousScreen=lastRenderedScreen;const scrollPositions=[...document.querySelectorAll('.local-list,.dock-apps')].map(el=>({selector:el.classList.contains('local-list')?'.local-list':'.dock-apps',top:el.scrollTop,left:el.scrollLeft}));if(localAudio?.playing&&native&&(model.state.front!=='livi'||model.state.homeStatus?.media?.playing===true))localAudio.pause();const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':['dashboard','apps'].includes(s.screen)?'home':s.screen;if(lastRenderedScreen==='settings'&&screen!=='settings'){updateArmed=false;weatherSearchGeneration++;weatherResults=[];weatherMessage='';}lastRenderedScreen=screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
+function render(focusKey=document.activeElement?.dataset?.focusKey){const previousScreen=lastRenderedScreen;const scrollPositions=[...document.querySelectorAll('.local-list,.dock-apps')].map(el=>({selector:el.classList.contains('local-list')?'.local-list':'.dock-apps',top:el.scrollTop,left:el.scrollLeft}));if(previousScreen){screenScrollPositions.set(previousScreen,window.scrollY||0);if(previousScreen==='audio'&&renderedAudioKey){const position=scrollPositions.find(p=>p.selector==='.local-list');if(position){audioScrollPositions.set(renderedAudioKey,position);if(audioScrollPositions.size>16)audioScrollPositions.delete(audioScrollPositions.keys().next().value);}}}if(localAudio?.playing&&native&&(model.state.front!=='livi'||model.state.homeStatus?.media?.playing===true))localAudio.pause();const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':['dashboard','apps'].includes(s.screen)?'home':s.screen;if(lastRenderedScreen==='settings'&&screen!=='settings'){updateArmed=false;weatherSearchGeneration++;weatherResults=[];weatherMessage='';}lastRenderedScreen=screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
 if(screen==='home'&&native)content=renderNativeHome(s);
 else if(screen==='home')content=`
 <header class="home-header"><div>${native?'': '<p class="eyebrow">Your drive, connected</p>'}<h1>${native?'Home':s.homeMode==='dashboard'?'Your dashboard.':'Good to go.'}</h1></div><div class="connection"><i class="${active?'on':''}"></i>${active?escapeHtml(active.name):'Choose a phone'}</div></header>
@@ -321,7 +324,11 @@ if(screen==='projection')applyPictureGeometry(document.getElementById('app'),s.p
 if(screen==='audio'&&document.getElementById('app').querySelectorAll)bindLocalAudio(document.getElementById('app'),localAudio,audioView,render,()=>model.state.motionState==='moving');
 if(screen==='settings')sensorSettingsBinding=bindSensorSettings(document.getElementById('sensor-settings'),{storage,snapshot:sensorSettingsSnapshot,getMoving:()=>model.state.motionState==='unknown'?null:model.state.motionState==='moving'});
 if(focusKey){[...document.querySelectorAll('[data-focus-key]')].find(el=>el.dataset.focusKey===focusKey&&!el.disabled)?.focus({preventScroll:previousScreen===screen});}
-if(previousScreen===screen)for(const position of scrollPositions){const el=document.querySelector(position.selector);if(el){el.scrollTop=position.top;el.scrollLeft=position.left;}}
+const nextAudioKey=screen==='audio'?JSON.stringify([audioView.tab,audioView.query,audioView.group,audioView.groupValue,s.motionState]):null;
+for(const position of scrollPositions.filter(p=>p.selector==='.dock-apps')){const el=document.querySelector(position.selector);if(el)el.scrollLeft=position.left;}
+if(nextAudioKey){const el=document.querySelector?.('.local-list');const saved=audioScrollPositions.get(nextAudioKey);if(el){el.scrollTop=saved?.top||0;el.scrollLeft=saved?.left||0;}}
+renderedAudioKey=nextAudioKey;
+if(previousScreen!==screen)window.scrollTo?.({top:screenScrollPositions.get(screen)||0,behavior:'instant'});
 }
 // Integration entry point for a real vehicle host. This preview has no source;
 // its default remains unknown, and there is deliberately no fake motion toggle.
@@ -378,3 +385,18 @@ document.addEventListener?.('keydown',event=>{
 const stopClock=startClock(date=>{const formatted=formatClock(date,timeStatus?.timezone);for(const id of ['headunit-clock','headunit-home-clock']){const node=document.getElementById(id);if(node)node.textContent=formatted.time;}const dateNode=document.getElementById('headunit-home-date');if(dateNode)dateNode.textContent=formatted.date;});
 window.addEventListener?.('unload',()=>{localAudio?.pause();localAudio?.release();stopClock();stopWeather();stopBluetooth();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});
 if(native&&production&&model)void Promise.resolve(window.headunit.signalReady?.()).catch(()=>{});
+
+// A completed drag/cancel is not a tap. Keep scrolling native and suppress only
+// the subsequent pointer click; keyboard activation (detail 0) stays available.
+let actionGesture=null;
+document.addEventListener('pointerdown',event=>{
+ actionGesture=event.target.closest?.('button,summary,label')?{id:event.pointerId,x:event.clientX,y:event.clientY,cancelled:false}:null;
+},{passive:true});
+document.addEventListener('pointermove',event=>{
+ if(actionGesture&&event.pointerId===actionGesture.id&&Math.hypot(event.clientX-actionGesture.x,event.clientY-actionGesture.y)>12)actionGesture.cancelled=true;
+},{passive:true});
+document.addEventListener('pointercancel',()=>{if(actionGesture)actionGesture.cancelled=true;},{passive:true});
+document.addEventListener('click',event=>{
+ const cancelled=actionGesture?.cancelled;actionGesture=null;
+ if(cancelled&&event.detail!==0){event.preventDefault();event.stopImmediatePropagation();}
+},true);

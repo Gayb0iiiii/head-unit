@@ -1,0 +1,9 @@
+PASS 800x480: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel
+PASS 480x800: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel
+PASS 1280x720: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel
+PASS 1920x1080: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/top-navigation-browser.py", line 36, in <module>
+    assert gap>=7.9, f'{scale}% navigation gap below 8px: {gap}'
+           ^^^^^^^^
+AssertionError: 90% navigation gap below 8px: 7.1875

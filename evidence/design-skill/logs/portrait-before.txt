@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/ui-audio-artwork.py", line 49, in <module>
+    assert controls['y']+controls['height']<=height,'portrait primary controls below fold'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: portrait primary controls below fold

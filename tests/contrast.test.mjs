@@ -17,14 +17,9 @@ test('glass palette text meets 4.5:1 across every saved strength and extreme wal
  for(const palette of palettes)for(let strength=0;strength<=100;strength++){
   const alpha=palette.offset+(.18+strength*.0044)*palette.factor;
   for(const background of [[0,0,0],[255,255,255],[255,225,60],[20,160,230],[220,40,105]]){
-   const base=blend(palette.color,alpha,background);
-   const sheenRgb=css.match(/--glass-sheen-rgb:([\d ]+)/)[1].split(' ').map(Number);
-   const sheenAlpha=Number(css.match(/--glass-sheen-alpha:(\.[\d]+)/)[1]);
-   for(const sheen of [0,sheenAlpha]){
-   const panel=blend(sheenRgb,sheen,base);
+   const panel=blend(palette.color,alpha,background);
    for(const name of ['text-primary','text-secondary'])assert.ok(ratio(palette.token(name),panel)>=4.5,`${name}, strength ${strength}, wallpaper ${background}`);
    assert.ok(ratio(palette.token('focus-ring'),panel)>=3,'Focus ring must remain visible');
-   }
   }
  }
 });
@@ -34,4 +29,9 @@ test('selected and ordinary controls retain readable text without white backgrou
   assert.ok(ratio(palette.token('text-primary'),palette.token('control-background'))>=4.5);
   assert.ok(Math.max(...palette.color)<=220);
  }
+});
+
+test('essential control boundaries contrast against opaque content and selected controls',()=>{
+ const border=hex(css.match(/--control-border:(#[a-f0-9]{6})/)[1]);
+ for(const palette of palettes)for(const background of [palette.color,palette.token('control-background'),palette.token('selected-background')])assert.ok(ratio(border,background)>=3,'essential boundary below 3:1');
 });

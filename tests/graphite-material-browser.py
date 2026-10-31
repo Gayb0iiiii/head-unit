@@ -4,7 +4,7 @@ from pathlib import Path
 from io import BytesIO
 from PIL import Image,ImageStat
 from playwright.sync_api import sync_playwright
-out=Path(os.environ.get('GRAPHITE_EVIDENCE_DIR','evidence/graphite-material'));out.mkdir(parents=True,exist_ok=True)
+out=Path(os.environ.get('GRAPHITE_EVIDENCE_DIR','evidence/design-skill/opaque-content'));out.mkdir(parents=True,exist_ok=True)
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True)
  page=browser.new_page(viewport={'width':1280,'height':720})
@@ -21,7 +21,7 @@ with sync_playwright() as p:
    return sum(ImageStat.Stat(img).mean)/3
   upper=sample(box['y']+25);lower=sample(box['y']+box['height']-32)
   page.screenshot(path=str(out/f'home-{mode}-1280x720.png'))
-  assert upper-lower>=5,(mode,'default graphite glass needs visible surface lighting',upper,lower)
+  assert abs(upper-lower)<1,(mode,'content must be uniform opaque material',upper,lower)
   assert upper<85,(mode,'avoid bright glare',upper)
   for route in ['audio','settings']:
    page.locator(f'aside [data-action={route}]').click();page.wait_for_timeout(100);page.screenshot(path=str(out/f'{route}-{mode}-1280x720.png'))
@@ -35,7 +35,7 @@ with sync_playwright() as p:
    cdp.send('Emulation.setEmulatedMedia',{'features':[{'name':feature,'value':'more' if feature=='prefers-contrast' else 'active'}]})
    assert page.locator('.home-time').evaluate('(el)=>getComputedStyle(el).backgroundImage')=='none'
   cdp.send('Emulation.setEmulatedMedia',{'features':[]})
-  print(f'PASS {mode}: unchanged graphite, upper/lower material intensity {upper:.2f}/{lower:.2f}, opaque flat accessibility fallback')
+  print(f'PASS {mode}: unchanged graphite, upper/lower opaque content intensity {upper:.2f}/{lower:.2f}, opaque flat accessibility fallback')
  for w,h in [(800,480),(480,800),(1920,1080)]:
   page.set_viewport_size({'width':w,'height':h})
   for route in ['home','audio','settings']:

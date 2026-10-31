@@ -1,0 +1,1 @@
+PASS: 30 tracks, wheel/touch, route and tab scroll restoration, long label, first/last reachability, touch cancellation and mouse drag without playback, repeated Repeat, top-bar geometry

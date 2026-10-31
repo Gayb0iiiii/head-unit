@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/ui-bluetooth.py", line 55, in <module>
+    assert page.evaluate("document.activeElement?.dataset.bt")=='forget','Bluetooth refresh lost keyboard focus'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Bluetooth refresh lost keyboard focus

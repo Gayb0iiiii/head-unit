@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
-out=Path('evidence/top-navigation');out.mkdir(parents=True,exist_ok=True)
+out=Path(os.environ.get('HEADUNIT_EVIDENCE_DIR','evidence/design-skill'));out.mkdir(parents=True,exist_ok=True)
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True)
  page=browser.new_page(has_touch=True)
@@ -15,15 +15,15 @@ with sync_playwright() as p:
    target=page.locator(f'aside [data-action={route}]');target.tap()
    expect(page.locator('main')).to_have_attribute('data-screen',route)
    expect(target).to_have_attribute('aria-current','page')
-   expect(target).to_be_visible();page.wait_for_timeout(80);bounds=target.evaluate('(el)=>el.getBoundingClientRect().toJSON()');assert bounds['height']>=48 and bounds['width']>=48
+   expect(target).to_be_visible();page.wait_for_timeout(80);bounds=target.evaluate('(el)=>el.getBoundingClientRect().toJSON()');assert bounds['height']>=56 and bounds['width']>=56
    nav=page.locator('aside').bounding_box();main=page.locator('main').bounding_box()
-   assert nav['y']<30 and nav['width']>w*.85 and main['y']>=nav['y']+nav['height']
+   assert 0<=nav['y']<30 and nav['width']>w*.85 and main['y']>=nav['y']+nav['height']
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
    if route in ['settings','home','audio']:page.screenshot(path=str(out/f'{route}-{w}x{h}.png'))
   page.locator('aside [data-action=settings]').focus();page.keyboard.press('Enter');expect(page.locator('main')).to_have_attribute('data-screen','settings')
   page.mouse.move(w//2,h-40);page.mouse.wheel(0,700);page.wait_for_timeout(150)
   assert page.evaluate('scrollY>0')
-  assert page.locator('aside').bounding_box()['y']<30
+  assert 0<=page.locator('aside').bounding_box()['y']<30
   print(f'PASS {w}x{h}: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel')
  page.set_viewport_size({'width':800,'height':480});page.goto('http://127.0.0.1:8097/production.html')
  for scale in [90,115]:
@@ -31,9 +31,11 @@ with sync_playwright() as p:
   page.locator('[data-ui-scale]').fill(str(scale));page.locator('[data-ui-scale]').dispatch_event('change')
   page.wait_for_timeout(100)
   target=page.locator('aside [data-action=audio]');target.tap();expect(page.locator('main')).to_have_attribute('data-screen','audio')
-  assert target.evaluate('(el)=>el.getBoundingClientRect().toJSON()')['height']>=48, f'{scale}% touch target too small'
+  assert target.evaluate('(el)=>el.getBoundingClientRect().toJSON()')['height']>=56, f'{scale}% touch target too small'
+  gap=page.locator('aside button').evaluate_all('(els)=>{const a=els[0].getBoundingClientRect(),b=els[1].getBoundingClientRect();return b.x-a.right}')
+  assert gap>=7.9, f'{scale}% navigation gap below 8px: {gap}'
   page.screenshot(path=str(out/f'audio-800x480-scale-{scale}.png'))
- print('PASS 90% and 115% UI scale: top-bar targets remain at least 48px')
+ print('PASS 90% and 115% UI scale: top-bar targets remain at least 56px')
  # Narrow display: real Chromium touch swipe reveals clipped navigation, no tiny targets.
  page.set_viewport_size({'width':320,'height':640});page.goto('http://127.0.0.1:8097/production.html')
  expect(page.locator('aside')).to_be_visible();page.wait_for_timeout(100)

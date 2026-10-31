@@ -1,0 +1,7 @@
+PASS 1920x1080 day: seven screens, opaque content, shared 56px/8px bar, no overflow
+PASS 1920x1080 night: seven screens, opaque content, shared 56px/8px bar, no overflow
+PASS 800x480 day: seven screens, opaque content, shared 56px/8px bar, no overflow
+PASS 800x480 night: seven screens, opaque content, shared 56px/8px bar, no overflow
+PASS 480x800 day: seven screens, opaque content, shared 56px/8px bar, no overflow
+PASS 480x800 night: seven screens, opaque content, shared 56px/8px bar, no overflow
+PASS accessibility variants, offline reload, no page errors

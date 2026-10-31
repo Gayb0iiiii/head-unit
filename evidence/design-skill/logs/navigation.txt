@@ -1,0 +1,6 @@
+PASS 800x480: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel
+PASS 480x800: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel
+PASS 1280x720: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel
+PASS 1920x1080: touch navigation, target sizes, active route, no overlap/overflow, keyboard and wheel
+PASS 90% and 115% UI scale: top-bar targets remain at least 56px
+PASS 320x640: genuine touch swipe scrolls app bar; Settings remains reachable

@@ -48,7 +48,7 @@ with sync_playwright() as p:
  expect(page.locator('[data-weather-city="22"]')).to_be_visible()
  page.evaluate("testHost.searches[0].resolve([{id:11,label:'Old Albany result'}])")
  page.wait_for_timeout(100);expect(page.locator('[data-weather-city="11"]')).to_have_count(0)
- page.locator('[data-weather-search]').fill('Sydney');page.locator('[data-action=search-weather]').tap();nav('apps')
+ page.locator('[data-weather-search]').fill('Sydney');page.locator('[data-action=search-weather]').tap();nav('audio')
  page.evaluate("testHost.searches[2].resolve([{id:33,label:'Interrupted result'}])");page.wait_for_timeout(100)
  nav('settings');expect(page.locator('[data-weather-city="33"]')).to_have_count(0)
  page.evaluate('headunit.searchWeather=testHost.originalSearch')
@@ -65,8 +65,8 @@ with sync_playwright() as p:
  page.locator('[data-wallpaper-dim]').evaluate('(el)=>{el.value=35;el.dispatchEvent(new Event("input",{bubbles:true}));}')
  page.reload();expect(page.locator('body')).to_have_attribute('data-wallpaper','meadow');expect(page.locator('body')).to_have_attribute('data-accent','coral')
  nav('settings');page.locator('[data-action=wallpaper-gallery]').click();page.locator('[data-action=reset-wallpaper-tuning]').click();expect(page.locator('body')).to_have_attribute('data-accent','sea');page.keyboard.press('Escape');expect(page.locator('h1')).to_have_text('Settings')
- nav('apps');page.locator('[data-action=edit-layout]').click();page.locator('[data-move="apps:settings:-1"]').click();page.locator('[data-action=done-layout]').click()
- order=page.locator('main .tile').evaluate_all('els=>els.map(el=>el.dataset.action)');page.reload();nav('apps');assert page.locator('main .tile').evaluate_all('els=>els.map(el=>el.dataset.action)')==order
+ order=page.locator('aside [data-action]').evaluate_all('els=>els.map(el=>el.dataset.action)');assert 'apps' not in order
+ page.reload();assert page.locator('aside [data-action]').evaluate_all('els=>els.map(el=>el.dataset.action)')==order
  nav('settings');page.locator('[data-debug-overlay=true]').click();expect(page.locator('#debug-overlay')).to_be_visible();page.locator('[data-debug-overlay=false]').click();expect(page.locator('#debug-overlay')).to_have_count(0)
  page.evaluate("async()=>{const app=await import('/src/app.mjs');app.updateVehicleMotion('moving');}")
  for selector in ['[data-glass-strength]','[data-ui-scale]','[data-wallpaper-file]','[data-manual-time]','[data-action=arm-update]']:
@@ -82,10 +82,10 @@ with sync_playwright() as p:
  page.evaluate("testHost.emit({connected:true,route:'projection',front:'projection',projectionReady:true,picture:{width:800,height:480,insets:{top:24,bottom:0,left:80,right:0}},phones:[]})")
  expect(page.locator('.native-picture')).to_be_visible();box=page.locator('.native-picture').bounding_box();assert box['width']==800 and box['height']==480,box
  assert page.locator('.native-picture-mask.top').bounding_box()['height']==24
- nav('apps');expect(page.locator('h1')).to_have_text('Apps')
+ nav('audio');expect(page.locator('h1')).to_have_text('Local audio')
  page.evaluate("testHost.emit({front:'camera',route:'camera'})");expect(page.get_by_role('heading',name='Camera unavailable')).to_be_visible();expect(page.locator('.native-picture')).to_have_count(0)
  page.evaluate("testHost.emit({front:'cluster',route:'cluster'})");expect(page.get_by_role('heading',name='Display in use')).to_be_visible()
  page.evaluate("testHost.emit({connected:false,front:'livi',route:'home'})");expect(page.get_by_role('heading',name='Home')).to_be_visible()
  assert not errors,errors;assert not csp,csp
- print(json.dumps({'result':'passed','checks':['weather search/select and out-of-order mouse/touch/interrupted searches','clock outcomes','update confirmation/cancel','wallpaper/accent persistence + reset','app reordering persistence','debug toggle','known-motion locks','CSP projection geometry + mask','projection return to Apps','camera/cluster/disconnect honesty'],'page_errors':errors,'csp_errors':csp}))
+ print(json.dumps({'result':'passed','checks':['weather search/select and out-of-order mouse/touch/interrupted searches','clock outcomes','update confirmation/cancel','wallpaper/accent persistence + reset','shared navigation persistence','debug toggle','known-motion locks','CSP projection geometry + mask','projection return to local Audio','camera/cluster/disconnect honesty'],'page_errors':errors,'csp_errors':csp}))
  b.close()

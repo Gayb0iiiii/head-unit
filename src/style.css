@@ -943,24 +943,66 @@ html[data-mode=production] body #app>main{min-height:calc(100dvh - 98px);padding
  html[data-mode=production] body #app .dock-button svg{width:21px;height:21px}
 }
 
-/* Keep physical navigation targets usable at the supported 90–115% scale. */
+/* Keep on-screen CSS navigation targets usable at the supported 90–115% scale. */
 html[data-mode=production] body #app>aside.app-bar{height:max(64px,calc(64px * var(--ui-scale-inverse,1)));min-height:max(64px,calc(64px * var(--ui-scale-inverse,1)))}
 html[data-mode=production] body #app .dock-button{height:max(48px,calc(48px * var(--ui-scale-inverse,1)));min-height:max(48px,calc(48px * var(--ui-scale-inverse,1)))}
 
-/* Material lighting belongs to the glass, not the wallpaper. A muted slate
-   reflection gives dark-on-dark glass depth without white glare or extra panels. */
-body{--glass-sheen-rgb:70 100 110;--glass-sheen-alpha:.28}
-html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.panel,.wallpaper-controls){
- background-image:linear-gradient(160deg,rgb(var(--glass-sheen-rgb) / var(--glass-sheen-alpha)),rgb(var(--glass-sheen-rgb) / .08) 48%,transparent 85%);
- border-color:rgb(174 207 216 / .28);
- box-shadow:inset 0 1px 0 rgb(207 233 239 / .35),inset 1px 0 0 rgb(170 205 216 / .10),inset 0 -1px 0 rgb(0 0 0 / .25),0 8px 22px rgb(0 0 0 / .22);
+/* HZJ105 material hierarchy: solid reading surfaces, bounded glass navigation. */
+body{--touch-target:max(56px,calc(56px * var(--ui-scale-inverse,1)));--touch-gap:max(8px,calc(8px * var(--ui-scale-inverse,1)));--control-border:#82999e}
+html[data-mode=production] body[data-appearance] #app main :is(.panel,.row,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.wallpaper-controls,.wallpaper-option,.wallpaper-preview-panel){
+ background:rgb(var(--surface-rgb));backdrop-filter:none;-webkit-backdrop-filter:none;
+ box-shadow:none;border-color:var(--surface-border);
 }
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more),(forced-colors:active){
- html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.panel,.wallpaper-controls){background-image:none;box-shadow:none}
+html[data-mode=production] body[data-appearance] #app>aside.app-bar{
+ position:sticky;top:12px;height:max(76px,calc(76px * var(--ui-scale-inverse,1)));min-height:max(76px,calc(76px * var(--ui-scale-inverse,1)));
+ background:var(--surface-paint);background-image:none;backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+ box-shadow:inset 0 1px 0 rgb(207 233 239 / .22),0 4px 12px #0003;
 }
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
- html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.panel,.wallpaper-controls){background-image:none;box-shadow:none}
+html[data-mode=production] body #app .dock-apps{gap:var(--touch-gap)}
+html[data-mode=production] body #app :is(button,summary,input:not([type=file]),select,.file-button,.local-import label){min-width:var(--touch-target);min-height:var(--touch-target)}
+html[data-mode=production] body #app .dock-button{height:var(--touch-target)}
+html[data-mode=production] body #app :is(.local-tabs,.local-modes,.local-transport,.actions,.appearance-modes,.clock-setting-row){gap:var(--touch-gap);flex-wrap:wrap}
+html[data-mode=production] body #app .local-track{gap:var(--touch-gap)}
+html[data-mode=production] body #app .local-artwork-grid .local-track{grid-template-columns:minmax(0,1fr) var(--touch-target) var(--touch-target)}
+html[data-mode=production] body #app :is(.local-transport button){min-width:max(64px,calc(64px * var(--ui-scale-inverse,1)));min-height:max(64px,calc(64px * var(--ui-scale-inverse,1)))}
+html[data-mode=production] body #app :is(.local-tabs button,.local-modes button,.local-transport button,.local-track button:not(.local-track-title),.appearance-modes button,.bluetooth-panel button,.settings-card button,.local-tools summary){border:1px solid var(--control-border)}
+html[data-mode=production] body #app button:active:not(:disabled){filter:brightness(1.18);outline:2px solid var(--focus-ring);outline-offset:-3px}
+html[data-mode=production] .local-list{overscroll-behavior:auto;touch-action:pan-y}
+html{scroll-padding-top:100px}
+html[data-mode=production] .local-library{grid-template-columns:minmax(0,1fr)}
+html[data-mode=production] .local-tools{grid-column:1;grid-row:2;justify-self:start}
+html[data-mode=production] .local-library .local-list{grid-row:3;min-height:160px}
+html[data-mode=production] .local-scroll-hint{grid-row:4}
+html[data-mode=production] .local-tools-body{top:142px;max-height:60dvh;overflow:auto;overscroll-behavior:auto}
+@media(max-width:649px){
+ html[data-mode=production] .local-audio{height:auto;min-height:0}
+ html[data-mode=production] .local-library .local-list{max-height:40dvh}
+}
+@media(min-width:650px) and (max-height:600px){
+ html[data-mode=production] .local-audio{height:auto!important;min-height:0}
+ html[data-mode=production] .local-library .local-list{max-height:240px}
+}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
+ html[data-mode=production] body[data-appearance] #app>aside.app-bar{background:rgb(var(--surface-rgb));backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
 }
 @media(forced-colors:active){
- html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.panel,.wallpaper-controls){border-color:CanvasText}
+ html[data-mode=production] body[data-appearance] #app :is(aside.app-bar,.panel,.row,.home-time,.home-media,.home-weather,.home-shortcut,.settings-card,.settings-advanced,.feature-stage,.wallpaper-controls,.wallpaper-option){background:Canvas;color:CanvasText;border-color:CanvasText;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html[data-mode=production] body[data-appearance] #app>aside.app-bar{background:rgb(var(--surface-rgb));box-shadow:none}}
+@media(min-width:650px) and (min-height:601px){html[data-mode=production] .local-audio{height:calc(100dvh * var(--ui-scale-inverse,1) - 174px)}}
+html[data-mode=production] .local-delete{grid-row:5}
+html[data-mode=production] .local-library{grid-template-rows:auto auto minmax(160px,1fr) auto auto auto}
+/* Fit a complete tile (cover, metadata and actions) inside a scroll viewport. */
+html[data-mode=production] .local-list{container-type:size}
+@media(min-height:601px){
+ html[data-mode=production] .local-artwork-grid .local-cover{width:min(100%,max(64px,calc(100cqh - 140px)));height:auto;max-height:none;aspect-ratio:1}
+}
+@media(max-width:649px){html[data-mode=production] .local-library .local-list{height:40dvh}}
+/* Put routine transport first on portrait screens, before the browsing area. */
+@media(max-width:649px){
+ html[data-mode=production] .local-driver-controls{grid-row:1;display:flex;flex-direction:row;flex-wrap:wrap;justify-content:space-between;gap:var(--touch-gap)}
+ html[data-mode=production] .local-driver-controls .local-modes{width:auto;flex-direction:row;gap:var(--touch-gap)}
+ html[data-mode=production] .local-driver-controls .local-modes button{width:auto;padding:8px}
+ html[data-mode=production] .local-library{grid-row:2}
+ html[data-mode=production] .local-player{grid-row:3}
 }

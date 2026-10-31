@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright,expect
 bridge='''
 const id='11111111-1111-1111-1111-111111111111',token='22222222-2222-2222-2222-222222222222';let listener;
 const mediaToken='44444444-4444-4444-4444-444444444444',forgetToken='55555555-5555-5555-5555-555555555555',connectToken='66666666-6666-6666-6666-666666666666';
-const bt={remembered:{available:true,enabled:false,deviceId:id,paused:true},availability:'available',parked:true,sinkReady:true,musicReady:true,devices:[{id,name:'Fixture phone <not HTML>',paired:false,musicSupported:true}]};
+const bt={remembered:{available:true,enabled:false,deviceId:id,paused:true},availability:'available',parked:true,sinkReady:true,musicReady:true,devices:[{id,name:'Fixture phone <not HTML> with a deliberately very long display name to verify wrapping and reachable actions',paired:false,musicSupported:true}]};
 window.testBluetooth={calls:[],emit(patch){Object.assign(bt,patch);listener?.(structuredClone(bt));}};
 window.headunit={getView:async()=>({connected:false,front:'livi',route:'home'}),onView:()=>()=>{},navigate:async()=>({accepted:true}),
 getBluetooth:async()=>structuredClone(bt),onBluetooth:fn=>{listener=fn;return()=>{};},
@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  expect(page.get_by_role('button',name='Play local audio',exact=True)).to_be_visible()
  assert ['pause','22222222-2222-2222-2222-222222222222',True] in page.evaluate('testBluetooth.calls')
  page.evaluate('testBluetooth.emit({audioOwned:false})');nav('bluetooth')
- expect(page.get_by_text('Fixture phone <not HTML>',exact=True)).to_be_visible();page.get_by_role('button',name='Find devices',exact=True).click();page.get_by_role('button',name='Stop discovery',exact=True).click()
+ expect(page.get_by_text('Fixture phone <not HTML> with a deliberately very long display name to verify wrapping and reachable actions',exact=True)).to_be_visible();page.get_by_role('button',name='Find devices',exact=True).click();page.get_by_role('button',name='Stop discovery',exact=True).click()
  page.get_by_role('button',name='Pair',exact=True).click();expect(page.get_by_text('000042',exact=True)).to_be_visible()
  assert not any(c[0]=='confirm' for c in page.evaluate('testBluetooth.calls'))
  page.get_by_role('button',name='Reject',exact=True).click();page.get_by_role('button',name='Pair',exact=True).click();page.get_by_role('button',name='Confirm code',exact=True).click()
@@ -50,7 +50,12 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  page.evaluate('testBluetooth.emit({parked:true,sinkReady:false})');expect(page.get_by_role('button',name='Connect music',exact=True)).to_be_disabled()
  for width,height in [(800,480),(480,800)]:
   page.set_viewport_size({'width':width,'height':height});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');page.screenshot(path=f'/tmp/bluetooth-fixture-{width}x{height}.png')
+ page.get_by_role('button',name='Forget…',exact=True).focus()
+ page.evaluate("testBluetooth.emit({error:'timeout'})")
+ assert page.evaluate("document.activeElement?.dataset.bt")=='forget','Bluetooth refresh lost keyboard focus'
+ for item in page.locator('.bluetooth-panel button').all():
+  bounds=item.evaluate('(el)=>el.getBoundingClientRect().toJSON()');assert bounds['height']>=56 and bounds['width']>=56
  page.get_by_role('button',name='Forget…',exact=True).click();expect(page.get_by_role('group',name='Forget Bluetooth phone')).to_be_visible();assert not any(c[0]=='forget-confirm' for c in page.evaluate('testBluetooth.calls'))
  page.get_by_role('button',name='Keep phone',exact=True).click();page.get_by_role('button',name='Forget…',exact=True).click();page.get_by_role('button',name='Forget phone',exact=True).click();expect(page.get_by_text('No devices observed.',exact=True)).to_be_visible()
  assert not errors,errors
- print(json.dumps({'passed':True,'checks':['literal device names','discovery controls','explicit confirm and reject','unknown sink and motion gates','actual HTMLAudio pause acknowledgement','automatic reconnect does not interrupt local playback','AVRCP control wiring and literal metadata','explicit reconnect opt-in','two-step forget confirmation','two viewport overflow checks'],'hardware':False}));browser.close()
+ print(json.dumps({'passed':True,'checks':['literal device names','discovery controls','explicit confirm and reject','unknown sink and motion gates','actual HTMLAudio pause acknowledgement','automatic reconnect does not interrupt local playback','AVRCP control wiring and literal metadata','explicit reconnect opt-in','two-step forget confirmation','two viewport overflow checks','long device name','56px action targets','focus retained across error refresh'],'hardware':False}));browser.close()

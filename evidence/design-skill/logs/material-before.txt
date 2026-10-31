@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/head-unit/tests/design-skill-browser.py", line 23, in <module>
+    assert item.evaluate('(el)=>getComputedStyle(el).backdropFilter')=='none',(route,'content blur')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('home', 'content blur')

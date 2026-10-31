@@ -32,9 +32,12 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  for width,height in [(1920,1080),(1280,720),(1024,600),(800,480),(480,800),(390,844)]:
   page.set_viewport_size({'width':width,'height':height});page.wait_for_timeout(150);page.locator('.local-list').evaluate('el=>el.scrollTop=0');page.mouse.move(2,2)
   if width>=650:
-   player=page.locator('.local-player').bounding_box();assert player['y']+player['height']<=height+1,('player below viewport',width,player)
-   assert page.locator('[data-local=play]').bounding_box()['height']>=50
-   assert page.locator('.local-tools summary').bounding_box()['height']>=48
+   player=page.locator('.local-player').bounding_box()
+   if height>600:assert player['y']+player['height']<=height+1,('player below viewport',width,player)
+   else:
+    page.locator('.local-player').scroll_into_view_if_needed();expect(page.locator('.local-player')).to_be_in_viewport();page.evaluate('scrollTo(0,0)')
+   assert page.locator('[data-local=play]').bounding_box()['height']>=64
+   assert page.locator('.local-tools summary').bounding_box()['height']>=56
    controls=page.locator('.local-driver-controls').bounding_box();library=page.locator('.local-library').bounding_box();assert controls['x']>=library['x']+library['width']
    assert player['y']>=library['y']+library['height']
    listing=page.locator('.local-list').bounding_box();assert listing['y']+listing['height']<=library['y']+library['height']
@@ -42,7 +45,8 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
    assert page.locator('.local-cover').first.bounding_box()['width']>=230
    assert page.locator('[data-local=play]').bounding_box()['height']>=70
   if width<650:
-   dock=page.locator('aside').bounding_box();controls=page.locator('.local-driver-controls').bounding_box();assert controls['y']+controls['height']<=dock['y'],('portrait transport covered',controls,dock)
+   page.evaluate('scrollTo(0,0)');dock=page.locator('aside').bounding_box();controls=page.locator('.local-driver-controls').bounding_box();assert controls['y']>=dock['y']+dock['height'],('portrait transport covered',controls,dock)
+   assert controls['y']+controls['height']<=height,'portrait primary controls below fold'
   if width==800 or width<650:
    listing=page.locator('.local-list').bounding_box()
    first=page.locator('.local-library-track').first
@@ -74,6 +78,8 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
   for mode in ['all','one','off']:
    repeat.click();expect(repeat).to_have_attribute('aria-label','Repeat: '+mode)
    expect(repeat).to_be_focused()
+  assert page.locator('aside').bounding_box()['y']>=0,'Audio app bar scrolled out of view'
+  page.evaluate('scrollTo(0,0)')
   page.screenshot(path=f'/tmp/audio-tagged-{width}x{height}.png')
   if width==480:
    page.locator('.local-list').scroll_into_view_if_needed();page.screenshot(path='/tmp/audio-tagged-portrait-library.png')
@@ -86,7 +92,7 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),('scaled overflow',width,scale)
    for selector in ['[data-local=play]','[data-local=repeat]','[data-local=shuffle]','.local-tools summary','.local-track [data-local=favourite]','.local-track [data-local=enqueue]']:
     target=page.locator(selector).first;target.scroll_into_view_if_needed();box=target.bounding_box()
-    assert min(box['width'],box['height'])>=44,('small target',selector,width,scale,box)
+    assert min(box['width'],box['height'])>=56,('small target',selector,width,scale,box)
     center=target.evaluate('el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}')
     assert center,('covered target',selector,width,scale)
    page.locator('[data-local=repeat]').click();expect(page.locator('[data-local=repeat]')).to_have_attribute('aria-label','Repeat: all')
@@ -97,4 +103,4 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
  title=page.locator('.local-track').bounding_box();listing=page.locator('.local-list').bounding_box();assert title['y']+title['height']<=listing['y']+listing['height'], (title,listing)
  page.screenshot(path='/tmp/audio-tagged-single-track.png')
  page.reload();page.locator('aside [data-action=audio]').click();expect(page.locator('.local-art img')).to_be_visible();expect(page.get_by_role('button',name='Play local audio',exact=True)).to_be_visible()
- print(json.dumps({'passed':True,'fixtures':'six original covers + silent MP3s','checks':['ID3 title/artist/album','embedded PNG decode','MP3 duration','paused restart with artwork','six distinct viewport captures','bottom player in landscape viewport','separate right playback controls','touch targets and contained library','single filtered track cover width bounded','square short-screen covers and visible metadata/actions','portrait browsing cue','wheel and touch gestures on every overflowing viewport','repeat cycling preserves focus','90/100/115 percent scales: minimum 44px and unobstructed action centers']}));browser.close()
+ print(json.dumps({'passed':True,'fixtures':'six original covers + silent MP3s','checks':['ID3 title/artist/album','embedded PNG decode','MP3 duration','paused restart with artwork','six distinct viewport captures','bottom player visible on tall landscape, reachable by scroll on short screens','separate right playback controls','touch targets and contained library','single filtered track cover width bounded','square short-screen covers and visible metadata/actions','portrait browsing cue','wheel and touch gestures on every overflowing viewport','repeat cycling preserves focus','90/100/115 percent scales: minimum 56px and unobstructed action centers']}));browser.close()
