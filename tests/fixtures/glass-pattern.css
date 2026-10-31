@@ -1,0 +1,4 @@
+body:before{background:repeating-linear-gradient(90deg,#21404c 0px,#21404c 80px,#7897a2 80px,#7897a2 160px)!important;filter:none!important}
+body:after{background:transparent!important}
+body[data-test-pattern=fine]:before{background:repeating-linear-gradient(90deg,#21404c 0px,#21404c 4px,#7897a2 4px,#7897a2 8px)!important}
+body[data-test-blur=off] .home-time{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}

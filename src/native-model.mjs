@@ -78,7 +78,7 @@ export class NativeHeadunit extends Headunit {
     this.state.homeStatus=filterHomeStatus(view?.homeStatus,connected,activePhone);
     this.scheduleExpiry();
     this.state.front = connected && ['livi','projection','camera','cluster'].includes(view.front) ? view.front : 'livi';
-    this.state.screen = this.localRoute || (connected && visibleRoutes.has(view.route) ? view.route : ['settings','projection'].includes(this.state.screen)?this.state.screen:'home');
+    this.state.screen = this.localRoute || (connected && visibleRoutes.has(view.route) ? view.route : ['settings','projection','phones'].includes(this.state.screen)?this.state.screen:'home');
     if (view.route === 'dashboard') this.state.homeMode = 'dashboard';
     else if (view.route === 'home') this.state.homeMode = 'apps';
     this.state.notice = connected && view.notice === 'projection-reconnecting' ? view.notice : null;
@@ -153,7 +153,7 @@ export class NativeHeadunit extends Headunit {
     this.localRoute=localRoutes.has(route)?route:null;
     if(this.localRoute){this.state.screen=this.localRoute;if(this.state.connected&&this.state.front==='projection')this.command('navigate',route==='audio'?'audio':'home');this.onChange();return;}
     if(!this.state.connected){
-      this.state.screen=['settings','projection'].includes(route)?route:'home';
+      this.state.screen=['settings','projection','phones'].includes(route)?route:'home';
       this.onChange();
       return;
     }

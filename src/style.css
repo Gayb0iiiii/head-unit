@@ -607,14 +607,14 @@ body[data-appearance=day] .local-audio{color:var(--text-primary)}body[data-appea
 /* Drive comfort tokens: lifted graphite by day, near-black at night. The stored glass
    tint controls ALL surface alpha; foreground opacity is never reduced. */
 body{
- --surface-rgb:12 17 20;--surface-alpha:calc(.70 + var(--glass-tint,.422) * .30);
+ --surface-rgb:12 17 20;--surface-alpha:calc(.70 + var(--glass-tint,.422) * .08);
  --surface-paint:rgb(var(--surface-rgb) / var(--surface-alpha));
  --text-primary:#d3dfe1;--text-secondary:#c1cdd1;--control-background:#253238;
  --selected-background:#163b44;--selected-text:#a6dce4;--focus-ring:#94c1ce;
  --surface-border:rgb(180 208 218 / .32);color:var(--text-primary);background:#080d10;
 }
 body[data-appearance=day]{
- --surface-rgb:34 43 47;--surface-alpha:calc(.90 + var(--glass-tint,.422) * .09);
+ --surface-rgb:18 24 28;--surface-alpha:calc(.735 + var(--glass-tint,.422) * .08);
  --surface-paint:rgb(var(--surface-rgb) / var(--surface-alpha));
  --text-primary:#d8e0e1;--text-secondary:#bdcbce;--control-background:#2c3c42;
  --selected-background:#19434d;--selected-text:#b3e5ec;--focus-ring:#94c1ce;
@@ -925,3 +925,24 @@ html[data-mode=production] .local-library .local-list{scrollbar-gutter:stable;sc
 }
 
 .settings-location .location-coordinate{font-variant-numeric:tabular-nums;font-size:clamp(16px,2vw,22px);overflow-wrap:anywhere}.settings-location .settings-note{overflow-wrap:anywhere}
+/* Shared production app bar. Keep existing glass tokens; navigation owns layout only. */
+html[data-mode=production] body #app,
+html[data-mode=production] body:has(main[data-screen=audio]) #app{display:block;padding:12px;min-height:100dvh}
+html[data-mode=production] body #app>aside.app-bar{
+ position:sticky;inset:auto;top:12px;z-index:20;width:100%;height:64px;min-height:64px;
+ flex-direction:row;padding:4px 8px;border-radius:10px;gap:0;margin:0 0 10px;
+}
+html[data-mode=production] body #app .dock-apps{display:flex;flex-direction:row;flex:1;width:100%;min-width:0;margin:0;gap:8px;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;scrollbar-width:thin;scroll-padding:8px}
+html[data-mode=production] body #app .dock-button{flex:0 0 auto;width:auto;min-width:72px;min-height:48px;height:48px;flex-direction:row;gap:8px;padding:8px 12px;font-size:14px;border-radius:8px}
+html[data-mode=production] body #app .dock-button svg{width:24px;height:24px;flex:none}
+html[data-mode=production] body #app .dock-button[aria-current=page]{box-shadow:inset 0 -3px #64b5c4}
+html[data-mode=production] body #app>main{min-height:calc(100dvh - 98px);padding:4px 8px;grid-column:auto;grid-row:auto}
+@media(max-width:649px){
+ html[data-mode=production] body #app .dock-apps{gap:4px}
+ html[data-mode=production] body #app .dock-button{flex-direction:column;gap:2px;min-width:68px;padding:4px 6px;font-size:11px}
+ html[data-mode=production] body #app .dock-button svg{width:21px;height:21px}
+}
+
+/* Keep physical navigation targets usable at the supported 90–115% scale. */
+html[data-mode=production] body #app>aside.app-bar{height:max(64px,calc(64px * var(--ui-scale-inverse,1)));min-height:max(64px,calc(64px * var(--ui-scale-inverse,1)))}
+html[data-mode=production] body #app .dock-button{height:max(48px,calc(48px * var(--ui-scale-inverse,1)));min-height:max(48px,calc(48px * var(--ui-scale-inverse,1)))}
