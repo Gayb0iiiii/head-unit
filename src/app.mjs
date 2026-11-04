@@ -3,6 +3,7 @@ import {filterBluetoothView,renderBluetooth,bindBluetooth} from './bluetooth-vie
 import {LocalAudio} from './local-audio.mjs';
 import {renderLocalAudio,bindLocalAudio,audioTime} from './local-audio-view.mjs';
 import {pictureMarkup,applyPictureGeometry} from './picture.mjs';
+import {createProjectionInput} from './projection-input.mjs';
 import {connectionPresentation} from './connection-status.mjs';
 import {startClock,formatClock} from './clock.mjs';
 import {weatherLabel,weatherAge} from './weather-presentation.mjs';
@@ -49,6 +50,7 @@ let updateStatus={phase:'unavailable',sha:null};
 let updateArmed=false;
 let updateEventSeen=false;
 let lastRenderedScreen=null;
+let projectionInput=null;
 let renderedAudioKey=null;
 const audioScrollPositions=new Map();
 const screenScrollPositions=new Map();
@@ -183,7 +185,7 @@ ${renderWeatherSettings(s)}${native?renderLocationStatus(s.location):''}${render
 <div class="settings-system"><button class="row" data-action="diagnostics">${icon('settings')}<span><strong>Connection status</strong><small>Diagnostics</small></span><b>›</b></button><section class="settings-desktop"><button class="row" data-action="exit-to-desktop" ${s.desktopAvailable&&s.motionState!=='moving'?'':'disabled'}>${icon('home')}<span><strong>Exit to Desktop</strong><small>${s.desktopAvailable?'Switch to the installed desktop session':'Desktop session unavailable'}</small></span><b>›</b></button><p class="settings-note">${s.desktopAvailable?'Switching sessions keeps the head-unit running. Use the installed desktop shortcut to return.':'Requires an installed local desktop session and a return shortcut.'}</p></section></div>
 <details class="settings-advanced"${settingsAdvancedOpen?' open':''}><summary>Units & sensor rules</summary><section id="sensor-settings">${renderSensorSettings({storage,snapshot:sensorSettingsSnapshot,moving:s.motionState==='unknown'?null:s.motionState==='moving'})}</section></details>`;}
 
-function render(focusKey=document.activeElement?.dataset?.focusKey){const previousScreen=lastRenderedScreen;const scrollPositions=[...document.querySelectorAll('.local-list,.dock-apps')].map(el=>({selector:el.classList.contains('local-list')?'.local-list':'.dock-apps',top:el.scrollTop,left:el.scrollLeft}));if(previousScreen){screenScrollPositions.set(previousScreen,window.scrollY||0);if(previousScreen==='audio'&&renderedAudioKey){const position=scrollPositions.find(p=>p.selector==='.local-list');if(position){audioScrollPositions.set(renderedAudioKey,position);if(audioScrollPositions.size>16)audioScrollPositions.delete(audioScrollPositions.keys().next().value);}}}if(localAudio?.playing&&native&&(model.state.front!=='livi'||model.state.homeStatus?.media?.playing===true))localAudio.pause();const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':['dashboard','apps'].includes(s.screen)?'home':s.screen;if(lastRenderedScreen==='settings'&&screen!=='settings'){updateArmed=false;weatherSearchGeneration++;weatherResults=[];weatherMessage='';}lastRenderedScreen=screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';const active=s.phones.find(p=>p.active);let content='';
+function render(focusKey=document.activeElement?.dataset?.focusKey){projectionInput?.dispose();projectionInput=null;const previousScreen=lastRenderedScreen;const scrollPositions=[...document.querySelectorAll('.local-list,.dock-apps')].map(el=>({selector:el.classList.contains('local-list')?'.local-list':'.dock-apps',top:el.scrollTop,left:el.scrollLeft}));if(previousScreen){screenScrollPositions.set(previousScreen,window.scrollY||0);if(previousScreen==='audio'&&renderedAudioKey){const position=scrollPositions.find(p=>p.selector==='.local-list');if(position){audioScrollPositions.set(renderedAudioKey,position);if(audioScrollPositions.size>16)audioScrollPositions.delete(audioScrollPositions.keys().next().value);}}}if(localAudio?.playing&&native&&(model.state.front!=='livi'||model.state.homeStatus?.media?.playing===true))localAudio.pause();const previousAdvanced=document.querySelector?.('details.settings-advanced');if(previousAdvanced)settingsAdvancedOpen=previousAdvanced.open;if(sensorSettingsBinding)sensorSettingsSnapshot=sensorSettingsBinding.getSnapshot?.();sensorSettingsBinding?.destroy();sensorSettingsBinding=null;const s=model.state;if(native&&(s.screen!=='settings'||s.front!=='livi'||model.everConnected&&!s.connected)){diagnosticsOpen=false;wallpaperGalleryOpen=false;}const screen=wallpaperGalleryOpen?'wallpapers':diagnosticsOpen?'diagnostics':['dashboard','apps'].includes(s.screen)?'home':s.screen;if(lastRenderedScreen==='settings'&&screen!=='settings'){updateArmed=false;weatherSearchGeneration++;weatherResults=[];weatherMessage='';}lastRenderedScreen=screen;applyAppearance();document.body.dataset.nativeFront=native?s.front:'';document.body.dataset.projectionTouchReady=native&&s.touchReady&&s.screen==='projection'?'true':'false';const active=s.phones.find(p=>p.active);let content='';
 if(screen==='home'&&native)content=renderNativeHome(s);
 else if(screen==='home')content=`
 <header class="home-header"><div>${native?'': '<p class="eyebrow">Your drive, connected</p>'}<h1>${native?'Home':s.homeMode==='dashboard'?'Your dashboard.':'Good to go.'}</h1></div><div class="connection"><i class="${active?'on':''}"></i>${active?escapeHtml(active.name):'Choose a phone'}</div></header>
@@ -320,7 +322,11 @@ document.querySelectorAll('[data-glass-strength]').forEach(el=>el.oninput=()=>{
   document.getElementById('save-status').textContent=saveNotice();
 });
 if(screen==='bluetooth'&&native)bindBluetooth(document.getElementById('app'),window.headunit,()=>{bluetoothState={...bluetoothState,error:'failed'};render();});
-if(screen==='projection')applyPictureGeometry(document.getElementById('app'),s.picture);
+if(screen==='projection'){
+ applyPictureGeometry(document.getElementById('app'),s.picture);
+ const element=document.querySelector?.('.native-picture');
+ if(native&&s.touchReady&&element)projectionInput=createProjectionInput({element,bridge:window.headunit,picture:s.picture,ready:()=>model.state.connected&&model.state.projectionReady&&model.state.front==='projection'&&model.state.screen==='projection'&&model.state.touchReady});
+}
 if(screen==='audio'&&document.getElementById('app').querySelectorAll)bindLocalAudio(document.getElementById('app'),localAudio,audioView,render,()=>model.state.motionState==='moving');
 if(screen==='settings')sensorSettingsBinding=bindSensorSettings(document.getElementById('sensor-settings'),{storage,snapshot:sensorSettingsSnapshot,getMoving:()=>model.state.motionState==='unknown'?null:model.state.motionState==='moving'});
 if(focusKey){[...document.querySelectorAll('[data-focus-key]')].find(el=>el.dataset.focusKey===focusKey&&!el.disabled)?.focus({preventScroll:previousScreen===screen});}
@@ -383,7 +389,9 @@ document.addEventListener?.('keydown',event=>{
 });
 
 const stopClock=startClock(date=>{const formatted=formatClock(date,timeStatus?.timezone);for(const id of ['headunit-clock','headunit-home-clock']){const node=document.getElementById(id);if(node)node.textContent=formatted.time;}const dateNode=document.getElementById('headunit-home-date');if(dateNode)dateNode.textContent=formatted.date;});
-window.addEventListener?.('unload',()=>{localAudio?.pause();localAudio?.release();stopClock();stopWeather();stopBluetooth();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});
+window.addEventListener?.('blur',()=>projectionInput?.interrupt());
+document.addEventListener?.('visibilitychange',()=>{if(document.hidden)projectionInput?.interrupt();});
+window.addEventListener?.('unload',()=>{projectionInput?.dispose();localAudio?.pause();localAudio?.release();stopClock();stopWeather();stopBluetooth();if(timeStatusTimer)clearInterval(timeStatusTimer);stopDebugOverlay?.();model?.stop?.();});
 if(native&&production&&model)void Promise.resolve(window.headunit.signalReady?.()).catch(()=>{});
 
 // A completed drag/cancel is not a tap. Keep scrolling native and suppress only

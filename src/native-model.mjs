@@ -26,6 +26,7 @@ export class NativeHeadunit extends Headunit {
     this.state.connectionPhase = 'unavailable';
     this.state.front = 'livi';
     this.state.picture=null;
+    this.state.touchReady=false;
     this.state.notice = null;
     this.state.commandError = false;
     this.state.desktopAvailable=false;
@@ -65,6 +66,7 @@ export class NativeHeadunit extends Headunit {
     if (!connected || ['camera','cluster'].includes(view.front) || (this.state.connected && this.state.screen !== view.route)) this.cancelSelection();
     this.state.projectionReady = connected && view.projectionReady === true;
     this.state.picture=filterPicture(view?.picture,this.state.projectionReady,view?.front);
+    this.state.touchReady=this.state.picture!==null&&view?.touchReady===true;
     this.state.connected = connected;
     this.state.location=filterLocationStatus(view?.location,connected);
     this.state.desktopAvailable=view?.desktopAvailable===true&&typeof this.bridge.exitToDesktop==='function';

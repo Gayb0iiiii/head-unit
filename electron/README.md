@@ -95,6 +95,12 @@ Deactivation, invalid config, resync/disconnect or shutdown revokes identity bef
 
 The main public view may include bounded configured projection dimensions/insets while synchronized and actively presenting projection. These feed the pinned contained-picture CSS, not frame readiness or calibrated touch. Geometry is removed on takeover/disconnect. Main and secondary camera surfaces remain opaque and unavailable; device enumeration, capture and permission changes are not enabled. See [picture and camera contract](../docs/native-shell-integration.md#configured-picture-geometry-and-honest-camera-presentation--2026-10-20).
 
+### Projection pointer candidate
+
+The production renderer now has a bounded pointer path through `headunit.touch`. It measures the actual contained `.native-picture` rectangle, maps coordinates into its full 0–1 space, excludes the configured masked insets, and keeps stable IDs 0–9. It coalesces moves, serializes IPC, and cancels on capture loss, resize, route/front replacement, blur, visibility loss and unload. The app bar remains separately clickable. The existing main-frame/document/sender checks, controller front ownership and native protocol remain in charge.
+
+Input is **off by default**. `createGlassRuntime({touchGeometryVerified:true})` is a private host assertion that exposes only `touchReady:true` with a valid active picture. The production application does not set it. A hardware owner must first verify that the actual native picture rectangle, orientation, display scaling, insets, and physical touchscreen coordinates match the configured picture at every supported display mode. Then the host can make this explicit assertion in its reviewed deployment. A configured width/height or a browser fixture alone is insufficient evidence. This checkout does not certify physical touchscreen, phone projection, audio or wireless operation.
+
 ## Optional standalone Bluetooth composition
 
 `createGlassRuntime` accepts privileged `bluetoothOptions`; default entrypoints omit it. The isolated service, persistent BlueZ binding, PipeWire observation and authenticated renderer bridge are described in [Bluetooth integration](../docs/bluetooth-music-host.md). Neither a renderer setting nor an environment flag can enable the feature. The optional D-Bus dependency is separately pinned; baseline tests/build need no dependency install. The UI remains unavailable without the host opt-in, and music requires verified sink/native ownership and local-pause acknowledgement. No calls/contacts or working hardware are implied.

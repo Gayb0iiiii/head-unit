@@ -25,6 +25,21 @@ const channels = {
   rendererReady:'headunit:renderer-ready',updateStatus:'headunit:update-status',getUpdateStatus:'headunit:get-update-status',requestUpdate:'headunit:request-update',cancelUpdate:'headunit:cancel-update',
 };
 const expectedView = {connectionPhase:'ready',location:emptyLocation(),homeStatus:emptyHomeStatus(),connected:true, projectionReady:false, front:'livi', phones:[{id:'phone-1', name:'Phone', status:'available'}], volume:0.6, route:'home', preferredRoute:'home', notice:null,desktopAvailable:false};
+
+test('projection touch readiness is an explicit private host assertion with bounded picture data',async()=>{
+ const {attachHeadunitBoundary}=await moduleAt(boundaryPath);
+ const f=fixture();
+ Object.assign(f.controller.state,{front:'projection',route:'projection',projectionReady:true,picture:{width:800,height:480,insets:{top:24,bottom:0,left:80,right:0},secret:'hidden'}});
+ const stop=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url});
+ const defaultView=await f.call(channels.getView);
+ assert.deepEqual(defaultView.picture,{width:800,height:480,insets:{top:24,bottom:0,left:80,right:0}});
+ assert.equal(defaultView.touchReady,undefined);stop();
+ const enabled=attachHeadunitBoundary({...f,trustedWindow:f.window,trustedUrl:f.url,touchGeometryVerified:true});
+ assert.equal((await f.call(channels.getView)).touchReady,true);
+ f.controller.state.front='camera';
+ assert.equal((await f.call(channels.getView)).touchReady,undefined);
+ enabled();
+});
 const copy = value => JSON.parse(JSON.stringify(value));
 async function moduleAt(path) {
   assert.ok(existsSync(path), `${path.pathname.split('/').at(-1)} must implement the isolated boundary`);

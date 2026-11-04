@@ -40,12 +40,13 @@ function trustedURL(value) {
 }
 
 // Defense in depth if a future controller accidentally returns native state.
-function rendererView(value,desktopAvailable=false) {
+function rendererView(value,desktopAvailable=false,touchGeometryVerified=false) {
   const source = plain(value) ? value : {};
   const active=(Array.isArray(source.phones)?source.phones:[]).filter(phone=>plain(phone)&&phone.status==='active'&&text(phone.id,256));
   const picture=filterPicture(source.picture,source.connected===true&&source.projectionReady===true,source.front);
   return {
     ...(picture?{picture}:{}),
+    ...(picture&&touchGeometryVerified===true?{touchReady:true}:{}),
     connectionPhase:filterConnectionPhase(source.connectionPhase,source.connected),
     location:filterLocationStatus(source.location,source.connected===true),
     homeStatus:filterHomeStatus(source.homeStatus,source.connected===true,active.length===1?active[0].id:null),
@@ -74,7 +75,7 @@ function pointsValid(points) {
 }
 
 /** One host window owns these channels. Call the returned function when detaching. */
-export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff, weather, timeService, updateService, bluetooth, onRendererReady, openWeatherAttribution, openLocationAttribution}) {
+export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, controller, systemMetrics, desktopHandoff, weather, timeService, updateService, bluetooth, touchGeometryVerified=false, onRendererReady, openWeatherAttribution, openLocationAttribution}) {
   const url = trustedURL(trustedUrl);
   const contents = trustedWindow?.webContents;
   if (!contents || !controller || !['view','subscribe','intent'].every(key => typeof controller[key] === 'function')) throw new TypeError('Trusted window and controller required');
@@ -156,7 +157,7 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     register('headunit:get-update-status',0,()=>true,()=>updateService?.snapshot?.()??{phase:'unavailable',sha:null});
     register('headunit:request-update',1,value=>value===true,()=>({accepted:updateService?.start(true)===true}));
     register('headunit:cancel-update',0,()=>true,()=>({cancelled:updateService?.cancel()===true}));
-    register('headunit:get-view',0,() => true,async () => {await desktopHandoff?.refresh?.();return rendererView(controller.view(),desktopHandoff?.available);});
+    register('headunit:get-view',0,() => true,async () => {await desktopHandoff?.refresh?.();return rendererView(controller.view(),desktopHandoff?.available,touchGeometryVerified);});
     register('headunit:exit-to-desktop',0,() => true,async()=>{
       if(desktopHandoff?.available!==true||typeof desktopHandoff.request!=='function')throw Error('Desktop session unavailable');
       if(await desktopHandoff.request()!==true)throw Error('Desktop session unavailable');
@@ -216,11 +217,11 @@ export function attachHeadunitBoundary({ipcMain, trustedWindow, trustedUrl, cont
     unsubscribe = controller.subscribe(view => {
       if (pageTrusted()) {
         // A frame can disappear between the trust check and the send.
-        try { contents.send('headunit:view',rendererView(view,desktopHandoff?.available)); } catch {}
+        try { contents.send('headunit:view',rendererView(view,desktopHandoff?.available,touchGeometryVerified)); } catch {}
       }
     });
     unsubscribeDesktop=desktopHandoff?.subscribe?.(()=>{
-      if(pageTrusted())try{contents.send('headunit:view',rendererView(controller.view(),desktopHandoff.available));}catch{}
+      if(pageTrusted())try{contents.send('headunit:view',rendererView(controller.view(),desktopHandoff.available,touchGeometryVerified));}catch{}
     });
     unsubscribeWeather=weather?.subscribe?.(snapshot=>{
       if(pageTrusted())try{contents.send('headunit:weather',cleanWeather(snapshot));}catch{}
