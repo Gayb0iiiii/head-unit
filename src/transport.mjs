@@ -17,7 +17,7 @@ export class CoreTransport{
   if(typeof this.clock.setTimeout!=='function'||typeof this.clock.clearTimeout!=='function')throw Error('Clock must supply setTimeout and clearTimeout');
   this.socketPath=socketPath;this.createConnection=connect;this.socket=null;this.generation=0;this.error=null;this.backpressured=false;this.cancelUnderPressure=false;
   this.status='idle';this.managed=false;this.retryAttempt=0;this.retryInMs=null;this.timers=new Map();this.listeners=new Set();
-  this.session=new CoreSession(message=>this._send(message));
+  this.session=new CoreSession(message=>this._send(message),undefined,undefined,{protocol:options.protocol});
  }
 
  /** Timers are owned by both a connection generation and a unique cancellation token. */

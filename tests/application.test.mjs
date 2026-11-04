@@ -170,3 +170,11 @@ test('replacement main document after renderer acknowledgement revokes readiness
  assert.equal(f.signals.listenerCount('message'),0);
  assert.deepEqual(sent.filter(m=>m.kind==='ready'),[{kind:'ready',sha:'a'.repeat(40)}],'existing release signal stays unchanged');owner.shutdown();
 });
+
+test('host opts into protocol 11 without exposing version negotiation to the renderer',async()=>{
+ const f=fixture({env:{HEADUNIT_CORE_PROTOCOL:'11'}}),owner=f.start();f.ready.resolve();await Promise.resolve();
+ assert.equal(f.runtimeConfig.protocol,11);f.load.resolve();await owner.ready;owner.shutdown();
+});
+test('host rejects unknown protocol configuration before creating a window',()=>{
+ for(const protocol of ['9','12','11x','',11]){const f=fixture({env:{HEADUNIT_CORE_PROTOCOL:protocol}});assert.throws(()=>f.start(),/protocol/i);assert.equal(f.windows.length,0);}
+});

@@ -8,6 +8,9 @@ import {attachReadinessResponder} from './boot-readiness.mjs';
 /** Main-process owner. Does not spawn LIVI or alter services; updates use a fixed, supervised request. */
 export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,signals=process,env=process.env,screen,platform=process.platform,
   pageURL=new URL('../dist/index.html',import.meta.url).href,createRuntime=createGlassRuntime}) {
+  const configuredProtocol=env.HEADUNIT_CORE_PROTOCOL;
+  if(configuredProtocol!==undefined&&!['8','11'].includes(configuredProtocol))throw Error('Unsupported core protocol');
+  const protocol=configuredProtocol==='11'?11:8;
   const socketPath=env.LIVI_CORE_SOCKET;
   if(typeof socketPath!=='string'||!path.isAbsolute(socketPath)||path.basename(socketPath)!=='core.sock'||socketPath.includes('\0'))throw Error('Explicit LIVI_CORE_SOCKET required');
   const url=new URL(pageURL);
@@ -72,7 +75,7 @@ export function startHeadunitApplication({app,BrowserWindow,Menu,shell,ipcMain,s
         readinessRevoked=true;detachReadiness();
       }
     });
-    runtime=createRuntime({ipcMain,trustedWindow:window,trustedUrl:pageURL,socketPath,
+    runtime=createRuntime({ipcMain,trustedWindow:window,trustedUrl:pageURL,socketPath,protocol,
       ...(compositor&&env.HEADUNIT_SECONDARY_WINDOWS==='1'?{secondary:{BrowserWindow,screen}}:{}),
       preferencePath:path.join(app.getPath('userData'),'headunit-preferences.json'),
       localServices:env.HEADUNIT_SESSION==='1',

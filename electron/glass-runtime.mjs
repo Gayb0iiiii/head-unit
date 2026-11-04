@@ -14,8 +14,8 @@ import {createTimeService} from './time-service.mjs';
 import path from 'node:path';
 
 /** Attach the glass shell to a host-owned window. Only start() opens core.sock. */
-export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,connectSocket,lifeline,secondary,desktopHandoff,weather,timeService,updateService,bluetoothOptions,onRendererReady,localServices=false,openWeatherAttribution,openLocationAttribution}) {
-  const transport = new CoreTransport(socketPath,connectSocket);
+export function createGlassRuntime({ipcMain,trustedWindow,trustedUrl,socketPath,preferencePath,protocol=8,connectSocket,lifeline,secondary,desktopHandoff,weather,timeService,updateService,bluetoothOptions,onRendererReady,localServices=false,openWeatherAttribution,openLocationAttribution}) {
+  const transport = new CoreTransport(socketPath,connectSocket,{protocol});
   const preferences = new FilePreferences(preferencePath);
   const controller = new HeadunitController(transport,preferences);
   const handoff=desktopHandoff??createLogindDesktopHandoff();

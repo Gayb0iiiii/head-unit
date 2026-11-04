@@ -11,6 +11,7 @@ jobs:
         with:
           node-version: '24'
       - run: npm test
+      - run: node --test tests/protocol11-socket.mjs
       - run: npm run test:electron:fixture
       - run: npm run build
   bluetooth-bus:
