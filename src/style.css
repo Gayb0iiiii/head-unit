@@ -1006,3 +1006,16 @@ html[data-mode=production] .local-list{container-type:size}
  html[data-mode=production] .local-library{grid-row:2}
  html[data-mode=production] .local-player{grid-row:3}
 }
+
+/* A calm, useful idle state: source choices stay together, not floating in a
+   blank player. Scope to unavailable media; native projection is untouched. */
+html[data-mode=production] .home-source-actions{display:flex;flex-wrap:wrap;gap:var(--touch-gap);align-items:stretch;margin-top:12px}
+html[data-mode=production] .home-source-actions .media-browse{flex:1 1 160px;justify-content:center;align-self:stretch;border-radius:12px;font-size:16px;padding:10px 14px}
+html[data-mode=production] body[data-appearance] .home-source-actions .media-secondary{background:transparent;border-color:var(--control-border)}
+html[data-mode=production] main[data-screen=home] .home-media[data-media-state=disconnected] .home-media-content{align-items:flex-start;gap:16px;margin:20px 0}
+html[data-mode=production] main[data-screen=home] .home-media[data-media-state=disconnected] .home-media-symbol{width:56px;border-radius:16px;background:var(--control-background);box-shadow:none}
+html[data-mode=production] main[data-screen=home] .home-media .home-source-guidance{white-space:normal;overflow:visible;max-width:32ch;font-size:16px;line-height:1.5;margin-top:8px;color:var(--text-secondary)}
+@media(max-width:649px){
+ html[data-mode=production] main[data-screen=home] .home-media[data-media-state=disconnected]{min-height:260px}
+ html[data-mode=production] .home-dashboard[data-media-status=unavailable]{grid-template-rows:auto auto auto}
+}

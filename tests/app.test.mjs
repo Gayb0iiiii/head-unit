@@ -138,6 +138,17 @@ test('offline Home keeps missing media and weather compact and offers a real loc
  assert.match(ui.root.innerHTML,/<h1>Local audio<\/h1>/);
 });
 
+test('disconnected Home offers phone selection without implying playback is available',async()=>{
+ const ui=await launch(new Map(),{onView:()=>()=>{},getView:async()=>({connected:false,connectionPhase:'backoff',phones:[]})},'production');
+ const media=ui.root.innerHTML.match(/<section[^>]*aria-label="Now playing"[\s\S]*?<\/section>/)?.[0];
+ assert.ok(media);
+ assert.match(media, /data-action="phones"/);
+ assert.match(media, /data-action="audio"/);
+ assert.doesNotMatch(media, /data-media="play"/);
+ ui.click('action','phones');
+ assert.match(ui.root.innerHTML, /<h1>Phones<\/h1>/);
+});
+
 test('production Home shows only observed weather with provider age and host clock zone',async()=>{
  const now=Date.now();
  const host={onView:()=>()=>{},getView:async()=>({connected:false,connectionPhase:'backoff',phones:[]}),
